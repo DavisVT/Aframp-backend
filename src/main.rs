@@ -37,6 +37,29 @@ mod services;
 mod telemetry;
 mod wallet;
 mod workers;
+// Issue #334 — Merchant CRM & Customer Insights
+mod merchant_crm;
+// Issue #333 — Merchant Invoicing & Automated Tax Calculation
+mod merchant_invoicing;
+// Issue #336 — Merchant Multi-Sig & Treasury Controls
+mod merchant_multisig;
+// Issue #335 — Multi-Store & Franchise Management
+mod franchise;
+// Issue #322 — Wallet Creation & Stellar Account Provisioning
+mod wallet_provisioning;
+mod oracle;
+mod agent_cfo;
+mod agent_swarm;
+mod agent_dashboard;
+
+// Issue #337 — Merchant Dispute Resolution & Clawback Management
+mod dispute;
+
+// DeFi Integration Architecture & Protocol Selection (Issue #370)
+mod defi;
+
+// Issue #407 — Banking Partner Integration & Account Linkage
+mod banking;
 mod recurring;
 mod capacity;
 
@@ -2225,6 +2248,45 @@ async fn main() -> anyhow::Result<()> {
         Router::new()
     };
 
+    // ── Banking Partner Integration & Account Linkage (Issue #407) ───────────
+    let (banking_routes, banking_webhook_routes) = if let Some(pool) = db_pool.clone() {
+        let svc = std::sync::Arc::new(banking::BankingService::new(
+            pool.clone(),
+            provider_factory.clone(),
+        ));
+        let repo = std::sync::Arc::new(banking::BankingRepository::new(pool.clone()));
+        let webhook_processor = std::sync::Arc::new(banking::BankWebhookProcessor::new(repo.clone()));
+        // Spawn daily reconciliation worker at 01:00 UTC
+        {
+            let recon_engine = std::sync::Arc::new(banking::ReconciliationEngine::new(repo));
+            tokio::spawn(async move {
+                loop {
+                    let now = chrono::Utc::now();
+                    // Sleep until next 01:00 UTC
+                    let next_run = (now + chrono::Duration::days(1))
+                        .date_naive()
+                        .and_hms_opt(1, 0, 0)
+                        .map(|dt| chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc))
+                        .unwrap_or(now + chrono::Duration::hours(24));
+                    let sleep_secs = (next_run - now).num_seconds().max(0) as u64;
+                    tokio::time::sleep(std::time::Duration::from_secs(sleep_secs)).await;
+                    let yesterday = chrono::Utc::now().date_naive() - chrono::Duration::days(1);
+                    if let Err(e) = recon_engine.run_for_date(yesterday).await {
+                        tracing::error!(error = %e, "Banking reconciliation failed");
+                    }
+                }
+            });
+        }
+        info!("🏦 Banking integration routes enabled");
+        (
+            banking::banking_routes(svc),
+            banking::banking_webhook_routes(webhook_processor),
+        )
+    } else {
+        info!("⏭️  Skipping banking routes (no database)");
+        (Router::new(), Router::new())
+    };
+
     // ── Multi-Sig Governance routes (Issue: Multi-Sig Governance) ────────────
     let governance_routes = if let (Some(pool), Some(client)) =
         (db_pool.clone(), stellar_client.clone())
@@ -2534,6 +2596,8 @@ async fn main() -> anyhow::Result<()> {
         .merge(agent_dashboard_routes)
         .merge(pos_routes)
         .merge(dispute_routes)
+        .merge(banking_routes)
+        .merge(banking_webhook_routes)
         .merge(sla_routes)
         .with_state(AppState {
             db_pool,
