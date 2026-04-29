@@ -1,18 +1,44 @@
+mod adaptive_rate_limit;
 mod api;
+mod api_keys;
+mod analytics;
+mod audit;
+mod auditor_portal;
 mod auth;
+mod verification;
 mod cache;
 mod chains;
+mod compliance_registry;
+mod corridors;
 mod config;
+mod config_validation;
 mod database;
+mod ddos;
+mod developer_portal;
 mod error;
 mod health;
+mod liquidity;
 mod logging;
+mod lp_onboarding;
+mod lp_payout;
 mod metrics;
+mod multisig;
+mod peg_monitor;
 mod middleware;
+mod mtls;
+mod oauth;
 mod payments;
+mod bug_bounty;
+mod pentest;
+mod pos;
+mod recurring;
+mod security_compliance;
 mod services;
+mod telemetry;
+mod wallet;
 mod workers;
 mod recurring;
+mod capacity;
 
 // Imports
 use std::sync::Arc;
@@ -24,7 +50,7 @@ use crate::payments::types::{
     CustomerContact, Money, PaymentMethod, PaymentRequest as ProviderPaymentRequest, ProviderName,
 };
 use axum::{
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use cache::{init_cache_pool, build_multi_level_cache, CacheConfig, RedisCache};
@@ -35,6 +61,8 @@ use database::{init_pool, PoolConfig};
 use dotenv::dotenv;
 use middleware::logging::{request_logging_middleware, UuidRequestId};
 use middleware::metrics::metrics_middleware;
+use middleware::cors::{cors_middleware, CorsConfig};
+use middleware::security::security_headers_middleware;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -46,9 +74,6 @@ use tower_http::request_id::{PropagateRequestIdLayer, SetRequestIdLayer};
 use tracing::{error, info};
 use uuid::Uuid;
 
-// Re-export the telemetry module so `init_tracer` / `shutdown_tracer` resolve.
-// In the real project this module lives at src/telemetry/mod.rs (Issue #104).
-mod telemetry;
 
 /// Graceful shutdown signal handler
 async fn shutdown_signal() {
@@ -106,6 +131,18 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("❌ Configuration validation failed: {}", e);
         anyhow::anyhow!("Configuration validation error: {}", e)
     })?;
+
+    // Production-grade startup validation — enforces TLS, secret hygiene,
+    // and environment-specific rules. Fatal in staging/production.
+    if let Err(e) = config_validation::validate_production_config() {
+        let app_env = std::env::var("APP_ENV").unwrap_or_else(|_| "development".into());
+        if app_env != "development" {
+            eprintln!("❌ {}", e);
+            std::process::exit(1);
+        } else {
+            eprintln!("⚠️  Config warnings (non-fatal in development):\n{}", e);
+        }
+    }
 
     // -------------------------------------------------------------------------
     // 2. Initialise OpenTelemetry tracer provider.   (Issue #104)
@@ -350,7 +387,6 @@ async fn main() -> anyhow::Result<()> {
     let health_checker =
         HealthChecker::new(db_pool.clone(), redis_cache.clone(), stellar_client.clone())
             .with_warming_state(warming_state.clone());
-        HealthChecker::new(db_pool.clone(), redis_cache.clone(), stellar_client.clone());
 
     // Spawn background task to update DB pool connection gauge every 15 seconds
     if let Some(pool) = db_pool.clone() {
@@ -369,6 +405,34 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize notification service
     let notification_service = std::sync::Arc::new(services::notification::NotificationService::new());
+
+    // ── Audit logging system (Issue #183) ─────────────────────────────────────
+    let audit_writer = if let (Some(ref pool), Some(ref redis_pool)) = (&db_pool, &redis_cache) {
+        let audit_repo = std::sync::Arc::new(audit::repository::AuditLogRepository::new(pool.clone()));
+        let audit_streamer = std::sync::Arc::new(audit::streaming::AuditStreamer::new(redis_pool.pool.clone()));
+        let buffer_size: usize = std::env::var("AUDIT_WRITER_BUFFER_SIZE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(4096);
+        let (writer, rx) = audit::writer::AuditWriter::new(
+            audit_repo.clone(),
+            audit_streamer.clone(),
+            Some(buffer_size),
+        );
+        let writer = std::sync::Arc::new(writer);
+        tokio::spawn(audit::writer::run_writer_task(audit_repo, audit_streamer, rx));
+        info!("✅ Audit logging writer started (buffer={})", buffer_size);
+        Some(writer)
+    } else {
+        info!("⏭️  Skipping audit writer (no database/redis)");
+        None
+    };
+
+    let mint_audit_store = std::sync::Arc::new(
+        crate::audit::MintAuditStore::from_env().unwrap_or_else(|e| {
+            panic!("Mint audit store initialization failed: {}", e);
+        }),
+    );
 
     // --- Cache warming (must complete before traffic is accepted) ---
     if let (Some(ref pool), Some(ref redis)) = (&db_pool, &redis_cache) {
@@ -401,6 +465,30 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let (worker_shutdown_tx, worker_shutdown_rx) = watch::channel(false);
+
+    let mint_audit_verifier_enabled = std::env::var("MINT_AUDIT_VERIFICATION_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase()
+        != "false";
+    let mint_audit_verifier_interval_secs = std::env::var("MINT_AUDIT_VERIFICATION_INTERVAL_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(600);
+
+    if mint_audit_verifier_enabled {
+        let verifier_store = mint_audit_store.clone();
+        tokio::spawn(async move {
+            crate::audit::mint_log::run_verifier(
+                verifier_store,
+                mint_audit_verifier_interval_secs,
+                worker_shutdown_rx.clone(),
+            )
+            .await;
+        });
+        info!("✅ Mint audit verifier worker started (interval={}s)", mint_audit_verifier_interval_secs);
+    } else {
+        info!("Mint audit verifier disabled (MINT_AUDIT_VERIFICATION_ENABLED=false)");
+    }
     
     // Start Transaction Monitor Worker
     let monitor_enabled = std::env::var("TX_MONITOR_ENABLED")
@@ -499,6 +587,8 @@ async fn main() -> anyhow::Result<()> {
         }
     } else {
         info!("Stellar confirmation worker disabled (STELLAR_CONFIRM_WORKER_ENABLED=false)");
+    }
+
     // Start Onramp Processor Worker
     let onramp_enabled = std::env::var("ONRAMP_PROCESSOR_ENABLED")
         .unwrap_or_else(|_| "true".to_string())
@@ -506,8 +596,8 @@ async fn main() -> anyhow::Result<()> {
         != "false";
     let mut onramp_handle = None;
     if onramp_enabled {
-        if let (Some(pool), Some(client), Some(factory)) =
-            (db_pool.clone(), stellar_client.clone(), provider_factory.clone())
+        if let (Some(pool), Some(client), Some(factory), Some(redis)) =
+            (db_pool.clone(), stellar_client.clone(), provider_factory.clone(), redis_cache.clone())
         {
             let config = workers::onramp_processor::OnrampProcessorConfig::from_env();
             if config.system_wallet_address.is_empty() || config.system_wallet_secret.is_empty() {
@@ -519,11 +609,17 @@ async fn main() -> anyhow::Result<()> {
                     stellar_max_retries = config.stellar_max_retries,
                     "Starting onramp processor worker"
                 );
+
+                let mint_queue = services::mint_queue::MintQueueService::new(redis.pool.clone());
+                let mint_queue = Arc::new(mint_queue);
+
                 let processor = workers::onramp_processor::OnrampProcessor::new(
-                    pool,
-                    client,
-                    std::sync::Arc::new(factory),
+                    pool.clone(),
+                    client.clone(),
+                    (*mint_queue).clone(),
+                    factory.clone(),
                     config,
+                    mint_audit_store.clone(),
                 );
                 onramp_handle = Some(tokio::spawn(async move {
                     if let Err(e) = processor.run(worker_shutdown_rx.clone()).await {
@@ -531,12 +627,31 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }));
                 info!("✅ Onramp processor worker started");
+
+                // Start Stellar Submitter Worker
+                let submitter_config = workers::stellar_submitter_worker::SubmitterConfig {
+                    system_wallet_address: std::env::var("SYSTEM_WALLET_ADDRESS").unwrap_or_default(),
+                    system_wallet_secret: std::env::var("SYSTEM_WALLET_SECRET").unwrap_or_default(),
+                    ..Default::default()
+                };
+                let submitter = workers::stellar_submitter_worker::StellarSubmitterWorker::new(
+                    pool,
+                    client,
+                    (*mint_queue).clone(),
+                    submitter_config,
+                );
+                tokio::spawn(async move {
+                    submitter.run(worker_shutdown_rx.clone()).await;
+                });
+                info!("✅ Stellar submitter worker started");
             }
         } else {
-            info!("Skipping onramp processor worker (missing db pool, stellar client, or provider factory)");
+            info!("Skipping onramp processor worker (missing db pool, stellar client, provider factory, or redis)");
         }
     } else {
         info!("Onramp processor worker disabled (ONRAMP_PROCESSOR_ENABLED=false)");
+    }
+
     // Start Bill Processor Worker
     let bill_processor_enabled = std::env::var("BILL_PROCESSOR_ENABLED")
         .unwrap_or_else(|_| "true".to_string())
@@ -619,6 +734,114 @@ async fn main() -> anyhow::Result<()> {
         info!("Payment poller worker disabled (PAYMENT_POLLER_ENABLED=false)");
     }
 
+    // Start Supply Monitor Worker
+    let supply_monitor_enabled = std::env::var("SUPPLY_MONITOR_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase() != "false";
+    if supply_monitor_enabled {
+        if let (Some(pool), Some(client)) = (db_pool.clone(), stellar_client.clone()) {
+            let asset_issuer = std::env::var("CNGN_ISSUER_ADDRESS")
+                .or_else(|_| std::env::var("CNGN_ISSUER_MAINNET"))
+                .unwrap_or_default();
+            
+            if asset_issuer.is_empty() {
+                warn!("CNGN_ISSUER_ADDRESS not set — skipping supply monitor worker");
+            } else {
+                let worker = workers::supply_monitor_worker::SupplyMonitorWorker::new(
+                    pool,
+                    client,
+                    notification_service.clone(),
+                    asset_issuer,
+                );
+                tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+                info!("✅ cNGN supply monitor worker started");
+            }
+        }
+    }
+
+    // Start Reconciliation Worker
+    let reconciliation_enabled = std::env::var("RECONCILIATION_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase() != "false";
+    if reconciliation_enabled {
+        if let (Some(pool), Some(client), Some(factory)) = (db_pool.clone(), stellar_client.clone(), provider_factory.clone()) {
+            let asset_issuer = std::env::var("CNGN_ISSUER_ADDRESS")
+                .or_else(|_| std::env::var("CNGN_ISSUER_MAINNET"))
+                .unwrap_or_default();
+            
+            if asset_issuer.is_empty() {
+                warn!("CNGN_ISSUER_ADDRESS not set — skipping reconciliation worker");
+            } else {
+                let service = services::reconciliation::ReconciliationService::new(
+                    pool,
+                    client,
+                    factory,
+                    notification_service.clone(),
+                    asset_issuer,
+                );
+                let worker = workers::reconciliation_worker::ReconciliationWorker::new(service);
+                tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+                info!("✅ Supply-Reserve Reconciliation worker started");
+            }
+        }
+    }
+
+    // Start Proof-of-Reserves (PoR) Worker — Issue #297
+    let por_enabled = std::env::var("POR_WORKER_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase()
+        != "false";
+    if por_enabled {
+        if let (Some(pool), Some(client)) = (db_pool.clone(), stellar_client.clone()) {
+            let asset_issuer = std::env::var("CNGN_ISSUER_ADDRESS")
+                .or_else(|_| std::env::var("CNGN_ISSUER_MAINNET"))
+                .unwrap_or_default();
+
+            if asset_issuer.is_empty() {
+                warn!("CNGN_ISSUER_ADDRESS not set — skipping PoR worker");
+            } else {
+                let por_signing_key = api::transparency::load_signing_key();
+                let por_worker = workers::por_worker::ProofOfReservesWorker::new(
+                    pool,
+                    client,
+                    por_signing_key,
+                    audit_writer.clone(),
+                    asset_issuer,
+                );
+                tokio::spawn(por_worker.run(worker_shutdown_rx.clone()));
+                info!("✅ Proof-of-Reserves (PoR) worker started (60-min interval)");
+            }
+        } else {
+            info!("⏭️  Skipping PoR worker (no database or Stellar client)");
+        }
+    } else {
+        info!("PoR worker disabled (POR_WORKER_ENABLED=false)");
+    // Start Monthly Attestation Worker
+    let attestation_enabled = std::env::var("ATTESTATION_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase() != "false";
+
+    if attestation_enabled {
+        if let Some(pool) = db_pool.clone() {
+            let transparency_key = std::env::var("TRANSPARENCY_SIGNING_KEY").ok();
+            if let Ok(trans_svc) = services::transparency::TransparencyService::new(pool.clone(), transparency_key) {
+                let trans_svc = Arc::new(trans_svc);
+                let audit_repo = Arc::new(audit::repository::AuditLogRepository::new(pool.clone()));
+                let attestation_service = Arc::new(crate::reporting::AttestationService::new(
+                    pool,
+                    trans_svc,
+                    audit_repo,
+                ));
+                let attestation_worker = workers::attestation_worker::AttestationWorker::new(
+                    attestation_service,
+                    notification_service.clone(),
+                );
+                tokio::spawn(attestation_worker.run(worker_shutdown_rx.clone()));
+                info!("✅ Monthly attestation worker started");
+            }
+        }
+    }
+
     // Initialize webhook processor and retry worker
     let webhook_routes = if let Some(pool) = db_pool.clone() {
         let webhook_repo = std::sync::Arc::new(
@@ -676,6 +899,32 @@ async fn main() -> anyhow::Result<()> {
             info!("✅ Webhook retry worker started");
         }
 
+    // Start Reconciliation Worker
+    let reconciliation_enabled = std::env::var("RECONCILIATION_WORKER_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase()
+        != "false";
+    if reconciliation_enabled {
+        if let (Some(pool), Some(client)) = (db_pool.clone(), stellar_client.clone()) {
+            let config = workers::reconciliation_worker::ReconciliationConfig::from_env();
+            info!(
+                interval_mins = config.interval.as_secs() / 60,
+                "Starting reconciliation worker"
+            );
+            let worker = workers::reconciliation_worker::ReconciliationWorker::new(
+                pool,
+                client,
+                config,
+            );
+            tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+            info!("✅ Reconciliation worker started");
+        } else {
+            info!("Skipping reconciliation worker (missing db pool or stellar client)");
+        }
+    } else {
+        info!("Reconciliation worker disabled (RECONCILIATION_WORKER_ENABLED=false)");
+    }
+
         let webhook_state = api::webhooks::WebhookState {
             processor: webhook_processor,
         };
@@ -690,6 +939,101 @@ async fn main() -> anyhow::Result<()> {
 
     // Create the application router with logging middleware
     info!("🛣️  Setting up application routes...");
+
+    // ── Partner Integration Framework (Issue #348) ────────────────────────────
+    let partner_hub_routes = if let Some(pool) = db_pool.clone() {
+        info!("✅ Partner Integration Framework started");
+        let worker = partner::DeprecationNotificationWorker::new(pool.clone());
+        tokio::spawn(worker.run());
+        partner::partner_routes(pool, audit_writer.clone())
+    } else {
+        info!("⏭️  Skipping partner hub routes (no database)");
+        Router::new()
+    };
+
+    // ── LP Onboarding & Partner Portal ────────────────────────────────────────
+    let lp_onboarding_routes = if let Some(pool) = db_pool.clone() {
+        let repo = std::sync::Arc::new(lp_onboarding::LpOnboardingRepository::new(pool.clone()));
+        let svc = std::sync::Arc::new(lp_onboarding::LpOnboardingService::new(
+            repo.clone(),
+            std::env::var("DOCUSIGN_BASE_URL")
+                .unwrap_or_else(|_| "https://demo.docusign.net/restapi".into()),
+            std::env::var("DOCUSIGN_ACCOUNT_ID").unwrap_or_default(),
+            std::env::var("DOCUSIGN_ACCESS_TOKEN").unwrap_or_default(),
+        ));
+        let expiry_worker = lp_onboarding::AgreementExpiryWorker::new(repo);
+        tokio::spawn(expiry_worker.run());
+        info!("✅ LP Onboarding service started");
+        lp_onboarding::routes::partner_routes(svc.clone())
+            .merge(lp_onboarding::routes::admin_routes(svc.clone()))
+            .merge(lp_onboarding::routes::webhook_routes(svc))
+    } else {
+        info!("⏭️  Skipping LP onboarding routes (no database)");
+        Router::new()
+    };
+
+    // ── Merchant Multi-Sig & Treasury Controls (Issue #336) ──────────────────
+    let merchant_multisig_routes = if let Some(pool) = db_pool.clone() {
+        let svc = std::sync::Arc::new(merchant_multisig::MerchantMultisigService::new(
+            pool,
+            audit_writer.clone(),
+        ));
+        info!("✅ Merchant Multi-Sig routes enabled");
+        merchant_multisig::merchant_multisig_routes(svc)
+    } else {
+        info!("⏭️  Skipping merchant multisig routes (no database)");
+        Router::new()
+    };
+
+    // ── LP Payout Engine (Liquidity Provider rewards) ─────────────────────────
+    let lp_payout_routes = if let (Some(pool), Some(client)) =        (db_pool.clone(), stellar_client.clone())
+    {
+        let lp_repo = std::sync::Arc::new(lp_payout::LpPayoutRepository::new(pool.clone()));
+        let lp_config = lp_payout::LpPayoutWorkerConfig::from_env();
+
+        let lp_worker_enabled = std::env::var("LP_PAYOUT_WORKER_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .to_lowercase()
+            != "false";
+
+        if lp_worker_enabled {
+            if lp_config.pool_id.is_empty() {
+                warn!("LP_STELLAR_POOL_ID not set — LP payout worker will skip snapshots");
+            }
+            let worker = lp_payout::LpPayoutWorker::new(lp_repo.clone(), client, lp_config);
+            tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+            info!("✅ LP Payout worker started");
+        } else {
+            info!("LP Payout worker disabled (LP_PAYOUT_WORKER_ENABLED=false)");
+        }
+
+        lp_payout::lp_payout_routes(lp_repo)
+    } else {
+        info!("⏭️  Skipping LP payout routes (missing database or stellar client)");
+        Router::new()
+    };
+
+    // ── Oracle Price Feed (Issue #1.02 — Sensory System) ─────────────────────
+    let oracle_routes = {
+        use oracle::{
+            adapters::{BandProtocolAdapter, BinanceAdapter, CoinbaseAdapter},
+            service::OracleService,
+        };
+
+        let pair = std::env::var("ORACLE_PAIR").unwrap_or_else(|_| "XLM/USD".to_string());
+
+        let adapters: Vec<Box<dyn oracle::adapters::PriceAdapter>> = vec![
+            Box::new(BinanceAdapter::new()),
+            Box::new(CoinbaseAdapter::new()),
+            Box::new(BandProtocolAdapter::new()),
+        ];
+
+        let svc = std::sync::Arc::new(OracleService::new(adapters, pair.clone(), db_pool.clone()));
+        // Kick off the background heartbeat loop
+        svc.clone().start();
+        info!(pair = %pair, "✅ Oracle price feed started");
+        oracle::routes::oracle_routes(svc)
+    };
 
     // Setup onramp routes (quote service)
     let onramp_routes = if let (Some(pool), Some(cache), Some(client)) =
@@ -807,14 +1151,57 @@ async fn main() -> anyhow::Result<()> {
             cngn_issuer: cngn_issuer_for_initiate,
         });
 
+        let onramp_integrity_state = crate::middleware::request_integrity::RequestIntegrityState {
+            endpoint: crate::middleware::request_integrity::IntegrityEndpoint::OnrampInitiate,
+            db: db_pool.clone().map(std::sync::Arc::new),
+            cache: Some(std::sync::Arc::new(cache.clone())),
+        };
+
         Router::new()
             .route("/api/onramp/quote", post(create_onramp_quote))
             .with_state(quote_service)
-            .route("/api/onramp/status/tx_id", get(api::onramp::get_onramp_status))
+            .route("/api/onramp/status/:tx_id", get(api::onramp::get_onramp_status))
             .with_state(status_service)
-            .route("/api/onramp/initiate", post(api::onramp::initiate_onramp))
+            .route(
+                "/api/onramp/initiate",
+                post(api::onramp::initiate_onramp).route_layer(axum::middleware::from_fn_with_state(
+                    onramp_integrity_state,
+                    crate::middleware::request_integrity::request_integrity_middleware,
+                )),
+            )
             .with_state(initiate_state)
     } else {
+        Router::new()
+    };
+
+    // Setup non-custodial wallet architecture routes (Issues #5.01, #5.02, #5.03, #5.04)
+    let noncustodial_wallet_routes = if let Some(pool) = db_pool.clone() {
+        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_default();
+        let registry = prometheus::default_registry();
+        match wallet::metrics::WalletMetrics::new(registry) {
+            Ok(metrics) => {
+                let state = std::sync::Arc::new(wallet::handlers::WalletAppState {
+                    repo: std::sync::Arc::new(wallet::repository::WalletRegistryRepository::new(pool.clone())),
+                    history_repo: std::sync::Arc::new(wallet::repository::TransactionHistoryRepository::new(pool.clone())),
+                    portfolio_repo: std::sync::Arc::new(wallet::repository::PortfolioRepository::new(pool.clone())),
+                    statement_repo: std::sync::Arc::new(wallet::repository::StatementRepository::new(pool.clone())),
+                    metrics: std::sync::Arc::new(metrics),
+                    jwt_secret,
+                    max_wallets_per_user: std::env::var("MAX_WALLETS_PER_USER").ok().and_then(|v| v.parse().ok()).unwrap_or(10),
+                    challenge_ttl_secs: 300,
+                    recovery_attack_threshold: std::env::var("RECOVERY_ATTACK_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(10),
+                    unconfirmed_backup_alert_threshold: std::env::var("UNCONFIRMED_BACKUP_ALERT_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(100),
+                });
+                info!("✅ Non-custodial wallet routes enabled");
+                wallet::routes::wallet_routes(state)
+            }
+            Err(e) => {
+                tracing::warn!("Wallet metrics registration failed ({}); skipping wallet routes", e);
+                Router::new()
+            }
+        }
+    } else {
+        info!("⏭️  Skipping non-custodial wallet routes (no database)");
         Router::new()
     };
 
@@ -945,8 +1332,20 @@ async fn main() -> anyhow::Result<()> {
             cngn_issuer_address,
         };
 
+        let offramp_integrity_state = crate::middleware::request_integrity::RequestIntegrityState {
+            endpoint: crate::middleware::request_integrity::IntegrityEndpoint::OfframpInitiate,
+            db: Some(offramp_state.db_pool.clone()),
+            cache: Some(offramp_state.redis_cache.clone()),
+        };
+
         Router::new()
-            .route("/api/offramp/initiate", post(api::offramp::initiate_withdrawal))
+            .route(
+                "/api/offramp/initiate",
+                post(api::offramp::initiate_withdrawal).route_layer(axum::middleware::from_fn_with_state(
+                    offramp_integrity_state,
+                    crate::middleware::request_integrity::request_integrity_middleware,
+                )),
+            )
             .with_state(std::sync::Arc::new(offramp_state))
     } else {
         info!("⏭️  Skipping offramp routes (missing database or cache)");
@@ -1020,12 +1419,122 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    // ── Recurring payment routes (Issue #122) ────────────────────────────────
+    let recurring_routes = if let Some(pool) = db_pool.clone() {
+        let failure_threshold = std::env::var("RECURRING_FAILURE_THRESHOLD")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(3);
+        let recurring_state = std::sync::Arc::new(api::recurring::RecurringState {
+            repo: std::sync::Arc::new(
+                database::recurring_payment_repository::RecurringPaymentRepository::new(pool.clone()),
+            ),
+            default_failure_threshold: failure_threshold,
+        });
+        Router::new()
+            .route("/api/recurring", post(api::recurring::create_schedule))
+            .route("/api/recurring", get(api::recurring::list_schedules))
+            .route("/api/recurring/{id}", get(api::recurring::get_schedule))
+            .route("/api/recurring/{id}", patch(api::recurring::update_schedule))
+            .route("/api/recurring/{id}", delete(api::recurring::cancel_schedule))
+            .with_state(recurring_state)
+    } else {
+        info!("Skipping recurring routes (no database)");
+        Router::new()
+    };
+
+    // Start Recurring Payment Worker (Issue #122)
+    let recurring_worker_enabled = std::env::var("RECURRING_WORKER_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase()
+        != "false";
+    if recurring_worker_enabled {
+        if let Some(pool) = db_pool.clone() {
+            let worker_config = workers::recurring_payment_worker::RecurringWorkerConfig::from_env();
+            info!(
+                poll_interval_secs = worker_config.poll_interval.as_secs(),
+                batch_size = worker_config.batch_size,
+                "Starting recurring payment worker"
+            );
+            let repo = std::sync::Arc::new(
+                database::recurring_payment_repository::RecurringPaymentRepository::new(pool),
+            );
+            let worker = workers::recurring_payment_worker::RecurringPaymentWorker::new(
+                repo,
+                worker_config,
+            );
+            tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+            info!("✅ Recurring payment worker started");
+        } else {
+            info!("Skipping recurring payment worker (no database)");
+        }
+    } else {
+        info!("Recurring payment worker disabled (RECURRING_WORKER_ENABLED=false)");
+    }
+
+    // ── IP Detection Worker (Issue #166) ─────────────────────────────────────
+    let ip_detection_worker_enabled = std::env::var("IP_DETECTION_WORKER_ENABLED")
+        .unwrap_or_else(|_| "true".to_string())
+        .to_lowercase()
+        != "false";
+    if ip_detection_worker_enabled {
+        if let (Some(pool), Some(cache)) = (db_pool.clone(), redis_cache.clone()) {
+            let detection_service = std::sync::Arc::new(
+                crate::services::ip_detection::IpDetectionService::new(
+                    database::ip_reputation_repository::IpReputationRepository::new(pool),
+                    std::sync::Arc::new(cache),
+                    Default::default(),
+                )
+            );
+
+            // Bootstrap blocked IPs cache on startup
+            if let Err(e) = detection_service.bootstrap_blocked_ips_cache().await {
+                error!(error = %e, "Failed to bootstrap blocked IPs cache");
+            }
+
+            let worker_config = workers::ip_detection_worker::IpDetectionWorkerConfig::from_env();
+            let worker = workers::ip_detection_worker::IpDetectionWorker::new(
+                database::ip_reputation_repository::IpReputationRepository::new(db_pool.clone().unwrap()),
+                detection_service,
+                worker_config,
+            );
+            tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+            info!("✅ IP detection worker started");
+        } else {
+            info!("Skipping IP detection worker (missing database or cache)");
+        }
+    } else {
+        info!("IP detection worker disabled (IP_DETECTION_WORKER_ENABLED=false)");
+    }
+
     // ── Batch transaction routes (Issue #125) ────────────────────────────────
     let batch_routes = if let Some(pool) = db_pool.clone() {
         let batch_state = api::batch::BatchState::new(std::sync::Arc::new(pool));
+        let batch_cngn_integrity_state = crate::middleware::request_integrity::RequestIntegrityState {
+            endpoint: crate::middleware::request_integrity::IntegrityEndpoint::BatchCngnTransfer,
+            db: Some(batch_state.db.clone()),
+            cache: redis_cache.clone().map(std::sync::Arc::new),
+        };
+        let batch_fiat_integrity_state = crate::middleware::request_integrity::RequestIntegrityState {
+            endpoint: crate::middleware::request_integrity::IntegrityEndpoint::BatchFiatPayout,
+            db: Some(batch_state.db.clone()),
+            cache: redis_cache.clone().map(std::sync::Arc::new),
+        };
         Router::new()
-            .route("/api/batch/cngn-transfer", post(api::batch::create_cngn_transfer_batch))
-            .route("/api/batch/fiat-payout",   post(api::batch::create_fiat_payout_batch))
+            .route(
+                "/api/batch/cngn-transfer",
+                post(api::batch::create_cngn_transfer_batch).route_layer(axum::middleware::from_fn_with_state(
+                    batch_cngn_integrity_state,
+                    crate::middleware::request_integrity::request_integrity_middleware,
+                )),
+            )
+            .route(
+                "/api/batch/fiat-payout",
+                post(api::batch::create_fiat_payout_batch).route_layer(axum::middleware::from_fn_with_state(
+                    batch_fiat_integrity_state,
+                    crate::middleware::request_integrity::request_integrity_middleware,
+                )),
+            )
             .route("/api/batch/{batch_id}",    get(api::batch::get_batch_status))
             .with_state(batch_state)
     } else {
@@ -1036,9 +1545,36 @@ async fn main() -> anyhow::Result<()> {
     // ── Admin scope management routes (Issue #132) ───────────────────────────
     let admin_routes = if let Some(pool) = db_pool.clone() {
         let scopes_state = api::admin::scopes::ScopesState {
-            db: std::sync::Arc::new(pool),
+            db: std::sync::Arc::new(pool.clone()),
+        };
+        let keys_state = api::admin::keys::AdminKeysState {
+            db: std::sync::Arc::new(pool.clone()),
+        };
+        let ip_reputation_state = api::admin::ip_reputation::IpReputationState {
+            repo: database::ip_reputation_repository::IpReputationRepository::new(pool.clone()),
         };
         Router::new()
+
+        // ── Revocation & Blacklist routes (Issue #138) ────────────────────────
+        let revocation_state = if let Some(ref redis) = redis_cache {
+            let svc = std::sync::Arc::new(services::revocation::RevocationService::new(
+                std::sync::Arc::new(pool.clone()),
+                std::sync::Arc::new(redis.clone()),
+                notification_service.clone(),
+            ));
+            let svc_clone = svc.clone();
+            tokio::spawn(async move {
+                if let Err(e) = svc_clone.bootstrap_redis_blacklist().await {
+                    tracing::error!(error = %e, "Redis blacklist bootstrap failed");
+                }
+            });
+            Some(api::admin::revocation::RevocationState { service: svc })
+        } else {
+            info!("Skipping revocation service (no Redis)");
+            None
+        };
+
+        let mut router = Router::new()
             .route("/api/admin/scopes", get(api::admin::scopes::list_scopes))
             .route(
                 "/api/admin/consumers/{consumer_id}/keys/{key_id}/scopes",
@@ -1046,8 +1582,333 @@ async fn main() -> anyhow::Result<()> {
                     .patch(api::admin::scopes::update_key_scopes),
             )
             .with_state(scopes_state)
+            .merge(
+                Router::new()
+                    // Issue #131 — API key issuance
+                    .route(
+                        "/api/admin/consumers/{consumer_id}/keys",
+                        post(api::admin::keys::issue_key)
+                            .get(api::admin::keys::list_keys),
+                    )
+                    .route(
+                        "/api/admin/consumers/{consumer_id}/keys/{key_id}",
+                        delete(api::admin::keys::revoke_key),
+                    )
+                    .with_state(keys_state),
+            )
+            .merge(
+                Router::new()
+                    // Issue #166 — IP reputation management
+                    .route(
+                        "/api/admin/ip-reputation",
+                        get(api::admin::ip_reputation::list_flagged_ips),
+                    )
+                    .route(
+                        "/api/admin/ip-reputation/{ip}",
+                        get(api::admin::ip_reputation::get_ip_reputation),
+                    )
+                    .route(
+                        "/api/admin/ip-reputation/{ip}/block",
+                        post(api::admin::ip_reputation::block_ip),
+                    )
+                    .route(
+                        "/api/admin/ip-reputation/{ip}/unblock",
+                        post(api::admin::ip_reputation::unblock_ip),
+                    )
+                    .route(
+                        "/api/admin/ip-reputation/{ip}/whitelist",
+                        post(api::admin::ip_reputation::whitelist_ip),
+                    )
+                    .with_state(ip_reputation_state),
+            )
     } else {
         info!("Skipping admin routes (no database)");
+        Router::new()
+    };
+
+    // ── Adaptive rate limit admin routes ─────────────────────────────────────
+    let adaptive_rl_admin_routes = if let (Some(pool), Some(cache)) = (db_pool.clone(), redis_cache.clone()) {
+        let rl_cfg = crate::adaptive_rate_limit::config::AdaptiveRateLimitConfig::from_env();
+        let signals = std::sync::Arc::new(
+            crate::adaptive_rate_limit::signals::SignalCollector::new(
+                std::sync::Arc::new(cache.clone()),
+                pool.clone(),
+                rl_cfg.rolling_window_size,
+            ),
+        );
+        let rl_repo = crate::adaptive_rate_limit::repository::AdaptiveRateLimitRepository::new(pool.clone());
+        let rl_engine = std::sync::Arc::new(
+            crate::adaptive_rate_limit::engine::AdaptiveRateLimitEngine::new(
+                rl_cfg,
+                signals,
+                std::sync::Arc::new(cache.clone()),
+                rl_repo,
+            ),
+        );
+        let admin_state = crate::adaptive_rate_limit::handlers::AdaptiveRateLimitAdminState {
+            engine: rl_engine,
+        };
+        Router::new()
+            .route(
+                "/api/admin/adaptive-rate-limit/status",
+                get(crate::adaptive_rate_limit::handlers::get_status),
+            )
+            .route(
+                "/api/admin/adaptive-rate-limit/override",
+                post(crate::adaptive_rate_limit::handlers::set_override)
+                    .delete(crate::adaptive_rate_limit::handlers::clear_override),
+            )
+            .with_state(admin_state)
+    } else {
+        Router::new()
+    };
+
+    // ── Security compliance admin routes ──────────────────────────────────────
+    let security_compliance_routes = if let Some(ref pool) = db_pool {
+        let sec_cfg = crate::security_compliance::config::SecurityComplianceConfig::from_env();
+        let sec_repo = crate::security_compliance::repository::SecurityComplianceRepository::new(pool.clone());
+        let sec_state = crate::security_compliance::handlers::SecurityComplianceState {
+            repo: std::sync::Arc::new(sec_repo),
+            config: std::sync::Arc::new(sec_cfg),
+        };
+        Router::new()
+            .route(
+                "/api/admin/security/vulnerabilities",
+                get(crate::security_compliance::handlers::list_vulnerabilities),
+            )
+            .route(
+                "/api/admin/security/vulnerabilities/:vuln_id",
+                get(crate::security_compliance::handlers::get_vulnerability),
+            )
+            .route(
+                "/api/admin/security/vulnerabilities/:vuln_id/acknowledge",
+                post(crate::security_compliance::handlers::acknowledge_vulnerability),
+            )
+            .route(
+                "/api/admin/security/vulnerabilities/:vuln_id/resolve",
+                post(crate::security_compliance::handlers::resolve_vulnerability),
+            )
+            .route(
+                "/api/admin/security/vulnerabilities/:vuln_id/accept-risk",
+                post(crate::security_compliance::handlers::accept_risk),
+            )
+            .route(
+                "/api/admin/security/compliance/posture",
+                get(crate::security_compliance::handlers::get_posture),
+            )
+            .route(
+                "/api/admin/security/findings/ingest",
+                post(crate::security_compliance::handlers::ingest_finding),
+            )
+            .route(
+                "/api/admin/security/allowlist",
+                get(crate::security_compliance::handlers::list_allowlist)
+                    .post(crate::security_compliance::handlers::add_allowlist_entry),
+            )
+            .route(
+                "/api/admin/security/reports",
+                get(crate::security_compliance::handlers::list_reports),
+            )
+            .with_state(sec_state)
+    } else {
+        Router::new()
+    };
+
+    // ── mTLS certificate lifecycle — Issue #204 ───────────────────────────────
+    // Provision the intermediate CA and start the lifecycle worker.
+    // The admin routes are always available (they operate on the in-memory store).
+    let mtls_admin_routes = {
+        use mtls::{
+            MtlsConfig, IntermediateCa, CertificateStore, CertificateProvisioner,
+            RevocationService, CertLifecycleWorker,
+        };        use mtls::revocation::RevocationList;
+        use mtls::admin::{MtlsAdminState, mtls_admin_routes};
+
+        let mtls_config = MtlsConfig::from_env().unwrap_or_else(|e| {
+            tracing::warn!("mTLS config error (using defaults): {}", e);
+            MtlsConfig::from_env().unwrap_or_else(|_| MtlsConfig {
+                service_name: "aframp-backend".to_string(),
+                environment: std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()),
+                leaf_cert_validity: std::time::Duration::from_secs(90 * 86400),
+                intermediate_cert_validity: std::time::Duration::from_secs(730 * 86400),
+                rotation_threshold_days: 14,
+                alert_threshold_days: 7,
+                intermediate_ca_cert_pem: String::new(),
+                intermediate_ca_key_pem: String::new(),
+                root_ca_cert_pem: String::new(),
+                ca_distribution_url: String::new(),
+                enforce_mtls: false,
+            })
+        });
+
+        // Register mTLS Prometheus metrics
+        mtls::metrics::register(prometheus::default_registry());
+
+        let cert_store = CertificateStore::new();
+        let crl = RevocationList::new();
+        let revocation_svc = std::sync::Arc::new(RevocationService::new(crl, cert_store.clone()));
+
+        // Only start the CA and provisioner if the intermediate CA PEM is configured.
+        let provisioner = if !mtls_config.intermediate_ca_cert_pem.is_empty() {
+            match IntermediateCa::from_pem(&mtls_config) {
+                Ok(ca) => {
+                    let ca = std::sync::Arc::new(ca);
+                    let p = std::sync::Arc::new(CertificateProvisioner::new(
+                        ca,
+                        cert_store.clone(),
+                        revocation_svc.clone(),
+                        mtls_config.clone(),
+                    ));
+                    // Provision all registered services at startup
+                    for &svc in mtls::cert::REGISTERED_SERVICES {
+                        match p.provision_at_startup(svc) {
+                            Ok(cert) => info!(
+                                service = svc,
+                                serial = %cert.serial,
+                                expires_at = %cert.expires_at,
+                                "mTLS: startup certificate provisioned"
+                            ),
+                            Err(e) => tracing::warn!(service = svc, error = %e, "mTLS: startup provisioning failed"),
+                        }
+                    }
+                    // Start the lifecycle worker (14-day rotation sweep)
+                    let worker = CertLifecycleWorker::new(p.clone(), cert_store.clone(), mtls_config.clone());
+                    tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+                    info!("✅ mTLS certificate lifecycle worker started");
+                    p
+                }
+                Err(e) => {
+                    tracing::warn!("mTLS: intermediate CA not loaded ({}); admin endpoints available but no auto-provisioning", e);
+                    std::sync::Arc::new(CertificateProvisioner::without_ca(
+                        cert_store.clone(),
+                        revocation_svc.clone(),
+                        mtls_config.clone(),
+                    ))
+                }
+            }
+        } else {
+            info!("mTLS: MTLS_INTERMEDIATE_CA_CERT_PEM not set — certificate auto-provisioning disabled");
+            std::sync::Arc::new(CertificateProvisioner::without_ca(
+                cert_store.clone(),
+                revocation_svc.clone(),
+                mtls_config.clone(),
+            ))
+        };
+
+        let mtls_state = std::sync::Arc::new(MtlsAdminState {
+            store: cert_store,
+            provisioner,
+            revocation: revocation_svc,
+        });
+
+        mtls_admin_routes()
+            .with_state(mtls_state)
+            .route_layer(axum::middleware::from_fn(security_headers_middleware))
+    };
+
+    // ── DDoS protection state and admin routes ────────────────────────────────
+    // ── Audit log query routes (Issue #183) ──────────────────────────────────
+    let audit_routes = if let Some(ref pool) = db_pool {
+        let audit_handler_state = std::sync::Arc::new(audit::handlers::AuditHandlerState {
+            repo: std::sync::Arc::new(audit::repository::AuditLogRepository::new(pool.clone())),
+        });
+        Router::new()
+            .route("/api/admin/audit/logs", get(audit::handlers::list_audit_logs))
+            .route("/api/admin/audit/logs/export", get(audit::handlers::export_audit_logs))
+            .route("/api/admin/audit/logs/verify", get(audit::handlers::verify_hash_chain))
+            .route("/api/admin/audit/logs/:entry_id", get(audit::handlers::get_audit_log_entry))
+            .with_state(audit_handler_state)
+    } else {
+        Router::new()
+    };
+
+    // ── External Auditor Portal ───────────────────────────────────────────────
+    let auditor_portal_routes = if let Some(ref pool) = db_pool {
+        let audit_repo = std::sync::Arc::new(audit::repository::AuditLogRepository::new(pool.clone()));
+        let auditor_repo = std::sync::Arc::new(auditor_portal::repository::AuditorRepository::new(pool.clone()));
+        let auditor_service = std::sync::Arc::new(auditor_portal::service::AuditorService::new(
+            auditor_repo,
+            audit_repo,
+        ));
+        let state = std::sync::Arc::new(auditor_portal::handlers::AuditorPortalState {
+            service: auditor_service,
+        });
+        info!("🔍 External auditor portal routes enabled");
+        auditor_portal::routes::auditor_routes(state.clone())
+            .merge(auditor_portal::routes::admin_auditor_routes(state))
+    } else {
+        info!("⏭️  Skipping auditor portal routes (no database)");
+        Router::new()
+    };
+    let (ddos_state, ddos_admin_routes) = if let Some(ref cache) = redis_cache {
+        let ddos_config = ddos::config::DdosConfig::from_env();
+        let state = std::sync::Arc::new(ddos::state::DdosState::new(ddos_config, cache.clone()));
+        // Spawn CDN sync background task
+        {
+            let s = state.clone();
+            let interval = state.config.cdn_sync_interval_secs;
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_secs(interval));
+                loop { ticker.tick().await; s.sync_cdn_blocklist().await; }
+            });
+        }
+        let routes = ddos::admin::ddos_admin_router(state.clone());
+        info!("✅ DDoS protection enabled");
+        (Some(state), routes)
+    } else {
+        info!("⏭️  Skipping DDoS protection (no Redis cache)");
+        (None, Router::new())
+    };
+
+    // ── Key rotation routes (Issue #137) ─────────────────────────────────────
+    let key_rotation_routes = if let Some(pool) = db_pool.clone() {
+        let rotation_state = api::key_rotation::KeyRotationState {
+            db: std::sync::Arc::new(pool.clone()),
+        };
+        let rotation_service = services::key_rotation::KeyRotationService::new(pool.clone());
+        let rotation_worker = workers::key_rotation_worker::KeyRotationWorker::new(rotation_service);
+        tokio::spawn(rotation_worker.run(worker_shutdown_rx.clone()));
+        info!("✅ Key rotation worker started");
+        api::key_rotation::developer_rotation_router(rotation_state.clone())
+            .merge(api::key_rotation::admin_rotation_router(rotation_state))
+    } else {
+        info!("Skipping key rotation routes (no database)");
+        Router::new()
+    };
+
+    // ── Consumer usage analytics worker ──────────────────────────────────────
+    let analytics_routes = if let Some(pool) = db_pool.clone() {
+        let analytics_config = analytics::worker::AnalyticsWorkerConfig::default();
+        let analytics_worker = analytics::worker::AnalyticsWorker::new(
+            std::sync::Arc::new(pool.clone()),
+            analytics_config,
+        );
+        tokio::spawn(analytics_worker.run(worker_shutdown_rx.clone()));
+        info!("✅ Analytics worker started");
+        
+        // Create analytics routes
+        let analytics_repo = std::sync::Arc::new(analytics::repository::AnalyticsRepository::new(pool));
+        Router::new()
+            .nest("/api/developer", analytics::routes::consumer_analytics_routes())
+            .nest("/api/admin/analytics", analytics::routes::admin_analytics_routes())
+            .with_state(analytics_repo)
+    } else {
+        info!("Skipping analytics worker (no database)");
+        Router::new()
+    };
+
+    // ── Developer self-service key routes (Issue #131) ───────────────────────
+    let developer_routes = if let Some(pool) = db_pool.clone() {
+        let dev_state = api::developer::keys::DeveloperKeysState {
+            db: std::sync::Arc::new(pool),
+        };
+        Router::new()
+            .route("/api/developer/keys", post(api::developer::keys::issue_key))
+            .route("/api/developer/keys", get(api::developer::keys::list_keys))
+            .route("/api/developer/keys/{key_id}", delete(api::developer::keys::revoke_key))
+            .with_state(dev_state)
+    } else {
+        info!("Skipping developer routes (no database)");
         Router::new()
     };
 
@@ -1171,16 +2032,181 @@ async fn main() -> anyhow::Result<()> {
         let history_state = std::sync::Arc::new(api::transaction_history::TransactionHistoryState {
             pool: std::sync::Arc::new(pool),
             cache: redis_cache.clone().map(std::sync::Arc::new),
-        });
-        Router::new()
-            .route("/api/transactions", get(api::transaction_history::get_transaction_history))
-            .route("/api/transactions/export", get(api::transaction_history::export_transaction_history))
-            .with_state(history_state)
+    // ── Public Transparency / Proof-of-Reserves API ───────────────────────────
+    let transparency_routes = if let Some(pool) = db_pool.clone() {
+        let transparency_key = std::env::var("TRANSPARENCY_SIGNING_KEY").ok();
+        match services::transparency::TransparencyService::new(pool, transparency_key) {
+            Ok(svc) => {
+                info!("🔍 Transparency (Proof-of-Reserves) API enabled");
+                let state = std::sync::Arc::new(api::transparency::TransparencyState {
+                    service: std::sync::Arc::new(svc),
+                });
+                api::transparency::transparency_routes(state)
+            }
+            Err(e) => {
+                tracing::warn!("⏭️  Skipping transparency routes: {}", e);
+                Router::new()
+            }
+        }
     } else {
-        info!("⏭️  Skipping transaction history routes (no database)");
+        info!("⏭️  Skipping transparency routes (no database)");
         Router::new()
     };
 
+    // ── Pentest & Security Review Framework ──────────────────────────────────
+    let pentest_routes = if let Some(pool) = db_pool.clone() {
+        let repo = std::sync::Arc::new(pentest::PentestRepository::new(pool));
+        let svc = std::sync::Arc::new(pentest::PentestService::new(repo));
+        // Spawn safety backstop task — auto-deactivates expired pentest windows
+        {
+            let svc_clone = svc.clone();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_secs(60));
+                loop {
+                    ticker.tick().await;
+                    let _ = svc_clone.run_safety_backstop().await;
+                }
+            });
+        }
+        // Spawn SLA breach alert task — fires every 15 minutes
+        {
+            let svc_clone = svc.clone();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_secs(900));
+                loop {
+                    ticker.tick().await;
+                    let _ = svc_clone.check_sla_breaches().await;
+                }
+            });
+        }
+        info!("🔒 Pentest & security review framework routes enabled");
+        pentest::pentest_routes(svc)
+    } else {
+        info!("⏭️  Skipping pentest routes (no database)");
+        Router::new()
+    };
+
+    // ── Liquidity pool routes and health worker ───────────────────────────────
+    let liquidity_routes = if let (Some(pool), Some(cache)) = (db_pool.clone(), redis_cache.clone()) {
+        let liq_repo = std::sync::Arc::new(liquidity::repository::LiquidityRepository::new(pool));
+        let liq_service = std::sync::Arc::new(liquidity::service::LiquidityService::new(
+            liq_repo.clone(),
+            cache.pool.clone(),
+        ));
+        let liq_state = std::sync::Arc::new(liquidity::handlers::LiquidityHandlerState {
+            repo: liq_repo.clone(),
+            service: liq_service,
+        });
+
+        // Start health worker
+        let health_interval = std::env::var("LIQUIDITY_HEALTH_INTERVAL_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(60u64);
+        let liq_worker = liquidity::worker::LiquidityHealthWorker::new(liq_repo, health_interval);
+        tokio::spawn(liq_worker.run(worker_shutdown_rx.clone()));
+        info!("✅ Liquidity health worker started (interval={}s)", health_interval);
+
+        liquidity::routes::public_routes(liq_state.clone())
+            .merge(liquidity::routes::admin_routes(liq_state))
+    } else {
+        info!("⏭️  Skipping liquidity routes (missing database or cache)");
+    // ── Bug Bounty Programme ──────────────────────────────────────────────────
+    let bug_bounty_routes = if let Some(pool) = db_pool.clone() {
+        let repo = std::sync::Arc::new(bug_bounty::BugBountyRepository::new(pool));
+        let config = bug_bounty::BugBountyConfig::default();
+        let registry = prometheus::default_registry();
+        let metrics = std::sync::Arc::new(
+            bug_bounty::metrics::BugBountyMetrics::new(registry).unwrap_or_else(|e| {
+                tracing::warn!("Bug bounty metrics registration failed ({}); using fallback", e);
+                bug_bounty::metrics::BugBountyMetrics::new(&prometheus::Registry::new())
+                    .expect("fallback registry must succeed")
+            }),
+        );
+        let notification_dispatcher = std::sync::Arc::new(
+            bug_bounty::notifications::NotificationDispatcher::new(repo.clone()),
+        );
+        let svc = std::sync::Arc::new(bug_bounty::BugBountyService::new(
+            repo,
+            notification_dispatcher,
+            config.clone(),
+            metrics,
+        ));
+        // Spawn SLA polling worker
+        bug_bounty::SlaPollingWorker::spawn(svc.clone(), &config);
+        info!("🐛 Bug bounty programme routes enabled");
+        bug_bounty::bug_bounty_routes(svc)
+    } else {
+        info!("⏭️  Skipping bug bounty routes (no database)");
+        Router::new()
+    };
+
+    // Setup OAuth 2.0 routes
+    let oauth_routes = if let (Some(pool), Some(cache)) = (db_pool.clone(), redis_cache.clone()) {
+        match oauth::RsaKeyPair::from_env() {
+            Ok(key_pair) => {
+                let issuer = std::env::var("OAUTH_ISSUER")
+                    .unwrap_or_else(|_| "https://api.aframp.com".to_string());
+                let is_production = std::env::var("ENVIRONMENT")
+                    .unwrap_or_default()
+                    .to_lowercase() == "production";
+                let oauth_state = std::sync::Arc::new(oauth::OAuthState {
+                    db_pool: pool,
+                    redis_cache: cache,
+                    key_pair: std::sync::Arc::new(key_pair),
+                    issuer,
+                    is_production,
+                });
+                info!("🔑 OAuth 2.0 routes enabled (RS256)");
+                oauth::oauth_router(oauth_state)
+            }
+            Err(e) => {
+                tracing::warn!("⏭️  Skipping OAuth routes: {}", e);
+                Router::new()
+            }
+        }
+    } else {
+        info!("⏭️  Skipping OAuth routes (missing database or cache)");
+        Router::new()
+    };
+
+    // ── Dispute Resolution & Clawback Management (Issue #337) ────────────────
+    let dispute_routes = if let Some(pool) = db_pool.clone() {
+        let repo = std::sync::Arc::new(dispute::DisputeRepository::new(pool));
+        let svc = std::sync::Arc::new(dispute::DisputeService::new(repo.clone()));
+        // Spawn background worker to escalate overdue disputes every 5 minutes.
+        {
+            let svc_clone = svc.clone();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_secs(300));
+                loop {
+                    ticker.tick().await;
+                    let _ = svc_clone.escalate_overdue_disputes().await;
+                }
+            });
+        }
+        info!("⚖️  Dispute resolution routes enabled");
+        dispute::dispute_routes().with_state(svc)
+    } else {
+        info!("⏭️  Skipping dispute routes (no database)");
+        Router::new()
+    };
+
+    // ── Multi-Sig Governance routes (Issue: Multi-Sig Governance) ────────────
+    let governance_routes = if let (Some(pool), Some(client)) =
+        (db_pool.clone(), stellar_client.clone())
+    {
+        let repo = std::sync::Arc::new(multisig::repository::MultiSigRepository::new(pool));
+        let svc = std::sync::Arc::new(multisig::MultiSigService::from_env(
+            repo,
+            std::sync::Arc::new(client),
+        ));
+        info!("🔐 Multi-sig governance routes enabled");
+        multisig::routes::governance_router(svc)
+    } else {
+        info!("⏭️  Skipping multi-sig governance routes (missing database or stellar client)");
+        Router::new()
+    };
 
     let app = Router::new()
         .route("/", get(root))
@@ -1220,17 +2246,260 @@ async fn main() -> anyhow::Result<()> {
         .merge(onramp_routes)
         .merge(offramp_routes)
         .merge(wallet_routes)
+        .merge(noncustodial_wallet_routes)
         .merge(rates_routes)
         .merge(fees_routes)
+        .merge(mint_routes)
         .merge(webhook_routes)
         .merge(history_routes)
         .merge(auth_routes)
         .merge(batch_routes)
         .merge(admin_routes)
+        .merge(adaptive_rl_admin_routes)
         .merge(openapi_routes)
         .merge(analytics_routes)
         .merge(partner_routes)
+        .merge(recurring_routes)
+    // ── Transparency Portal (Issue #239) ─────────────────────────────────────
+    let transparency_routes = if let Some(pool) = db_pool.clone() {
+        let signing_key = api::transparency::load_signing_key();
+        let state = std::sync::Arc::new(api::transparency::TransparencyState {
+            db: pool,
+            signing_key,
+        });
+        info!("🔍 Transparency portal routes enabled");
+        api::transparency::transparency_routes(state)
+    } else {
+        info!("⏭️  Skipping transparency routes (no database)");
+        Router::new()
+    };
+
+    // ── Proof-of-Reserves public endpoint (Issue #297) ───────────────────────
+    let por_routes = if let Some(pool) = db_pool.clone() {
+        let state = std::sync::Arc::new(api::por::PorState { db: pool });
+        info!("🔍 Proof-of-Reserves (PoR) routes enabled");
+        api::por::por_routes(state)
+    } else {
+        info!("⏭️  Skipping PoR routes (no database)");
+        Router::new()
+    };
+
+    // ── Peg Integrity Monitor ─────────────────────────────────────────────────
+    let peg_monitor_routes = if let (Some(pool), Some(client)) =
+        (db_pool.clone(), stellar_client.clone())
+    {
+        let peg_repo = std::sync::Arc::new(peg_monitor::PegMonitorRepository::new(pool));
+        let asset_code = std::env::var("CNGN_ASSET_CODE").unwrap_or_else(|_| "cNGN".to_string());
+        let asset_issuer = std::env::var("CNGN_ISSUER_ADDRESS")
+            .or_else(|_| std::env::var("CNGN_ISSUER_MAINNET"))
+            .unwrap_or_default();
+
+        let peg_enabled = std::env::var("PEG_MONITOR_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .to_lowercase()
+            != "false";
+
+        if peg_enabled && !asset_issuer.is_empty() {
+            let worker = peg_monitor::PegMonitorWorker::new(
+                peg_repo.clone(),
+                client,
+                asset_code,
+                asset_issuer,
+            );
+            tokio::spawn(worker.run(worker_shutdown_rx.clone()));
+            info!("✅ Peg Integrity Monitor worker started");
+        } else {
+            info!("⏭️  Peg monitor worker skipped (disabled or missing CNGN_ISSUER_ADDRESS)");
+        }
+
+        peg_monitor::peg_monitor_routes(peg_repo)
+    } else {
+        info!("⏭️  Skipping peg monitor routes (missing database or stellar client)");
+        Router::new()
+    };
+
+    // ── POS QR Payment System ─────────────────────────────────────────────────
+    let pos_routes = if let (Some(pool), Some(client)) = (db_pool.clone(), stellar_client.clone()) {
+        let cngn_issuer = std::env::var("CNGN_ISSUER_ADDRESS")
+            .or_else(|_| std::env::var("CNGN_ISSUER_MAINNET"))
+            .unwrap_or_else(|_| "GXXXXDEFAULTISSUERXXXX".to_string());
+
+        let qr_generator = std::sync::Arc::new(pos::QrGenerator::new(cngn_issuer));
+        let payment_intent_service = std::sync::Arc::new(pos::payment_intent::PaymentIntentService::new(
+            pool.clone(),
+            qr_generator.clone(),
+        ));
+
+        let lobby_service = std::sync::Arc::new(pos::lobby_service::LobbyService::new(
+            pool.clone(),
+            std::sync::Arc::new(client),
+            5, // Poll interval in seconds
+        ));
+
+        // Start lobby service polling worker
+        let lobby_clone = lobby_service.clone();
+        tokio::spawn(async move {
+            lobby_clone.start_polling_worker().await;
+        });
+
+        let legacy_bridge = std::sync::Arc::new(pos::legacy_bridge::LegacyBridge::new(
+            payment_intent_service.clone(),
+        ));
+
+        let verification_secret = std::env::var("POS_VERIFICATION_SECRET")
+            .unwrap_or_else(|_| "default-secret-change-in-production".to_string());
+        let proof_of_payment = std::sync::Arc::new(pos::proof_of_payment::ProofOfPayment::new(
+            pool.clone(),
+            verification_secret,
+        ));
+
+        let pos_state = pos::handlers::PosState {
+            payment_intent_service,
+            lobby_service,
+            legacy_bridge,
+            proof_of_payment,
+        };
+
+        info!("💳 POS QR payment system routes enabled");
+        pos::routes::pos_routes(pos_state)
+    } else {
+        info!("⏭️  Skipping POS routes (missing database or stellar client)");
+        Router::new()
+    };
+    // ── Agent CFO — In-House Treasury for Autonomous Agents ─────────────────
+    let agent_cfo_routes = if let Some(pool) = db_pool.clone() {
+        let engine = std::sync::Arc::new(agent_cfo::engine::AgentCfoEngine::new(pool.clone()));
+        let ledger = engine.ledger();
+        let cfo_state = agent_cfo::handlers::CfoState {
+            engine,
+            ledger,
+            db: pool.clone(),
+        };
+        // Start burn-rate watchdog
+        let watchdog = agent_cfo::watchdog::BurnRateWatchdog::new(
+            pool,
+            agent_cfo::watchdog::WatchdogConfig::from_env(),
+        );
+        tokio::spawn(watchdog.run(worker_shutdown_rx.clone()));
+        info!("✅ Agent CFO watchdog started");
+        agent_cfo::routes::agent_cfo_routes(cfo_state)
+    } else {
+        info!("⏭️  Skipping Agent CFO routes (no database)");
+        Router::new()
+    };
+
+    // ── Agent Swarm Intelligence ──────────────────────────────────────────────
+    let agent_swarm_routes = if let Some(pool) = db_pool.clone() {
+        use agent_swarm::{
+            consensus::ConsensusEngine,
+            delegation::DelegationEngine,
+            discovery::PeerDiscovery,
+            gossip::GossipStore,
+            handlers::SwarmState,
+            settlement::SettlementEngine,
+        };
+        let swarm_state = SwarmState {
+            discovery: std::sync::Arc::new(PeerDiscovery::new(pool.clone())),
+            delegation: std::sync::Arc::new(DelegationEngine::new(pool.clone())),
+            consensus: std::sync::Arc::new(ConsensusEngine::new(pool.clone())),
+            gossip: std::sync::Arc::new(GossipStore::new(pool.clone())),
+            settlement: std::sync::Arc::new(SettlementEngine::new(pool.clone())),
+            db: pool.clone(),
+        };
+        tokio::spawn(PeerDiscovery::run_heartbeat_sweep(pool.clone(), worker_shutdown_rx.clone()));
+        tokio::spawn(GossipStore::run_eviction_worker(pool, worker_shutdown_rx.clone()));
+        info!("✅ Agent Swarm Intelligence routes enabled");
+        agent_swarm::routes::agent_swarm_routes(swarm_state)
+    } else {
+        info!("⏭️  Skipping Agent Swarm routes (no database)");
+    // ── Agent Admin Dashboard — HITL control system ───────────────────────
+    let agent_dashboard_routes = if let Some(pool) = db_pool.clone() {
+        let svc = std::sync::Arc::new(agent_dashboard::service::AgentDashboardService::new(pool));
+        info!("✅ Agent Admin Dashboard routes enabled");
+        agent_dashboard::routes::agent_dashboard_routes(svc)
+    } else {
+        info!("⏭️  Skipping Agent Dashboard routes (no database)");
+        Router::new()
+    };
+
+    // ── Performance SLA Management & Breach Response (Issue #405) ────────────
+    let sla_routes = if let Some(pool) = db_pool.clone() {
+        let http = reqwest::Client::new();
+        let sla_state = std::sync::Arc::new(sla::SlaState {
+            repo: std::sync::Arc::new(sla::SlaRepository::new(pool.clone())),
+            pool: pool.clone(),
+        });
+
+        // SLA monitor worker — evaluates SLOs every 60 seconds
+        let monitor = sla::SlaMonitorWorker::new(pool.clone(), http);
+        tokio::spawn(monitor.run(worker_shutdown_rx.clone()));
+        info!("✅ SLA monitor worker started (60s interval)");
+
+        // Monthly compliance report worker
+        let report_worker = sla::SlaReportWorker::new(pool);
+        tokio::spawn(report_worker.run(worker_shutdown_rx.clone()));
+        info!("✅ SLA report worker started");
+
+        sla::sla_routes(sla_state)
+    } else {
+        info!("⏭️  Skipping SLA routes (no database)");
+        Router::new()
+    };
+        .route("/api/trustlines/operations/{id}", patch(update_trustline_operation_status))
+        .route("/api/trustlines/operations/wallet/{address}", get(list_trustline_operations_by_wallet))
+        .route("/api/fees/calculate", post(calculate_fee))
+        .route("/api/cngn/trustlines/check", post(check_cngn_trustline))
+        .route("/api/cngn/trustlines/preflight", post(preflight_cngn_trustline))
+        .route("/api/cngn/trustlines/build", post(build_cngn_trustline))
+        .route("/api/cngn/trustlines/submit", post(submit_cngn_trustline))
+        .route("/api/cngn/trustlines/retry/{id}", post(retry_cngn_trustline))
+        .route("/api/cngn/payments/build", post(build_cngn_payment))
+        .route("/api/cngn/payments/sign", post(sign_cngn_payment))
+        .route("/api/cngn/payments/submit", post(submit_cngn_payment))
+        .route("/api/payments/initiate", post(initiate_payment))
+        .merge(onramp_routes)
+        .merge(offramp_routes)
+        .merge(wallet_routes)
+        .merge(noncustodial_wallet_routes)
+        .merge(rates_routes)
+        .merge(fees_routes)
+        .merge(mint_routes)
+        .merge(webhook_routes)
         .merge(history_routes)
+        .merge(auth_routes)
+        .merge(batch_routes)
+        .merge(admin_routes)
+        .merge(adaptive_rl_admin_routes)
+        .merge(audit_routes)
+        .merge(auditor_portal_routes)
+        .merge(key_rotation_routes)
+        .merge(analytics_routes)
+        .merge(openapi_routes)
+        .merge(recurring_routes)
+        .merge(developer_routes)
+        .merge(oauth_routes)
+        .merge(peg_monitor_routes)
+        .merge(ddos_admin_routes)
+        .merge(pentest_routes)
+        .merge(liquidity_routes)
+        .merge(transparency_routes)
+        .merge(por_routes)
+        .merge(bug_bounty_routes)
+        .merge(developer_portal::routes::register_developer_portal_routes(Router::new(), db_pool.clone()))
+        .merge(Router::new().nest("/api/admin/security", mtls_admin_routes))
+        .merge(security_compliance_routes)
+        .merge(lp_payout_routes)
+        .merge(merchant_multisig_routes)
+        .merge(oracle_routes)
+        .merge(governance_routes)
+        .merge(lp_onboarding_routes)
+        .merge(partner_hub_routes)
+        .merge(agent_cfo_routes)
+        .merge(agent_swarm_routes)
+        .merge(agent_dashboard_routes)
+        .merge(pos_routes)
+        .merge(dispute_routes)
+        .merge(sla_routes)
         .with_state(AppState {
             db_pool,
             redis_cache,
@@ -1239,17 +2508,47 @@ async fn main() -> anyhow::Result<()> {
             warming_state: Some(warming_state),
             shard_router: None, // populated below if DB is available
         })
+        });
+
+    // Apply middleware conditionally based on available services
+    let app = if let (Some(db_pool), Some(redis_cache)) = (db_pool.clone(), redis_cache.clone()) {
+        let ip_blocking_state = crate::middleware::ip_blocking::IpBlockingState {
+            detection_service: std::sync::Arc::new(
+                crate::services::ip_detection::IpDetectionService::new(
+                    database::ip_reputation_repository::IpReputationRepository::new(db_pool),
+                    std::sync::Arc::new(redis_cache.clone()),
+                    Default::default(),
+                )
+            ),
+        };
+
+        app.layer(
+            ServiceBuilder::new()
+                .layer(SetRequestIdLayer::x_request_id(UuidRequestId))
+                .layer(axum::middleware::from_fn(
+                    crate::telemetry::middleware::tracing_middleware,
+                ))
+                .layer(axum::middleware::from_fn_with_state(
+                    ip_blocking_state,
+                    crate::middleware::ip_blocking::ip_blocking_middleware,
+                ))
+                .layer(axum::middleware::from_fn(metrics_middleware))
+                .layer(axum::middleware::from_fn(request_logging_middleware))
+                .layer(PropagateRequestIdLayer::x_request_id()),
+        )
         .layer(
             // ---------------------------------------------------------------
             // Middleware stack — innermost layer runs first on the way in,
             // last on the way out.
             //
             // Order (outermost → innermost, i.e. the order added here):
-            //   1. SetRequestIdLayer       — assigns x-request-id UUID
-            //   2. tracing_middleware      — extracts W3C traceparent, opens
+            //   1. CORS middleware         — handles cross-origin requests
+            //   2. Security headers        — adds security headers to responses
+            //   3. SetRequestIdLayer       — assigns x-request-id UUID
+            //   4. tracing_middleware      — extracts W3C traceparent, opens
             //                               root span per request (Issue #104)
-            //   3. request_logging_middleware — structured access log line
-            //   4. PropagateRequestIdLayer — copies x-request-id to response
+            //   5. request_logging_middleware — structured access log line
+            //   6. PropagateRequestIdLayer — copies x-request-id to response
             //
             // The tracing middleware is inserted between SetRequestId and the
             // existing request_logging_middleware so:
@@ -1258,14 +2557,20 @@ async fn main() -> anyhow::Result<()> {
             //     trace_id / span_id in its JSON output.
             // ---------------------------------------------------------------
             ServiceBuilder::new()
+                .layer(axum::middleware::from_fn_with_state(
+                    CorsConfig::from_env(),
+                    cors_middleware,
+                ))
+                .layer(axum::middleware::from_fn(security_headers_middleware))
                 .layer(SetRequestIdLayer::x_request_id(UuidRequestId))
                 .layer(axum::middleware::from_fn(
-                    crate::telemetry::middleware::tracing_middleware,  // Issue #104
+                    crate::telemetry::middleware::tracing_middleware,
                 ))
                 .layer(axum::middleware::from_fn(metrics_middleware))
                 .layer(axum::middleware::from_fn(request_logging_middleware))
                 .layer(PropagateRequestIdLayer::x_request_id()),
-        );
+        )
+    };
 
     let rate_limit_config = std::sync::Arc::new(crate::middleware::rate_limit::RateLimitConfig::load("rate_limits.yaml").unwrap_or_else(|e| {
         tracing::warn!("Failed to load rate_limits.yaml, using defaults: {}", e);
@@ -1281,16 +2586,118 @@ async fn main() -> anyhow::Result<()> {
     let app = if let Some(cache) = redis_cache.clone() {
 
         let rate_limit_state = crate::middleware::rate_limit::RateLimitState {
-            cache: std::sync::Arc::new(cache),
+            cache: std::sync::Arc::new(cache.clone()),
             config: rate_limit_config,
         };
-        app.layer(axum::middleware::from_fn_with_state(rate_limit_state, crate::middleware::rate_limit::rate_limit_middleware))
+
+        let replay_state = crate::middleware::replay_prevention::ReplayPreventionState {
+            redis: std::sync::Arc::new(cache.pool.clone()),
+            config: std::sync::Arc::new(crate::middleware::replay_prevention::ReplayConfig::from_env()),
+        };
+
+        // ── Adaptive rate limiting ────────────────────────────────────────────
+        let adaptive_rl_enabled = std::env::var("ADAPTIVE_RL_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .to_lowercase()
+            != "false";
+
+        let app = if adaptive_rl_enabled {
+            if let Some(ref pool) = db_pool {
+                let rl_cfg = crate::adaptive_rate_limit::config::AdaptiveRateLimitConfig::from_env();
+                let signals = std::sync::Arc::new(
+                    crate::adaptive_rate_limit::signals::SignalCollector::new(
+                        std::sync::Arc::new(cache.clone()),
+                        pool.clone(),
+                        rl_cfg.rolling_window_size,
+                    ),
+                );
+                let rl_repo = crate::adaptive_rate_limit::repository::AdaptiveRateLimitRepository::new(pool.clone());
+                let rl_engine = std::sync::Arc::new(
+                    crate::adaptive_rate_limit::engine::AdaptiveRateLimitEngine::new(
+                        rl_cfg,
+                        signals,
+                        std::sync::Arc::new(cache.clone()),
+                        rl_repo.clone(),
+                    ),
+                );
+                let emergency_queue = std::sync::Arc::new(
+                    crate::adaptive_rate_limit::queue::EmergencyQueue::new(
+                        rl_engine.config.emergency_queue_max_depth,
+                    ),
+                );
+                let rl_state = crate::adaptive_rate_limit::middleware::AdaptiveRateLimitState {
+                    engine: rl_engine.clone(),
+                    emergency_queue,
+                    cache: std::sync::Arc::new(cache.clone()),
+                };
+
+                // Start the adaptive rl worker
+                let rl_worker = crate::adaptive_rate_limit::worker::AdaptiveRateLimitWorker::new(
+                    rl_engine.clone(),
+                    rl_repo,
+                );
+                tokio::spawn(rl_worker.run(worker_shutdown_rx.clone()));
+                info!("✅ Adaptive rate limiting worker started");
+
+                // ── Security compliance worker ─────────────────────────────
+                let sec_compliance_enabled = std::env::var("SEC_COMPLIANCE_ENABLED")
+                    .unwrap_or_else(|_| "true".to_string())
+                    .to_lowercase()
+                    != "false";
+                if sec_compliance_enabled {
+                    let sec_cfg = crate::security_compliance::config::SecurityComplianceConfig::from_env();
+                    let sec_repo = crate::security_compliance::repository::SecurityComplianceRepository::new(pool.clone());
+                    let sec_worker = crate::security_compliance::worker::SecurityComplianceWorker::new(
+                        sec_repo,
+                        sec_cfg,
+                    );
+                    tokio::spawn(sec_worker.run(worker_shutdown_rx.clone()));
+                    info!("✅ Security compliance worker started");
+                }
+
+                app
+                    .layer(axum::middleware::from_fn_with_state(
+                        rl_state,
+                        crate::adaptive_rate_limit::middleware::adaptive_rate_limit_middleware,
+                    ))
+            } else {
+                app
+            }
+        } else {
+            info!("⏭️  Adaptive rate limiting disabled (ADAPTIVE_RL_ENABLED=false)");
+            app
+        };
+
+        app
+            .layer(axum::middleware::from_fn_with_state(
+                replay_state,
+                crate::middleware::replay_prevention::replay_prevention_middleware,
+            ))
+            .layer(axum::middleware::from_fn_with_state(rate_limit_state, crate::middleware::rate_limit::rate_limit_middleware))
+    } else {
+        app
+    };
+
+    // Apply DDoS middleware if state was initialised
+    let app = if let Some(ds) = ddos_state {
+        app.layer(axum::middleware::from_fn_with_state(
+            ds,
+            crate::ddos::middleware::ddos_middleware,
+        ))
     } else {
         app
     };
 
 
     info!("✅ Routes configured");
+
+    // Inject audit writer as an Axum extension so the middleware can access it
+    let app = if let Some(ref writer) = audit_writer {
+        app.layer(axum::Extension(writer.clone()))
+            .layer(axum::middleware::from_fn(audit::middleware::audit_middleware))
+    } else {
+        app
+    };
 
     // Run the server with graceful shutdown
     let addr: SocketAddr = format!("{}:{}", server_host, server_port).parse()?;
@@ -1365,10 +2772,13 @@ async fn main() -> anyhow::Result<()> {
             error!(error = %e, "Timed out waiting for offramp worker shutdown");
         }
     }
+    if let Some(handle) = mint_expiry_handle {
+        if let Err(e) = tokio::time::timeout(std::time::Duration::from_secs(5), handle).await {
+            error!(error = %e, "Timed out waiting for mint expiry worker shutdown");
+        }
+    }
 
     info!("👋 Server shutdown complete");
-
-    // -------------------------------------------------------------------------
     // Flush all buffered spans to the OTLP exporter before the process exits.
     // Must be the very last call so no spans are lost during shutdown.   (Issue #104)
     // -------------------------------------------------------------------------

@@ -1,554 +1,118 @@
 # Aframp Backend
 
-Payment infrastructure for African crypto onramp/offramp. Built with Rust for speed, reliability, and safety.
-
-## What It Does
-
-Aframp connects African payment systems (M-Pesa, MTN Money, Airtel Money) with blockchain networks using African stablecoins. Users connect their wallet, buy/sell crypto with CNGN stablecoins, and pay bills—all without creating an account.
-
-**Core features:**
-- Non-custodial crypto transactions
-- African stablecoin (CNGN) integration
-- Multi-chain support (Stellar, Ethereum, Bitcoin)
-- Real-time payment processing
-- Bill payment services
-
-## About CNGN Stablecoin
-
-CNGN is a blockchain-based stable currency pegged to African currencies, designed specifically for the African market. Learn more at [afristablecoin.org](https://www.afristablecoin.org/).
-    [cngnstablecoin.org](https://cngn.co/)
-
-**Key benefits:**
-- Price stability pegged to local currencies
-- Fast, low-cost transactions
-- Built for African financial infrastructure
-- Reduced volatility for everyday transactions
-
-## Tech Stack
-
-- **Framework**: Axum
-- **Database**: PostgreSQL + SQLx
-- **Cache**: Redis
-- **Async Runtime**: Tokio
-- **Blockchain**: Stellar SDK (CNGN primary chain), web3, bitcoin crates
-- **Jobs**: Tokio tasks + Redis queues
-
-## Project Structure
-
-```
-src/
-├── api/              # HTTP handlers and routes
-│   ├── wallet.rs     # Wallet connection endpoints
-│   ├── onramp.rs     # Buy CNGN/crypto endpoints
-│   ├── offramp.rs    # Sell CNGN/crypto endpoints
-│   └── bills.rs      # Bill payment endpoints
-├── services/         # Business logic
-│   ├── transaction.rs
-│   ├── payment.rs
-│   ├── blockchain.rs
-│   └── bill.rs
-├── models/           # Database models
-├── chains/           # Blockchain integrations
-│   ├── stellar/      # CNGN stablecoin & Stellar
-│   ├── ethereum/
-│   └── bitcoin/
-├── payments/         # Payment provider adapters
-│   ├── flutterwave.rs
-│   ├── paystack.rs
-│   └── mpesa.rs
-├── workers/          # Background jobs
-├── middleware/       # Auth, logging, rate limiting
-├── config.rs         # Configuration
-└── main.rs
-```
-
-## Requirements
-
-- Rust 1.75+
-- PostgreSQL 14+
-- Redis 6+
-- Stellar Horizon access (testnet or mainnet)
-
-## Installation
-
-Clone and build:
-
-```bash
-git clone https://github.com/yourusername/aframp-backend.git
-cd aframp-backend
-cargo build
-```
-
-## Environment Setup
-
-Copy example config:
-
-```bash
-cp .env.example .env
-```
-
-Required variables:
-
-```bash
-# Server
-HOST=0.0.0.0
-PORT=8000
-RUST_LOG=info
-
-# Database
-DATABASE_URL=postgresql://user:password@localhost/aframp
-DATABASE_MAX_CONNECTIONS=20
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Blockchain Networks
-STELLAR_NETWORK=testnet
-STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
-
-# cNGN Stablecoin Configuration
-CNGN_ASSET_CODE=cNGN
-CNGN_ISSUER_ADDRESS=GXXX...  # cNGN issuer account on Stellar
-CNGN_SUPPORTED_CURRENCIES=NGN,KES,ZAR,GHS  # African currencies
-
-# Other Chains (optional)
-ETHEREUM_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/your-key
-BITCOIN_RPC_URL=https://blockstream.info/testnet/api
-
-# Payment Providers
-FLUTTERWAVE_SECRET_KEY=your_key_here
-FLUTTERWAVE_PUBLIC_KEY=your_key_here
-PAYSTACK_SECRET_KEY=your_key_here
-MPESA_CONSUMER_KEY=your_key_here
-MPESA_CONSUMER_SECRET=your_secret_here
-
-# Security
-JWT_SECRET=your_random_secret_min_32_chars
-RATE_LIMIT_PER_MINUTE=100
-
-# Optional: Notifications
-SENDGRID_API_KEY=your_key
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-```
-
-## Database Setup
-
-Run migrations:
-
-```bash
-sqlx migrate run
-```
-
-Check migration status:
-
-```bash
-sqlx migrate info
-```
-
-Rollback last migration:
-
-```bash
-sqlx migrate revert
-```
-
-## Running
-
-Development mode with hot reload:
-
-```bash
-cargo watch -x run
-```
-
-Standard run:
-
-```bash
-cargo run
-```
-
-Production build:
-
-```bash
-cargo build --release
-./target/release/aframp-backend
-```
-
-API starts on `http://localhost:8000`
-
-## Testing
-
-Run all tests:
-
-```bash
-cargo test
-```
-
-Run specific test:
-
-```bash
-cargo test test_onramp_flow
-```
-
-Run with output:
-
-```bash
-cargo test -- --nocapture
-```
-
-Integration tests (needs testnet):
-
-```bash
-cargo test --features integration
-```
-
-### Load Testing
-
-`k6` is the primary load testing tool for this project. Scenarios, thresholds, and CI usage are documented in `load-tests/README.md`.
-
-Quick run examples:
-
-```bash
-./load-tests/run.sh sustained
-./load-tests/run.sh spike
-./load-tests/run.sh stress
-./load-tests/run.sh soak
-```
-
-## API Overview
-
-### Wallet Operations
-
-```bash
-# Get wallet balance (includes CNGN balance)
-GET /api/wallet/balance?address=GXXX...
-
-# Get supported chains
-GET /api/wallet/chains
-```
-
-### Onramp (Buy CNGN/Crypto)
-
-```bash
-# Get quote for buying CNGN
-POST /api/onramp/quote
-{
-  "from_currency": "KES",
-  "to_asset": "CNGN",
-  "amount": "5000"
-}
-
-# Initiate CNGN purchase
-POST /api/onramp/initiate
-{
-  "wallet_address": "GXXX...",
-  "from_currency": "KES",
-  "to_asset": "CNGN",
-  "amount": "5000",
-  "payment_method": "mpesa"
-}
-
-# Check transaction status
-GET /api/onramp/status/:tx_id
-```
-
-### Offramp (Sell CNGN/Crypto)
-
-```bash
-# Get quote for selling CNGN
-POST /api/offramp/quote
-{
-  "from_asset": "CNGN",
-  "to_currency": "KES",
-  "amount": "100"
-}
-
-# Initiate withdrawal
-POST /api/offramp/initiate
-{
-  "wallet_address": "GXXX...",
-  "from_asset": "CNGN",
-  "to_currency": "KES",
-  "amount": "100",
-  "withdrawal_method": "mpesa",
-  "phone_number": "+254712345678"
-}
-```
-
-### Bill Payments
-
-```bash
-# Get bill providers
-GET /api/bills/providers?country=KE
-
-# Pay bill with CNGN
-POST /api/bills/pay
-{
-  "wallet_address": "GXXX...",
-  "provider": "kplc",
-  "account_number": "123456789",
-  "amount": "50",
-  "asset": "CNGN"
-}
-```
-
-### Rates & Fees
-
-```bash
-# Get CNGN exchange rates
-GET /api/rates?from=KES&to=CNGN
-
-# Get fee structure
-GET /api/fees
-```
-
-Full API docs available at `/api/docs` when server is running.
-
-## Background Workers
-
-Workers run as Tokio tasks:
-
-**Transaction Monitor** - Watches Stellar blockchain for CNGN confirmations  
-**Payment Processor** - Polls payment provider APIs  
-**Webhook Handler** - Processes incoming webhooks  
-**Settlement Worker** - Handles fund settlements  
-
-Workers start automatically with the main server.
-
-## Payment Provider Integration
-
-Each provider implements the `PaymentProvider` trait:
-
-```rust
-#[async_trait]
-pub trait PaymentProvider {
-    async fn initiate_payment(&self, request: PaymentRequest) -> Result<PaymentResponse>;
-    async fn verify_payment(&self, reference: &str) -> Result<PaymentStatus>;
-    async fn process_withdrawal(&self, request: WithdrawalRequest) -> Result<WithdrawalResponse>;
-}
-```
-
-Supported providers:
-- **Flutterwave**: Multi-country support
-- **Paystack**: Nigeria, Ghana, South Africa, Kenya
-- **M-Pesa**: Kenya direct integration
-
-Add new providers in `src/payments/providers/`.
-
-## Blockchain Integration
-
-### Stellar (CNGN Stablecoin)
-
-Primary chain for CNGN stablecoin transactions:
-
-```rust
-// Send CNGN payment
-let payment = stellar_service.send_payment(
-    &recipient_address,
-    "CNGN",
-    "100"
-).await?;
-
-// Establish trustline for CNGN (first-time users)
-let trustline = stellar_service.create_trustline(
-    &user_address,
-    "CNGN",
-    &cngn_issuer_address
-).await?;
-```
-
-### Ethereum
-
-For ERC-20 tokens and future CNGN ERC-20 bridge:
-
-```rust
-let tx = ethereum_service.transfer_token(
-    &token_address,
-    &recipient,
-    amount
-).await?;
-```
-
-### Bitcoin
-
-Lightning Network support planned.
-
-## CNGN Stablecoin Operations
-
-### Trustline Management
-
-Before users can receive CNGN, they need to establish a trustline:
-
-```rust
-// Check if trustline exists
-let has_trustline = stellar_service
-    .check_trustline(&wallet_address, "CNGN", &cngn_issuer)
-    .await?;
-
-// Create trustline if needed
-if !has_trustline {
-    stellar_service
-        .create_trustline(&wallet_address, "CNGN", &cngn_issuer)
-        .await?;
-}
-```
-
-### Currency Conversion
-
-CNGN maintains peg to local currencies:
-
-```rust
-// Convert NGN to CNGN
-let cngn_amount = conversion_service
-    .convert("NGN", "CNGN", "50000")
-    .await?;
-
-// Convert CNGN to KES
-let kes_amount = conversion_service
-    .convert("CNGN", "KES", "100")
-    .await?;
-```
-
-## Rate Limiting
-
-Redis-backed limits:
-- Onramp: 10 requests/minute per wallet
-- Offramp: 10 requests/minute per wallet
-- Quotes: 30 requests/minute per IP
-- General API: 100 requests/minute per IP
-
-Configure in `src/middleware/rate_limit.rs`.
-
-## Webhooks
-
-Providers send webhooks to `/webhooks/:provider`:
-
-```
-POST /webhooks/flutterwave
-POST /webhooks/paystack
-POST /webhooks/mpesa
-```
-
-All webhooks verify signatures before processing.
-
-## Security
-
-**Wallet Management**
-- Non-custodial design
-- Users control private keys
-- Server never stores private keys
-
-**CNGN Security**
-- Trustline verification before transactions
-- Asset issuer validation
-- Transaction signing verification
-
-**API Security**
-- Rate limiting on all endpoints
-- Request validation with strong typing
-- SQL injection protection via SQLx
-- CORS configured for frontend only
-
-**Data Safety**
-- Monetary values stored as strings (no float precision issues)
-- Database transactions for atomic operations
-- Idempotency keys for payment operations
-
-## Monitoring & Logging
-
-Logs use `tracing`:
-
-```bash
-RUST_LOG=debug cargo run  # Debug level
-RUST_LOG=info cargo run   # Info level (default)
-RUST_LOG=warn cargo run   # Warnings only
-```
-
-Key metrics tracked:
-- CNGN transaction success/failure rates
-- Payment provider response times
-- Stellar blockchain confirmation times
-- API endpoint latency
-- Trustline creation rates
-
-Production: Logs ship to CloudWatch (or your monitoring stack).
-
-## Common Issues
-
-**Database connection fails**  
-→ Check PostgreSQL is running and credentials are correct
-
-**CNGN transaction fails**  
-→ Verify trustline exists and account has XLM for fees
-
-**Trustline creation fails**  
-→ Ensure wallet has minimum XLM balance (1.5 XLM) for trustline
-
-**Payment webhook not received**  
-→ Check provider IP whitelist and webhook URL configuration
-
-**Redis connection timeout**  
-→ Ensure Redis is running: `redis-cli ping`
-
-**SQLx compile errors**  
-→ Run `cargo sqlx prepare` to generate query metadata
-
-**CNGN issuer not found**  
-→ Verify CNGN_ISSUER_ADDRESS is correctly set in .env
-
-## Development Tools
-
-Recommended:
-
-```bash
-# Watch for changes and rebuild
-cargo install cargo-watch
-cargo watch -x run
-
-# Check for common mistakes
-cargo clippy
-
-# Format code
-cargo fmt
-
-# Security audit
-cargo audit
-
-# Generate docs
-cargo doc --open
-```
-
-## Deployment
-
-**Docker:**
-
-```bash
-docker build -t aframp-backend .
-docker run -p 8000:8000 --env-file .env aframp-backend
-```
-
-**Production:**
-- Use release builds: `cargo build --release`
-- Set `RUST_LOG=info` or `warn`
-- Configure connection pools appropriately
-- Enable HTTPS (use reverse proxy like nginx)
-- Set up health checks: `GET /health`
-
-## Contributing
-
-See our [contributing guide](./CONTRIBUTING.md) for detailed instructions on setting up your development environment, coding standards, testing guidelines, and pull request process.
-
-## Code of Conduct
-
-Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) to understand the standards we expect from contributors.
-
-## Resources
-
-- [CNGN Stablecoin Documentation](https://www.afristablecoin.org/)
-- [Stellar Developer Docs](https://developers.stellar.org/)
-- [Payment Provider APIs](./docs/PAYMENT_PROVIDERS.md)
-
-## License
-
-MIT - see LICENSE file
+Rust/Axum backend for the Aframp platform — multi-region, edge-cached, globally distributed.
 
 ---
+
+## Global Edge-Caching & Read-Only Replicas (Issue #348)
+
+### Architecture Overview
+
+```
+Client
+  │
+  ▼
+CloudFront (edge PoP — <30 ms for /public/*)
+  │
+  ▼
+Route 53 Latency Routing  ──►  us-east-1 ALB  ──►  Primary DB (RW)
+                           ──►  eu-west-1 ALB  ──►  Read Replica
+                           ──►  ap-southeast-1 ALB ► Read Replica
+```
+
+- CloudFront caches `/public/*` at the edge (TTL 5 min, stale-while-revalidate 60 s).
+- Route 53 latency routing directs each client to the nearest regional ALB.
+- Each regional gateway detects its region via the `REGION` env var and connects to the local read replica for eventual-consistency reads.
+- Strong-consistency requests are routed to the primary (us-east-1) via the `X-Consistency: strong` header.
+
+---
+
+## Eventual vs Strong Consistency — Endpoint Mapping
+
+| Path prefix | Consistency | Cache policy | DB target | Notes |
+|---|---|---|---|---|
+| `/public/*` | **Eventual** | `public, max-age=300, stale-while-revalidate=60` | Read replica | Exchange rates, fee schedules, public docs |
+| `/api/v1/rates` | **Eventual** | `public, max-age=300, stale-while-revalidate=60` | Read replica | Rate feed — tolerates 5 min staleness |
+| `/api/v1/fees` | **Eventual** | `public, max-age=300, stale-while-revalidate=60` | Read replica | Fee structures |
+| `/account/*` | **Strong** | `no-store, private` | Primary | Balances, profile, KYC status |
+| `/api/v1/onramp/*` | **Strong** | `no-store, private` | Primary | Payment initiation |
+| `/api/v1/offramp/*` | **Strong** | `no-store, private` | Primary | Redemption / withdrawal |
+| `/api/v1/mint/*` | **Strong** | `no-store, private` | Primary | Token minting |
+| `/api/v1/transaction*` | **Strong** | `no-store, private` | Primary | Transaction history writes |
+| `/api/v1/transfer*` | **Strong** | `no-store, private` | Primary | Transfers |
+| `/api/v1/redemption*` | **Strong** | `no-store, private` | Primary | Redemption flow |
+| `/health/edge` | N/A | `no-store` | Primary (lag check) | DNS failover probe |
+
+### Forcing Strong Consistency
+
+Any endpoint can be forced to the primary by sending:
+
+```http
+X-Consistency: strong
+```
+
+The gateway will:
+1. Set `X-Route-Primary: true` on the response (read by the load balancer).
+2. Select `DATABASE_URL` (primary) instead of `DATABASE_READ_REPLICA_URL`.
+
+### Consistency Header Flow
+
+```
+Request  ──► Gateway middleware (edge_cache.rs)
+              │
+              ├─ X-Consistency: strong?
+              │     YES → X-Route-Primary: true, use DATABASE_URL
+              │     NO  → use DATABASE_READ_REPLICA_URL (if available)
+              │
+              └─ Path-based Cache-Control injected on response
+```
+
+---
+
+## Health & Failover
+
+`GET /health/edge` — used by Route 53 health checks.
+
+| Condition | HTTP | DNS action |
+|---|---|---|
+| All dependencies healthy, lag ≤ 5 s | `200 OK` | No action |
+| Replication lag > 5 s | `503` | Route 53 fails over to next region |
+| Any dependency down | `503` | Route 53 fails over to next region |
+
+Response body example:
+
+```json
+{ "status": "healthy", "region": "eu-west-1", "replication_lag_secs": 0 }
+```
+
+---
+
+## Infrastructure
+
+| File | Purpose |
+|---|---|
+| `infra/terraform/edge.tf` | CloudFront distribution + path-based cache policies |
+| `infra/terraform/global_lb.tf` | Route 53 latency routing + health checks |
+
+### Required Environment Variables (per region)
+
+| Variable | Description |
+|---|---|
+| `REGION` | AWS region this instance runs in (e.g. `eu-west-1`) |
+| `DATABASE_URL` | Primary PostgreSQL URL (us-east-1) |
+| `DATABASE_READ_REPLICA_URL` | Local read replica URL |
+
+---
+
+## Latency Verification
+
+```bash
+# Run against staging
+BASE_URL=https://staging-api.aframp.io ./dist-test.sh
+
+# Run against production with regional IP overrides
+US_EAST_1_IP=1.2.3.4 EU_WEST_1_IP=5.6.7.8 AP_SOUTHEAST_1_IP=9.10.11.12 \
+  ./dist-test.sh https://api.aframp.io
+```
+
+Target: **< 30 ms** average for `/public/*` endpoints (cache hit at CloudFront PoP).

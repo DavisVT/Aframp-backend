@@ -1,25 +1,19 @@
-use chrono::Utc;
-use tracing::{info_span, Instrument};
-use uuid::Uuid;
-
-use crate::services::transaction::TransactionService;
-
-/// The transaction monitor worker watches for Stellar blockchain confirmations
-/// and updates transaction status accordingly.
-///
-/// Every worker cycle emits:
-/// * A root span labelled `worker.cycle` with `worker.name` and `worker.cycle_at`.
-/// * A child span per transaction processed labelled `worker.process_transaction`.
-/// * A child span per external API call within the cycle.
-pub struct TransactionMonitorWorker {
-    pub tx_service: TransactionService,
-    pub stellar_url: String,
-    pub http_client: reqwest::Client,
+pub mod batch_processor;
+pub mod bill_processor;
+#[cfg(feature = "database")]
+pub mod ip_detection_worker;
+#[cfg(feature = "database")]
+pub mod key_rotation_worker;
 pub mod maintenance;
+pub mod mint_sla_worker;
+pub mod capacity_worker;
 pub mod offramp_processor;
-pub mod stellar_confirmation_worker;
 pub mod onramp_processor;
 pub mod payment_poller;
+pub mod reconciliation_worker;
+pub mod recurring_payment_worker;
+pub mod stellar_confirmation_worker;
+pub mod stellar_submitter_worker;
 pub mod transaction_monitor;
 pub mod webhook_retry;
 pub mod bill_processor;
@@ -173,3 +167,7 @@ impl PaymentProcessorWorker {
         .await;
     }
 }
+pub mod supply_monitor_worker;
+pub mod liquidity_monitor_worker;
+pub mod por_worker;
+pub mod attestation_worker;
