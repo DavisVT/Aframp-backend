@@ -10,8 +10,8 @@ use super::models::{
     LinkAccountRequest, LinkedBankAccount, TransferDirection,
 };
 use super::repository::BankingRepository;
-use crate::services::bank_verification::{BankVerificationConfig, BankVerificationService};
 use crate::payments::factory::PaymentProviderFactory;
+use crate::services::bank_verification::{BankVerificationConfig, BankVerificationService};
 use reqwest::Client as HttpClient;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
@@ -70,10 +70,7 @@ impl BankingService {
 
         // 3. Mask account number for display
         let mask_len = req.account_number.len().saturating_sub(4);
-        let account_mask = format!(
-            "****{}",
-            &req.account_number[mask_len..]
-        );
+        let account_mask = format!("****{}", &req.account_number[mask_len..]);
 
         // 4. Hash identity number (BVN/NIN) — never store plaintext
         let identity_hash = Some(format!(
@@ -106,7 +103,9 @@ impl BankingService {
         if account.user_id != user_id {
             anyhow::bail!("Account does not belong to user");
         }
-        self.repo.update_linked_account_status(id, "unlinked").await?;
+        self.repo
+            .update_linked_account_status(id, "unlinked")
+            .await?;
         info!(account_id = %id, "Bank account unlinked");
         Ok(())
     }
@@ -236,13 +235,7 @@ impl BankingService {
         match result {
             Ok(provider_ref) => {
                 self.repo
-                    .update_transfer_status(
-                        transfer.id,
-                        "pending",
-                        Some(&provider_ref),
-                        None,
-                        None,
-                    )
+                    .update_transfer_status(transfer.id, "pending", Some(&provider_ref), None, None)
                     .await?;
                 info!(
                     transfer_id = %transfer.id,
@@ -253,13 +246,7 @@ impl BankingService {
             Err(e) => {
                 error!(transfer_id = %transfer.id, error = %e, "Provider submission failed");
                 self.repo
-                    .update_transfer_status(
-                        transfer.id,
-                        "failed",
-                        None,
-                        None,
-                        Some(&e.to_string()),
-                    )
+                    .update_transfer_status(transfer.id, "failed", None, None, Some(&e.to_string()))
                     .await?;
             }
         }
@@ -273,7 +260,10 @@ impl BankingService {
 
     /// Submit transfer to payment provider. Returns provider reference on success.
     async fn submit_to_provider(&self, transfer: &BankTransferLog) -> anyhow::Result<String> {
-        let account = self.repo.get_linked_account(transfer.linked_account_id).await?;
+        let account = self
+            .repo
+            .get_linked_account(transfer.linked_account_id)
+            .await?;
 
         let paystack_key = std::env::var("PAYSTACK_SECRET_KEY")
             .map_err(|_| anyhow::anyhow!("PAYSTACK_SECRET_KEY not configured"))?;

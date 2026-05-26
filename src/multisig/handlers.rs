@@ -7,8 +7,8 @@
 use crate::multisig::{
     error::MultiSigError,
     models::{
-        ListProposalsQuery, ProposeRequest, ProposalDetail, ProposalListResponse,
-        RejectRequest, SignRequest,
+        ListProposalsQuery, ProposalDetail, ProposalListResponse, ProposeRequest, RejectRequest,
+        SignRequest,
     },
     service::MultiSigService,
 };
@@ -209,11 +209,7 @@ fn extract_signer_key(headers: &HeaderMap) -> Result<String, MultiSigError> {
         .get("X-Signer-Key")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string())
-        .ok_or_else(|| {
-            MultiSigError::UnauthorisedSigner(
-                "Missing X-Signer-Key header".to_string(),
-            )
-        })
+        .ok_or_else(|| MultiSigError::UnauthorisedSigner("Missing X-Signer-Key header".to_string()))
 }
 
 fn extract_ip(headers: &HeaderMap) -> Option<String> {

@@ -15,7 +15,10 @@ impl GossipStore {
 
     /// Push a gossip entry. Accepted only if `version` is strictly greater
     /// than the stored version (last-write-wins / Lamport clock).
-    pub async fn push(&self, req: &crate::agent_swarm::types::GossipPushRequest) -> Result<GossipEntry, String> {
+    pub async fn push(
+        &self,
+        req: &crate::agent_swarm::types::GossipPushRequest,
+    ) -> Result<GossipEntry, String> {
         sqlx::query_as!(
             GossipEntry,
             r#"

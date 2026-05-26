@@ -76,8 +76,9 @@ impl BurnRateWatchdog {
         .await;
 
         let spend = match result {
-            Ok(row) => Decimal::from_str(row.total.as_deref().unwrap_or("0"))
-                .unwrap_or(Decimal::ZERO),
+            Ok(row) => {
+                Decimal::from_str(row.total.as_deref().unwrap_or("0")).unwrap_or(Decimal::ZERO)
+            }
             Err(e) => {
                 warn!(agent_id = %agent_id, error = %e, "watchdog: spend query failed");
                 return false;

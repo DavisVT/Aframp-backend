@@ -91,8 +91,10 @@ pub struct PaginatedReportsResponse {
 pub async fn create_report(
     State(svc): State<BugBountyState>,
     Json(req): Json<CreateReportRequest>,
-) -> Result<(StatusCode, Json<crate::bug_bounty::models::BugBountyReport>), (StatusCode, Json<serde_json::Value>)>
-{
+) -> Result<
+    (StatusCode, Json<crate::bug_bounty::models::BugBountyReport>),
+    (StatusCode, Json<serde_json::Value>),
+> {
     // admin_id: use Uuid::nil() as placeholder (auth enforced by middleware)
     let admin_id = Uuid::nil();
     svc.create_report(req, admin_id)
@@ -125,10 +127,7 @@ pub async fn get_report(
     Path(report_id): Path<Uuid>,
 ) -> Result<Json<crate::bug_bounty::models::BugBountyReport>, (StatusCode, Json<serde_json::Value>)>
 {
-    svc.get_report(report_id)
-        .await
-        .map(Json)
-        .map_err(map_error)
+    svc.get_report(report_id).await.map(Json).map_err(map_error)
 }
 
 /// PATCH /api/admin/security/bug-bounty/reports/:report_id
@@ -150,8 +149,10 @@ pub async fn record_reward(
     State(svc): State<BugBountyState>,
     Path(report_id): Path<Uuid>,
     Json(req): Json<RecordRewardRequest>,
-) -> Result<(StatusCode, Json<crate::bug_bounty::models::RewardRecord>), (StatusCode, Json<serde_json::Value>)>
-{
+) -> Result<
+    (StatusCode, Json<crate::bug_bounty::models::RewardRecord>),
+    (StatusCode, Json<serde_json::Value>),
+> {
     let admin_id = Uuid::nil();
     svc.record_reward(report_id, req, admin_id)
         .await
@@ -171,8 +172,13 @@ pub async fn get_metrics(
 pub async fn create_invitation(
     State(svc): State<BugBountyState>,
     Json(req): Json<CreateInvitationRequest>,
-) -> Result<(StatusCode, Json<crate::bug_bounty::models::ResearcherInvitation>), (StatusCode, Json<serde_json::Value>)>
-{
+) -> Result<
+    (
+        StatusCode,
+        Json<crate::bug_bounty::models::ResearcherInvitation>,
+    ),
+    (StatusCode, Json<serde_json::Value>),
+> {
     let admin_id = Uuid::nil();
     svc.create_invitation(req, admin_id)
         .await
@@ -183,8 +189,10 @@ pub async fn create_invitation(
 /// GET /api/admin/security/bug-bounty/invitations
 pub async fn list_invitations(
     State(svc): State<BugBountyState>,
-) -> Result<Json<Vec<crate::bug_bounty::models::ResearcherInvitation>>, (StatusCode, Json<serde_json::Value>)>
-{
+) -> Result<
+    Json<Vec<crate::bug_bounty::models::ResearcherInvitation>>,
+    (StatusCode, Json<serde_json::Value>),
+> {
     svc.list_invitations().await.map(Json).map_err(map_error)
 }
 

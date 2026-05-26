@@ -29,8 +29,14 @@ impl UserConsent {
 /// Webhook Event Types
 #[derive(Debug, Clone)]
 pub enum WebhookEvent {
-    BalanceChanged { account_id: String, new_balance: f64 },
-    TransactionCompleted { tx_id: String, status: String },
+    BalanceChanged {
+        account_id: String,
+        new_balance: f64,
+    },
+    TransactionCompleted {
+        tx_id: String,
+        status: String,
+    },
 }
 
 /// Subscriber trait for third-party webhooks
@@ -44,6 +50,9 @@ pub mod graphql_api {
     /// Resolves basic partner-specific analytics
     pub fn resolve_partner_analytics(partner_id: &str) -> String {
         // Mock JSON response
-        format!("{{ \"partner\": \"{}\", \"volume_generated\": 150000.00 }}", partner_id)
+        format!(
+            "{{ \"partner\": \"{}\", \"volume_generated\": 150000.00 }}",
+            partner_id
+        )
     }
 }

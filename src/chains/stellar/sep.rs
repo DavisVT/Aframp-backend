@@ -8,8 +8,18 @@ pub struct StellarEcosystemProvider {
 
 /// SEP-6: Anchor Transfer Server
 pub trait Sep6Transfer {
-    fn deposit_fiat(&self, asset_code: &str, amount: f64, user_kyc_id: &str) -> Result<String, String>;
-    fn withdraw_fiat(&self, asset_code: &str, amount: f64, user_kyc_id: &str) -> Result<String, String>;
+    fn deposit_fiat(
+        &self,
+        asset_code: &str,
+        amount: f64,
+        user_kyc_id: &str,
+    ) -> Result<String, String>;
+    fn withdraw_fiat(
+        &self,
+        asset_code: &str,
+        amount: f64,
+        user_kyc_id: &str,
+    ) -> Result<String, String>;
 }
 
 /// SEP-10: Stellar Web Authentication
@@ -32,15 +42,30 @@ pub trait Sep24Interactive {
 
 /// SEP-38: Anchor Price Discovery
 pub trait Sep38Prices {
-    fn get_exchange_rate(&self, sell_asset: &str, buy_asset: &str, amount: f64) -> Result<f64, String>;
+    fn get_exchange_rate(
+        &self,
+        sell_asset: &str,
+        buy_asset: &str,
+        amount: f64,
+    ) -> Result<f64, String>;
 }
 
 // Dummy implementation for the provider to satisfy structure
 impl Sep6Transfer for StellarEcosystemProvider {
-    fn deposit_fiat(&self, _asset_code: &str, _amount: f64, _user_kyc_id: &str) -> Result<String, String> {
+    fn deposit_fiat(
+        &self,
+        _asset_code: &str,
+        _amount: f64,
+        _user_kyc_id: &str,
+    ) -> Result<String, String> {
         Ok("tx_id_deposit_mock".to_string())
     }
-    fn withdraw_fiat(&self, _asset_code: &str, _amount: f64, _user_kyc_id: &str) -> Result<String, String> {
+    fn withdraw_fiat(
+        &self,
+        _asset_code: &str,
+        _amount: f64,
+        _user_kyc_id: &str,
+    ) -> Result<String, String> {
         Ok("tx_id_withdraw_mock".to_string())
     }
 }

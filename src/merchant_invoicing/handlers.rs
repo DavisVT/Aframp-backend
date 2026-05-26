@@ -1,9 +1,6 @@
 //! HTTP handlers for Merchant Invoicing endpoints.
 
-use crate::merchant_invoicing::{
-    models::*,
-    service::MerchantInvoicingService,
-};
+use crate::merchant_invoicing::{models::*, service::MerchantInvoicingService};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -92,18 +89,17 @@ pub async fn preview_tax(
     Path(merchant_id): Path<Uuid>,
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let line_items: Vec<LineItem> = match serde_json::from_value(
-        body.get("line_items").cloned().unwrap_or_default(),
-    ) {
-        Ok(v) => v,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": format!("Invalid line_items: {}", e) })),
-            )
-                .into_response()
-        }
-    };
+    let line_items: Vec<LineItem> =
+        match serde_json::from_value(body.get("line_items").cloned().unwrap_or_default()) {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": format!("Invalid line_items: {}", e) })),
+                )
+                    .into_response()
+            }
+        };
     let region = body
         .get("region")
         .and_then(|v| v.as_str())

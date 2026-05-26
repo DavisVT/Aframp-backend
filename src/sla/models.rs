@@ -11,7 +11,7 @@ pub struct SloDefinition {
     pub name: String,
     pub description: Option<String>,
     pub metric_name: String,
-    pub operator: String,   // "lt" | "lte" | "gt" | "gte"
+    pub operator: String, // "lt" | "lte" | "gt" | "gte"
     pub threshold: BigDecimal,
     pub window_seconds: i32,
     pub severity: String,

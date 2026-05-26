@@ -13,11 +13,10 @@ use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use stellar_strkey::ed25519::{PrivateKey as StrkeyPrivateKey, PublicKey as StrkeyPublicKey};
 use stellar_xdr::next::{
-    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, ChangeTrustAsset,
-    ChangeTrustOp, Limits, MuxedAccount, Operation, OperationBody,
-    Preconditions, PublicKey, SequenceNumber, SetOptionsOp,
-    Signer as XdrSigner, SignerKey, SignerKeyEd25519, StringM, Transaction, TransactionEnvelope,
-    TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    AccountId, AlphaNum12, AlphaNum4, AssetCode12, AssetCode4, ChangeTrustAsset, ChangeTrustOp,
+    Limits, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey, SequenceNumber,
+    SetOptionsOp, Signer as XdrSigner, SignerKey, SignerKeyEd25519, StringM, Transaction,
+    TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
 use tracing::info;
 
@@ -192,8 +191,7 @@ pub fn build_trustline_transaction(
     let issuer_pk = StrkeyPublicKey::from_string(issuer_account_id)
         .map_err(|_| StellarError::invalid_address(issuer_account_id))?;
 
-    let issuer_account_id_xdr =
-        AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(issuer_pk.0)));
+    let issuer_account_id_xdr = AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(issuer_pk.0)));
 
     let trust_asset = build_change_trust_asset_inner(asset_code, issuer_account_id_xdr)?;
 

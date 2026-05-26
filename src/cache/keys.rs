@@ -449,7 +449,9 @@ pub mod signing {
 
     impl DerivedKeyCache {
         pub fn new(key_id: impl Into<String>) -> Self {
-            Self { key_id: key_id.into() }
+            Self {
+                key_id: key_id.into(),
+            }
         }
     }
 

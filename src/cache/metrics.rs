@@ -78,7 +78,10 @@ pub struct L2Metrics {
 impl L2Metrics {
     pub fn new(registry: &Registry) -> Arc<Self> {
         let hits = IntCounterVec::new(
-            prometheus::opts!("cache_l2_hits_total", "L2 Redis cache hit count per category"),
+            prometheus::opts!(
+                "cache_l2_hits_total",
+                "L2 Redis cache hit count per category"
+            ),
             &["category"],
         )
         .expect("metric creation failed");
@@ -132,10 +135,7 @@ impl L2Metrics {
     /// Emit a warning if the rolling hit rate drops below the configured threshold.
     /// In production, wire this to your alerting pipeline.
     fn check_hit_rate_alert(&self, category: &str) {
-        let total = self
-            .requests
-            .with_label_values(&[category])
-            .get();
+        let total = self.requests.with_label_values(&[category]).get();
         let hits = self.hits.with_label_values(&[category]).get();
 
         // Only alert after a minimum sample size to avoid false positives at startup.

@@ -8,16 +8,16 @@
 //!   - CDN integration: Cloudflare/CloudFront under-attack mode, IP sync
 //!   - Emergency lockdown: admin-triggered full lockdown with auto-expiry
 
+pub mod admin;
+pub mod cdn;
+pub mod challenge;
 pub mod config;
 pub mod detector;
 pub mod fingerprint;
-pub mod queue;
-pub mod challenge;
-pub mod cdn;
 pub mod lockdown;
-pub mod middleware;
-pub mod admin;
 pub mod metrics;
+pub mod middleware;
+pub mod queue;
 pub mod state;
 
 pub use config::DdosConfig;

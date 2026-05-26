@@ -1,8 +1,7 @@
 //! Prometheus metrics for mTLS certificate lifecycle and handshake events.
 
 use prometheus::{
-    register_counter_vec_with_registry, register_gauge_vec_with_registry,
-    CounterVec, GaugeVec,
+    register_counter_vec_with_registry, register_gauge_vec_with_registry, CounterVec, GaugeVec,
 };
 use std::sync::OnceLock;
 
@@ -121,7 +120,8 @@ pub fn set_certs_within_alert_threshold(environment: &str, count: f64) {
 pub fn record_handshake(from_service: &str, to_service: &str, success: bool) {
     if let Some(c) = MTLS_HANDSHAKE_TOTAL.get() {
         let result = if success { "success" } else { "failure" };
-        c.with_label_values(&[from_service, to_service, result]).inc();
+        c.with_label_values(&[from_service, to_service, result])
+            .inc();
     }
 }
 

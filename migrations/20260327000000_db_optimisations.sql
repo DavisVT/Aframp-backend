@@ -93,7 +93,7 @@ CREATE INDEX IF NOT EXISTS idx_conversion_audits_transaction_id_fk
 --    Queries that aggregate by (type, status, date) for daily settlement reports.
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_transactions_type_status_date
-    ON transactions (type, status, date_trunc('day', created_at));
+    ON transactions (type, status, created_at);
 
 -- ---------------------------------------------------------------------------
 -- 10. Batch items — pending items per batch (worker polling)

@@ -1,3 +1,4 @@
+pub mod bus;
 /// Event-Driven Architecture (Issue #399)
 ///
 /// Decouples platform services via an asynchronous event bus backed by PostgreSQL
@@ -10,7 +11,6 @@
 /// - Idempotent consumers via processed_events deduplication table
 /// - Full event replay for recovery scenarios
 pub mod models;
-pub mod bus;
 
-pub use models::*;
 pub use bus::EventBus;
+pub use models::*;

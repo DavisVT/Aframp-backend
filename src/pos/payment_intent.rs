@@ -37,14 +37,17 @@ impl PaymentIntentService {
 
         // Fetch merchant configuration
         let merchant = self.get_merchant(merchant_id).await?;
-        
+
         if !merchant.is_active {
             return Err(AppError::BadRequest("Merchant is not active".to_string()));
         }
 
         // Generate unique memo for this payment
-        let memo = format!("POS-{}", Uuid::new_v4().to_string().split('-').next().unwrap());
-        
+        let memo = format!(
+            "POS-{}",
+            Uuid::new_v4().to_string().split('-').next().unwrap()
+        );
+
         // Calculate expiry time
         let timeout_secs = merchant.payment_timeout_secs.max(60); // Minimum 60 seconds
         let expires_at = Utc::now() + Duration::seconds(timeout_secs as i64);
@@ -80,7 +83,7 @@ impl PaymentIntentService {
                 id, merchant_id, order_id, amount_cngn, destination_address,
                 memo, qr_code_data, status, expires_at, created_at, updated_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            "#
+            "#,
         )
         .bind(payment_intent.id)
         .bind(payment_intent.merchant_id)
@@ -124,7 +127,7 @@ impl PaymentIntentService {
             r#"
             SELECT * FROM pos_merchants
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(merchant_id)
         .fetch_optional(&self.db)
@@ -137,15 +140,12 @@ impl PaymentIntentService {
 
     /// Get payment intent by ID
     #[instrument(skip(self))]
-    pub async fn get_payment_intent(
-        &self,
-        payment_id: Uuid,
-    ) -> Result<PosPaymentIntent, AppError> {
+    pub async fn get_payment_intent(&self, payment_id: Uuid) -> Result<PosPaymentIntent, AppError> {
         let payment = sqlx::query_as::<_, PosPaymentIntent>(
             r#"
             SELECT * FROM pos_payment_intents
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(payment_id)
         .fetch_optional(&self.db)
@@ -168,7 +168,7 @@ impl PaymentIntentService {
             WHERE order_id = $1
             ORDER BY created_at DESC
             LIMIT 1
-            "#
+            "#,
         )
         .bind(order_id)
         .fetch_optional(&self.db)
@@ -180,17 +180,14 @@ impl PaymentIntentService {
 
     /// Cancel a payment intent
     #[instrument(skip(self))]
-    pub async fn cancel_payment_intent(
-        &self,
-        payment_id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn cancel_payment_intent(&self, payment_id: Uuid) -> Result<(), AppError> {
         sqlx::query(
             r#"
             UPDATE pos_payment_intents
             SET status = 'failed',
                 updated_at = $1
             WHERE id = $2 AND status = 'pending'
-            "#
+            "#,
         )
         .bind(Utc::now())
         .bind(payment_id)
@@ -204,11 +201,7 @@ impl PaymentIntentService {
 
     /// Refund a payment (for discrepancies or merchant request)
     #[instrument(skip(self))]
-    pub async fn refund_payment(
-        &self,
-        payment_id: Uuid,
-        reason: String,
-    ) -> Result<(), AppError> {
+    pub async fn refund_payment(&self, payment_id: Uuid, reason: String) -> Result<(), AppError> {
         // Update payment status to refunded
         sqlx::query(
             r#"
@@ -216,7 +209,7 @@ impl PaymentIntentService {
             SET status = 'refunded',
                 updated_at = $1
             WHERE id = $2
-            "#
+            "#,
         )
         .bind(Utc::now())
         .bind(payment_id)

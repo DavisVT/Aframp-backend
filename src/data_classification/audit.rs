@@ -186,7 +186,7 @@ impl ClassificationAuditRepository {
             DateTime<Utc>,
         );
         let rows: Vec<Row> = sqlx::query_as(
-                r#"
+            r#"
                 SELECT id, event_kind, field_name, tier, context,
                        actor, request_id, detail, occurred_at
                 FROM data_classification_audit
@@ -194,26 +194,28 @@ impl ClassificationAuditRepository {
                 ORDER BY occurred_at DESC
                 LIMIT $1
                 "#,
-            )
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?;
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
 
         Ok(rows
             .into_iter()
-            .map(|(id, _kind, field_name, tier, context, actor, request_id, detail, occurred_at)| {
-                ClassificationAuditEvent {
-                    id,
-                    event_kind: AuditEventKind::PolicyViolation,
-                    field_name,
-                    tier,
-                    context,
-                    actor,
-                    request_id,
-                    detail,
-                    occurred_at,
-                }
-            })
+            .map(
+                |(id, _kind, field_name, tier, context, actor, request_id, detail, occurred_at)| {
+                    ClassificationAuditEvent {
+                        id,
+                        event_kind: AuditEventKind::PolicyViolation,
+                        field_name,
+                        tier,
+                        context,
+                        actor,
+                        request_id,
+                        detail,
+                        occurred_at,
+                    }
+                },
+            )
             .collect())
     }
 

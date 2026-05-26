@@ -70,10 +70,7 @@ impl ExpenditureLedger {
     }
 
     /// Query the ledger with optional filters.
-    pub async fn query(
-        &self,
-        q: &LedgerQuery,
-    ) -> Result<Vec<InferenceEvent>, String> {
+    pub async fn query(&self, q: &LedgerQuery) -> Result<Vec<InferenceEvent>, String> {
         sqlx::query_as!(
             InferenceEvent,
             r#"

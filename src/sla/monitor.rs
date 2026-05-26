@@ -37,7 +37,10 @@ impl SlaMonitorWorker {
     }
 
     pub async fn run(self, mut shutdown_rx: watch::Receiver<bool>) {
-        info!("SlaMonitorWorker started (interval={}s)", MONITOR_INTERVAL_SECS);
+        info!(
+            "SlaMonitorWorker started (interval={}s)",
+            MONITOR_INTERVAL_SECS
+        );
         let mut ticker = interval(Duration::from_secs(MONITOR_INTERVAL_SECS));
         ticker.tick().await; // fire immediately on startup
 
@@ -70,11 +73,11 @@ impl SlaMonitorWorker {
 
             let threshold: f64 = slo.threshold.to_string().parse().unwrap_or(0.0);
             let breached = match slo.operator.as_str() {
-                "lt"  => observed >= threshold,
+                "lt" => observed >= threshold,
                 "lte" => observed > threshold,
-                "gt"  => observed <= threshold,
+                "gt" => observed <= threshold,
                 "gte" => observed < threshold,
-                _     => false,
+                _ => false,
             };
 
             if !breached {
@@ -84,8 +87,7 @@ impl SlaMonitorWorker {
             // Check for an already-open incident for this SLO
             let open = self.repo.list_open_incidents().await?;
             let already_open = open.iter().any(|i| {
-                i.slo_id == slo.id
-                    && matches!(i.status.as_str(), "open" | "investigating")
+                i.slo_id == slo.id && matches!(i.status.as_str(), "open" | "investigating")
             });
             if already_open {
                 continue;
@@ -201,7 +203,10 @@ impl SlaMonitorWorker {
             .await;
 
         match resp {
-            Ok(r) => r.json::<serde_json::Value>().await.unwrap_or(serde_json::Value::Null),
+            Ok(r) => r
+                .json::<serde_json::Value>()
+                .await
+                .unwrap_or(serde_json::Value::Null),
             Err(_) => serde_json::Value::Null,
         }
     }

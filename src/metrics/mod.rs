@@ -3,10 +3,10 @@
 //! All metrics are registered in a single global registry exposed at GET /metrics.
 //! Metric names follow Prometheus naming conventions: snake_case, unit suffix where
 //! applicable, and the `aframp_` namespace prefix.
+pub mod analytics;
 pub mod geo_restriction;
 pub mod handler;
 pub mod issuer;
-pub mod analytics;
 pub mod tests;
 
 use prometheus::{
@@ -263,8 +263,15 @@ pub mod cngn {
                     "cNGN transaction amounts in NGN",
                     &["tx_type"],
                     vec![
-                        100.0, 500.0, 1_000.0, 5_000.0, 10_000.0, 50_000.0, 100_000.0,
-                        500_000.0, 1_000_000.0,
+                        100.0,
+                        500.0,
+                        1_000.0,
+                        5_000.0,
+                        10_000.0,
+                        50_000.0,
+                        100_000.0,
+                        500_000.0,
+                        1_000_000.0,
                     ],
                     r
                 )
@@ -438,9 +445,7 @@ pub mod worker {
     static WORKER_ERRORS_TOTAL: OnceLock<CounterVec> = OnceLock::new();
 
     pub fn cycles_total() -> &'static CounterVec {
-        WORKER_CYCLES_TOTAL
-            .get()
-            .expect("metrics not initialised")
+        WORKER_CYCLES_TOTAL.get().expect("metrics not initialised")
     }
 
     pub fn cycle_duration_seconds() -> &'static HistogramVec {
@@ -456,9 +461,7 @@ pub mod worker {
     }
 
     pub fn errors_total() -> &'static CounterVec {
-        WORKER_ERRORS_TOTAL
-            .get()
-            .expect("metrics not initialised")
+        WORKER_ERRORS_TOTAL.get().expect("metrics not initialised")
     }
 
     pub(super) fn register(r: &Registry) {
@@ -755,19 +758,27 @@ pub mod ip_detection {
     }
 
     pub fn ip_blocks_applied_total() -> &'static CounterVec {
-        IP_BLOCKS_APPLIED_TOTAL.get().expect("metrics not initialised")
+        IP_BLOCKS_APPLIED_TOTAL
+            .get()
+            .expect("metrics not initialised")
     }
 
     pub fn ip_shadow_blocks_applied_total() -> &'static CounterVec {
-        IP_SHADOW_BLOCKS_APPLIED_TOTAL.get().expect("metrics not initialised")
+        IP_SHADOW_BLOCKS_APPLIED_TOTAL
+            .get()
+            .expect("metrics not initialised")
     }
 
     pub fn ip_block_enforcement_total() -> &'static CounterVec {
-        IP_BLOCK_ENFORCEMENT_TOTAL.get().expect("metrics not initialised")
+        IP_BLOCK_ENFORCEMENT_TOTAL
+            .get()
+            .expect("metrics not initialised")
     }
 
     pub fn ip_automated_blocking_rate() -> &'static GaugeVec {
-        IP_AUTOMATED_BLOCKING_RATE.get().expect("metrics not initialised")
+        IP_AUTOMATED_BLOCKING_RATE
+            .get()
+            .expect("metrics not initialised")
     }
 
     pub(super) fn register(r: &Registry) {
@@ -860,12 +871,10 @@ fn register_all(r: &Registry) {
 
     backup::register(r);
     #[cfg(feature = "database")]
-
     crate::analytics::metrics::register(r);
     crate::adaptive_rate_limit::metrics::register(r);
     crate::security_compliance::metrics::register(r);
     crate::liquidity::metrics::register(r);
-
 }
 
 // ---------------------------------------------------------------------------

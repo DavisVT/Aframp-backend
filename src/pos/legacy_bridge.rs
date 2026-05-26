@@ -35,12 +35,9 @@ impl LegacyBridge {
             .map_err(|e| AppError::BadRequest(format!("Invalid amount: {}", e)))?;
 
         // Create payment intent
-        let payment_intent = self.payment_intent_service
-            .create_payment_intent(
-                request.merchant_id,
-                request.order_id.clone(),
-                amount,
-            )
+        let payment_intent = self
+            .payment_intent_service
+            .create_payment_intent(request.merchant_id, request.order_id.clone(), amount)
             .await?;
 
         // Build response for legacy system
@@ -49,14 +46,8 @@ impl LegacyBridge {
             payment_id: payment_intent.id.to_string(),
             order_id: payment_intent.order_id,
             qr_code_svg: payment_intent.qr_code_data,
-            qr_code_url: format!(
-                "https://pay.aframp.com/pos/qr/{}",
-                payment_intent.id
-            ),
-            payment_url: format!(
-                "https://pay.aframp.com/pos/pay/{}",
-                payment_intent.id
-            ),
+            qr_code_url: format!("https://pay.aframp.com/pos/qr/{}", payment_intent.id),
+            payment_url: format!("https://pay.aframp.com/pos/pay/{}", payment_intent.id),
             amount: payment_intent.amount_cngn.to_string(),
             currency: "cNGN".to_string(),
             expires_at: payment_intent.expires_at.to_rfc3339(),
@@ -86,7 +77,9 @@ impl LegacyBridge {
         }
 
         if request.order_id.len() > 100 {
-            return Err(AppError::BadRequest("Order ID too long (max 100 chars)".to_string()));
+            return Err(AppError::BadRequest(
+                "Order ID too long (max 100 chars)".to_string(),
+            ));
         }
 
         Ok(())
@@ -98,7 +91,8 @@ impl LegacyBridge {
         &self,
         payment_id: Uuid,
     ) -> Result<LegacyPaymentStatusResponse, AppError> {
-        let payment = self.payment_intent_service
+        let payment = self
+            .payment_intent_service
             .get_payment_intent(payment_id)
             .await?;
 
@@ -125,10 +119,7 @@ impl LegacyBridge {
 
     /// Cancel payment (for legacy POS cancellation)
     #[instrument(skip(self))]
-    pub async fn cancel_payment(
-        &self,
-        payment_id: Uuid,
-    ) -> Result<StatusCode, AppError> {
+    pub async fn cancel_payment(&self, payment_id: Uuid) -> Result<StatusCode, AppError> {
         self.payment_intent_service
             .cancel_payment_intent(payment_id)
             .await?;

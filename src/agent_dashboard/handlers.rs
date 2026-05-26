@@ -59,17 +59,21 @@ pub async fn get_task_trace(
     Path(task_id): Path<Uuid>,
 ) -> impl IntoResponse {
     match svc.get_task_trace(task_id).await {
-        Ok(task) => (StatusCode::OK, Json(serde_json::json!({
-            "task_id": task.id,
-            "agent_id": task.agent_id,
-            "description": task.description,
-            "status": task.status,
-            "projected_cost_cngn": task.projected_cost_cngn,
-            "actual_cost_cngn": task.actual_cost_cngn,
-            "reasoning_trace": task.reasoning_trace,
-            "started_at": task.started_at,
-            "completed_at": task.completed_at,
-        }))).into_response(),
+        Ok(task) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "task_id": task.id,
+                "agent_id": task.agent_id,
+                "description": task.description,
+                "status": task.status,
+                "projected_cost_cngn": task.projected_cost_cngn,
+                "actual_cost_cngn": task.actual_cost_cngn,
+                "reasoning_trace": task.reasoning_trace,
+                "started_at": task.started_at,
+                "completed_at": task.completed_at,
+            })),
+        )
+            .into_response(),
         Err(e) => err(e).into_response(),
     }
 }
@@ -139,7 +143,10 @@ pub async fn decide_approval(
     Path(item_id): Path<Uuid>,
     Json(req): Json<ApprovalDecisionRequest>,
 ) -> impl IntoResponse {
-    match svc.decide_approval(item_id, &req.decision, &req.decided_by).await {
+    match svc
+        .decide_approval(item_id, &req.decision, &req.decided_by)
+        .await
+    {
         Ok(item) => (StatusCode::OK, Json(serde_json::json!(item))).into_response(),
         Err(e) => err(e).into_response(),
     }
@@ -160,7 +167,10 @@ pub async fn create_template(
     State(svc): State<DashboardState>,
     Json(req): Json<CreateTemplateRequest>,
 ) -> impl IntoResponse {
-    match svc.create_template(&req.name, &req.instructions, &req.created_by).await {
+    match svc
+        .create_template(&req.name, &req.instructions, &req.created_by)
+        .await
+    {
         Ok(t) => (StatusCode::CREATED, Json(serde_json::json!(t))).into_response(),
         Err(e) => err(e).into_response(),
     }

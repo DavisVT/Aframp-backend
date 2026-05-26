@@ -160,32 +160,41 @@ impl PartnerService {
         }
 
         // Check liquidity
-        let liquidity = self.repo.get_liquidity(partner_id, &quote.from_currency).await?;
+        let liquidity = self
+            .repo
+            .get_liquidity(partner_id, &quote.from_currency)
+            .await?;
         if let Some(liq) = &liquidity {
             let available = &liq.balance - &liq.reserved;
             if &quote.from_amount > &available {
-                return Err(PartnerError::InsufficientLiquidity(quote.from_currency.clone()));
+                return Err(PartnerError::InsufficientLiquidity(
+                    quote.from_currency.clone(),
+                ));
             }
         }
 
-        let transfer = self.repo.create_transfer(
-            partner_id,
-            partner_ref,
-            &quote.from_currency,
-            &quote.to_currency,
-            quote.from_amount.clone(),
-            quote.to_amount.clone(),
-            quote.fee_amount.clone(),
-            quote.fx_rate.clone(),
-            metadata,
-        ).await.map_err(|e| {
-            // Unique constraint violation → duplicate ref
-            if e.to_string().contains("unique") || e.to_string().contains("duplicate") {
-                PartnerError::DuplicateRef(partner_ref.to_string())
-            } else {
-                PartnerError::from(e)
-            }
-        })?;
+        let transfer = self
+            .repo
+            .create_transfer(
+                partner_id,
+                partner_ref,
+                &quote.from_currency,
+                &quote.to_currency,
+                quote.from_amount.clone(),
+                quote.to_amount.clone(),
+                quote.fee_amount.clone(),
+                quote.fx_rate.clone(),
+                metadata,
+            )
+            .await
+            .map_err(|e| {
+                // Unique constraint violation → duplicate ref
+                if e.to_string().contains("unique") || e.to_string().contains("duplicate") {
+                    PartnerError::DuplicateRef(partner_ref.to_string())
+                } else {
+                    PartnerError::from(e)
+                }
+            })?;
 
         info!(partner_id=%partner_id, transfer_id=%transfer.id, corridor=%corridor, "Partner transfer initiated");
         Ok(transfer)
@@ -203,9 +212,17 @@ impl PartnerService {
         // Net payable = fees collected by Aframp (positive = Aframp keeps)
         let net_payable = total_fees.clone();
 
-        let settlement = self.repo.upsert_settlement(
-            partner_id, date, total_volume, total_fees, net_payable, tx_count,
-        ).await?;
+        let settlement = self
+            .repo
+            .upsert_settlement(
+                partner_id,
+                date,
+                total_volume,
+                total_fees,
+                net_payable,
+                tx_count,
+            )
+            .await?;
 
         info!(partner_id=%partner_id, date=%date, settlement_id=%settlement.id, tx_count=%tx_count, "Settlement computed");
         Ok(())

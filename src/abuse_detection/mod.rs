@@ -20,18 +20,18 @@
 //! - Medium (1 hour): Sustained abuse patterns
 //! - Long (24 hours): Slow and low abuse strategies
 
+pub mod case_management;
 pub mod config;
 pub mod detector;
-pub mod signals;
-pub mod response;
-pub mod case_management;
-pub mod repository;
-pub mod middleware;
 pub mod handlers;
 pub mod metrics;
+pub mod middleware;
+pub mod repository;
+pub mod response;
+pub mod signals;
 
+pub use case_management::{AbuseCase, AbuseCaseStatus};
 pub use config::AbuseDetectionConfig;
 pub use detector::AbuseDetector;
-pub use signals::{DetectionSignal, SignalCategory, DetectionWindow};
-pub use response::{ResponseTier, ResponseAction};
-pub use case_management::{AbuseCase, AbuseCaseStatus};
+pub use response::{ResponseAction, ResponseTier};
+pub use signals::{DetectionSignal, DetectionWindow, SignalCategory};

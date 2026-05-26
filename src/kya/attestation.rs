@@ -194,7 +194,10 @@ impl AttestationVerifier {
     }
 
     /// Verify all attestations for an agent
-    pub async fn verify_all(&self, agent_did: &DID) -> Result<Vec<(AttestationRecord, bool)>, KYAError> {
+    pub async fn verify_all(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<(AttestationRecord, bool)>, KYAError> {
         let attestation_manager = Attestation::new(self.pool.clone());
         let attestations = attestation_manager.get_by_agent(agent_did).await?;
 

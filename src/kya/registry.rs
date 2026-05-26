@@ -42,11 +42,17 @@ impl KYARegistry {
     }
 
     // Identity Management
-    pub async fn register_agent(&self, identity: &crate::kya::identity::AgentIdentity) -> Result<(), KYAError> {
+    pub async fn register_agent(
+        &self,
+        identity: &crate::kya::identity::AgentIdentity,
+    ) -> Result<(), KYAError> {
         self.identity_registry.register(identity).await
     }
 
-    pub async fn get_agent(&self, did: &DID) -> Result<crate::kya::identity::AgentIdentity, KYAError> {
+    pub async fn get_agent(
+        &self,
+        did: &DID,
+    ) -> Result<crate::kya::identity::AgentIdentity, KYAError> {
         self.identity_registry.get_by_did(did).await
     }
 
@@ -54,20 +60,39 @@ impl KYARegistry {
         self.identity_registry.update_profile(profile).await
     }
 
-    pub async fn list_agents(&self, limit: i64, offset: i64) -> Result<Vec<crate::kya::identity::AgentIdentity>, KYAError> {
+    pub async fn list_agents(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::kya::identity::AgentIdentity>, KYAError> {
         self.identity_registry.list_agents(limit, offset).await
     }
 
     // Reputation Management
-    pub async fn initialize_reputation(&self, agent_did: &DID, domain: &ReputationDomain) -> Result<(), KYAError> {
-        self.reputation_manager.initialize_domain_reputation(agent_did, domain).await
+    pub async fn initialize_reputation(
+        &self,
+        agent_did: &DID,
+        domain: &ReputationDomain,
+    ) -> Result<(), KYAError> {
+        self.reputation_manager
+            .initialize_domain_reputation(agent_did, domain)
+            .await
     }
 
-    pub async fn get_reputation(&self, agent_did: &DID, domain: &ReputationDomain) -> Result<DomainReputationScore, KYAError> {
-        self.reputation_manager.get_domain_score(agent_did, domain).await
+    pub async fn get_reputation(
+        &self,
+        agent_did: &DID,
+        domain: &ReputationDomain,
+    ) -> Result<DomainReputationScore, KYAError> {
+        self.reputation_manager
+            .get_domain_score(agent_did, domain)
+            .await
     }
 
-    pub async fn get_all_reputations(&self, agent_did: &DID) -> Result<Vec<DomainReputationScore>, KYAError> {
+    pub async fn get_all_reputations(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<DomainReputationScore>, KYAError> {
         self.reputation_manager.get_all_scores(agent_did).await
     }
 
@@ -78,7 +103,9 @@ impl KYARegistry {
         success: bool,
         weight: f64,
     ) -> Result<(), KYAError> {
-        self.reputation_manager.record_interaction(agent_did, domain, success, weight).await
+        self.reputation_manager
+            .record_interaction(agent_did, domain, success, weight)
+            .await
     }
 
     // Feedback Authorization (Sybil Resistance)
@@ -90,7 +117,9 @@ impl KYARegistry {
         domain: &ReputationDomain,
         signature: String,
     ) -> Result<FeedbackToken, KYAError> {
-        self.feedback_auth.issue_token(agent_did, client_did, interaction_id, domain, signature).await
+        self.feedback_auth
+            .issue_token(agent_did, client_did, interaction_id, domain, signature)
+            .await
     }
 
     pub async fn submit_feedback(
@@ -100,8 +129,13 @@ impl KYARegistry {
         success: bool,
         weight: f64,
     ) -> Result<(), KYAError> {
-        let token = self.feedback_auth.verify_and_consume(token_id, client_did).await?;
-        self.reputation_manager.record_interaction(&token.agent_did, &token.domain, success, weight).await
+        let token = self
+            .feedback_auth
+            .verify_and_consume(token_id, client_did)
+            .await?;
+        self.reputation_manager
+            .record_interaction(&token.agent_did, &token.domain, success, weight)
+            .await
     }
 
     // Attestations
@@ -115,14 +149,30 @@ impl KYARegistry {
         signature: String,
         expires_at: Option<chrono::DateTime<Utc>>,
     ) -> Result<AttestationRecord, KYAError> {
-        self.attestation.create(agent_did, issuer_did, domain, claim, evidence_uri, signature, expires_at).await
+        self.attestation
+            .create(
+                agent_did,
+                issuer_did,
+                domain,
+                claim,
+                evidence_uri,
+                signature,
+                expires_at,
+            )
+            .await
     }
 
-    pub async fn get_attestations(&self, agent_did: &DID) -> Result<Vec<AttestationRecord>, KYAError> {
+    pub async fn get_attestations(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<AttestationRecord>, KYAError> {
         self.attestation.get_by_agent(agent_did).await
     }
 
-    pub async fn verify_attestation(&self, attestation: &AttestationRecord) -> Result<bool, KYAError> {
+    pub async fn verify_attestation(
+        &self,
+        attestation: &AttestationRecord,
+    ) -> Result<bool, KYAError> {
         self.attestation_verifier.verify(attestation).await
     }
 
@@ -135,10 +185,15 @@ impl KYARegistry {
         proof: Vec<u8>,
         public_inputs: Vec<u8>,
     ) -> Result<CompetenceProofRecord, KYAError> {
-        self.competence_proof.store_proof(agent_did, domain, claim, proof, public_inputs).await
+        self.competence_proof
+            .store_proof(agent_did, domain, claim, proof, public_inputs)
+            .await
     }
 
-    pub async fn get_competence_proofs(&self, agent_did: &DID) -> Result<Vec<CompetenceProofRecord>, KYAError> {
+    pub async fn get_competence_proofs(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<CompetenceProofRecord>, KYAError> {
         self.competence_proof.get_by_agent(agent_did).await
     }
 
@@ -147,24 +202,42 @@ impl KYARegistry {
         proof_record: &CompetenceProofRecord,
         expected_public_inputs: &[u8],
     ) -> Result<bool, KYAError> {
-        self.zkp_verifier.verify_proof(proof_record, expected_public_inputs)
+        self.zkp_verifier
+            .verify_proof(proof_record, expected_public_inputs)
     }
 
     // Scoring
-    pub async fn get_detailed_score(&self, agent_did: &DID, domain: &ReputationDomain) -> Result<crate::kya::scoring::DetailedScore, KYAError> {
-        self.domain_scorer.get_detailed_score(agent_did, domain).await
+    pub async fn get_detailed_score(
+        &self,
+        agent_did: &DID,
+        domain: &ReputationDomain,
+    ) -> Result<crate::kya::scoring::DetailedScore, KYAError> {
+        self.domain_scorer
+            .get_detailed_score(agent_did, domain)
+            .await
     }
 
-    pub async fn get_all_scores(&self, agent_did: &DID) -> Result<Vec<crate::kya::scoring::DetailedScore>, KYAError> {
+    pub async fn get_all_scores(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<crate::kya::scoring::DetailedScore>, KYAError> {
         self.modular_scoring.get_all_domain_scores(agent_did).await
     }
 
     pub async fn get_composite_score(&self, agent_did: &DID) -> Result<f64, KYAError> {
-        self.modular_scoring.calculate_composite_score(agent_did).await
+        self.modular_scoring
+            .calculate_composite_score(agent_did)
+            .await
     }
 
-    pub async fn get_ranking(&self, agent_did: &DID, domain: &ReputationDomain) -> Result<crate::kya::scoring::DomainRanking, KYAError> {
-        self.modular_scoring.get_domain_ranking(agent_did, domain).await
+    pub async fn get_ranking(
+        &self,
+        agent_did: &DID,
+        domain: &ReputationDomain,
+    ) -> Result<crate::kya::scoring::DomainRanking, KYAError> {
+        self.modular_scoring
+            .get_domain_ranking(agent_did, domain)
+            .await
     }
 
     // Cross-Platform Reputation
@@ -231,7 +304,10 @@ impl KYARegistry {
     }
 
     /// Get comprehensive agent profile with all reputation data
-    pub async fn get_full_agent_profile(&self, agent_did: &DID) -> Result<FullAgentProfile, KYAError> {
+    pub async fn get_full_agent_profile(
+        &self,
+        agent_did: &DID,
+    ) -> Result<FullAgentProfile, KYAError> {
         let identity = self.get_agent(agent_did).await?;
         let reputations = self.get_all_reputations(agent_did).await?;
         let attestations = self.get_attestations(agent_did).await?;

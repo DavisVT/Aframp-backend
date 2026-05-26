@@ -23,11 +23,7 @@ pub struct LobbyService {
 }
 
 impl LobbyService {
-    pub fn new(
-        db: PgPool,
-        stellar_client: Arc<StellarClient>,
-        poll_interval_secs: u64,
-    ) -> Self {
+    pub fn new(db: PgPool, stellar_client: Arc<StellarClient>, poll_interval_secs: u64) -> Self {
         Self {
             db,
             stellar_client,
@@ -44,16 +40,16 @@ impl LobbyService {
         memo: String,
     ) -> Result<broadcast::Receiver<PaymentNotification>, AppError> {
         let mut payments = self.active_payments.write().await;
-        
+
         let (tx, rx) = broadcast::channel(16);
         payments.insert(memo.clone(), tx);
-        
+
         info!(
             payment_id = %payment_id,
             memo = %memo,
             "Payment registered for monitoring"
         );
-        
+
         Ok(rx)
     }
 
@@ -69,12 +65,12 @@ impl LobbyService {
     /// Monitors Stellar ledger for payments matching active memos
     pub async fn start_polling_worker(self: Arc<Self>) {
         let mut ticker = interval(self.poll_interval);
-        
+
         info!("POS lobby service polling worker started");
-        
+
         loop {
             ticker.tick().await;
-            
+
             if let Err(e) = self.poll_pending_payments().await {
                 error!(error = %e, "Error polling pending payments");
             }
@@ -91,25 +87,30 @@ impl LobbyService {
             WHERE status = 'pending' OR status = 'submitted'
             ORDER BY created_at DESC
             LIMIT 100
-            "#
+            "#,
         )
         .fetch_all(&self.db)
         .await
         .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-        info!(count = pending_payments.len(), "Polling pending POS payments");
+        info!(
+            count = pending_payments.len(),
+            "Polling pending POS payments"
+        );
 
         for payment in pending_payments {
             // Check if payment has expired
             if payment.expires_at < Utc::now() {
-                self.mark_payment_failed(payment.id, "Payment expired").await?;
+                self.mark_payment_failed(payment.id, "Payment expired")
+                    .await?;
                 continue;
             }
 
             // Query Stellar for transactions to this merchant with matching memo
             match self.check_stellar_payment(&payment).await {
                 Ok(Some((tx_hash, amount, customer_address))) => {
-                    self.confirm_payment(payment, tx_hash, amount, customer_address).await?;
+                    self.confirm_payment(payment, tx_hash, amount, customer_address)
+                        .await?;
                 }
                 Ok(None) => {
                     // No matching transaction yet, continue monitoring
@@ -135,12 +136,13 @@ impl LobbyService {
     ) -> Result<Option<(String, Decimal, String)>, AppError> {
         // Query Stellar Horizon for recent transactions to the merchant address
         // Filter by memo to match the specific payment intent
-        
+
         // Note: In production, this would use Stellar Horizon's /accounts/{account}/payments endpoint
         // with cursor-based pagination and memo filtering
-        
+
         // For now, we'll use the account transactions endpoint
-        let account_info = self.stellar_client
+        let account_info = self
+            .stellar_client
             .get_account(&payment.destination_address)
             .await
             .map_err(|e| AppError::InternalError(format!("Failed to fetch account: {}", e)))?;
@@ -150,10 +152,10 @@ impl LobbyService {
         // 2. Filter by memo matching payment.memo
         // 3. Verify asset is cNGN
         // 4. Extract amount and source address
-        
+
         // Placeholder: Return None for now (no matching transaction found)
         // This will be replaced with actual Horizon API calls
-        
+
         Ok(None)
     }
 
@@ -167,7 +169,7 @@ impl LobbyService {
         customer_address: String,
     ) -> Result<(), AppError> {
         let start = std::time::Instant::now();
-        
+
         // Check for amount discrepancy
         let expected_amount = payment.amount_cngn;
         let status = if (actual_amount - expected_amount).abs() < Decimal::new(1, 2) {
@@ -188,7 +190,7 @@ impl LobbyService {
                 confirmed_at = $5,
                 updated_at = $6
             WHERE id = $7
-            "#
+            "#,
         )
         .bind(&status)
         .bind(&tx_hash)
@@ -244,18 +246,14 @@ impl LobbyService {
 
     /// Mark a payment as failed
     #[instrument(skip(self))]
-    async fn mark_payment_failed(
-        &self,
-        payment_id: Uuid,
-        reason: &str,
-    ) -> Result<(), AppError> {
+    async fn mark_payment_failed(&self, payment_id: Uuid, reason: &str) -> Result<(), AppError> {
         sqlx::query(
             r#"
             UPDATE pos_payment_intents
             SET status = 'failed',
                 updated_at = $1
             WHERE id = $2
-            "#
+            "#,
         )
         .bind(Utc::now())
         .bind(payment_id)
@@ -279,7 +277,7 @@ impl LobbyService {
             WHERE order_id = $1
             ORDER BY created_at DESC
             LIMIT 1
-            "#
+            "#,
         )
         .bind(order_id)
         .fetch_optional(&self.db)

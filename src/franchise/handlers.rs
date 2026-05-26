@@ -58,7 +58,10 @@ pub async fn update_settlement(
     Query(actor): Query<ActorQuery>,
     Json(req): Json<UpdateSettlementRequest>,
 ) -> impl IntoResponse {
-    match svc.update_settlement(org_id, actor.actor_user_id, req).await {
+    match svc
+        .update_settlement(org_id, actor.actor_user_id, req)
+        .await
+    {
         Ok(org) => (StatusCode::OK, Json(json!({ "data": org }))).into_response(),
         Err(e) => e.into_response(),
     }
@@ -127,8 +130,15 @@ pub async fn remove_branch(
     Path((org_id, branch_id)): Path<(Uuid, Uuid)>,
     Query(actor): Query<ActorQuery>,
 ) -> impl IntoResponse {
-    match svc.remove_branch(org_id, actor.actor_user_id, branch_id).await {
-        Ok(_) => (StatusCode::OK, Json(json!({ "message": "Branch deactivated" }))).into_response(),
+    match svc
+        .remove_branch(org_id, actor.actor_user_id, branch_id)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({ "message": "Branch deactivated" })),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -156,7 +166,10 @@ pub async fn remove_member(
     Path((org_id, user_id)): Path<(Uuid, Uuid)>,
     Query(actor): Query<ActorQuery>,
 ) -> impl IntoResponse {
-    match svc.remove_member(org_id, actor.actor_user_id, user_id).await {
+    match svc
+        .remove_member(org_id, actor.actor_user_id, user_id)
+        .await
+    {
         Ok(_) => (StatusCode::OK, Json(json!({ "message": "Member removed" }))).into_response(),
         Err(e) => e.into_response(),
     }
@@ -177,7 +190,10 @@ pub async fn cross_store_revenue(
         period_end: params.period_end,
         branch_id: params.branch_id,
     };
-    match svc.get_cross_store_revenue(org_id, params.actor_user_id, query).await {
+    match svc
+        .get_cross_store_revenue(org_id, params.actor_user_id, query)
+        .await
+    {
         Ok(report) => (StatusCode::OK, Json(json!({ "data": report }))).into_response(),
         Err(e) => e.into_response(),
     }

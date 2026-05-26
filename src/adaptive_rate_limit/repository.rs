@@ -51,8 +51,8 @@ impl AdaptiveRateLimitRepository {
         &self,
         record: &ModeTransitionRecord,
     ) -> Result<(), sqlx::Error> {
-        let signal_values = serde_json::to_value(&record.signal_values)
-            .unwrap_or(serde_json::Value::Null);
+        let signal_values =
+            serde_json::to_value(&record.signal_values).unwrap_or(serde_json::Value::Null);
 
         sqlx::query!(
             r#"

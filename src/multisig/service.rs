@@ -11,8 +11,8 @@ use crate::multisig::{
     error::MultiSigError,
     governance_log::compute_entry_hash,
     models::{
-        GovernanceLogEntry, MultiSigOpType, MultiSigProposal, MultiSigProposalStatus,
-        MultiSigSignature, ProposalDetail, ProposalListResponse, ListProposalsQuery,
+        GovernanceLogEntry, ListProposalsQuery, MultiSigOpType, MultiSigProposal,
+        MultiSigProposalStatus, MultiSigSignature, ProposalDetail, ProposalListResponse,
     },
     notification::{MultiSigNotificationConfig, MultiSigNotifier, NotificationEvent},
     repository::MultiSigRepository,
@@ -51,12 +51,9 @@ impl MultiSigService {
         }
     }
 
-    pub fn from_env(
-        repo: Arc<MultiSigRepository>,
-        stellar: Arc<StellarClient>,
-    ) -> Self {
-        let issuer_address = std::env::var("STELLAR_ISSUER_ADDRESS")
-            .unwrap_or_else(|_| String::new());
+    pub fn from_env(repo: Arc<MultiSigRepository>, stellar: Arc<StellarClient>) -> Self {
+        let issuer_address =
+            std::env::var("STELLAR_ISSUER_ADDRESS").unwrap_or_else(|_| String::new());
         let proposal_ttl_hours = std::env::var("MULTISIG_PROPOSAL_TTL_HOURS")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -274,13 +271,12 @@ impl MultiSigService {
 
         // Check if threshold is met
         let updated_proposal = if sig_count >= required {
-            let new_status = if proposal.op_type.requires_time_lock()
-                && proposal.time_lock_until.is_some()
-            {
-                MultiSigProposalStatus::TimeLocked
-            } else {
-                MultiSigProposalStatus::Ready
-            };
+            let new_status =
+                if proposal.op_type.requires_time_lock() && proposal.time_lock_until.is_some() {
+                    MultiSigProposalStatus::TimeLocked
+                } else {
+                    MultiSigProposalStatus::Ready
+                };
 
             let updated = self
                 .repo
@@ -584,7 +580,12 @@ impl MultiSigService {
     ) -> Result<ProposalListResponse, MultiSigError> {
         let (proposals, total) = self
             .repo
-            .list_proposals(query.status, query.op_type, query.page_size(), query.offset())
+            .list_proposals(
+                query.status,
+                query.op_type,
+                query.page_size(),
+                query.offset(),
+            )
             .await?;
 
         Ok(ProposalListResponse {
@@ -619,9 +620,9 @@ impl MultiSigService {
                 let destination = params["destination"]
                     .as_str()
                     .ok_or_else(|| MultiSigError::XdrBuild("missing 'destination'".to_string()))?;
-                let amount_str = params["amount_stroops"]
-                    .as_str()
-                    .ok_or_else(|| MultiSigError::XdrBuild("missing 'amount_stroops'".to_string()))?;
+                let amount_str = params["amount_stroops"].as_str().ok_or_else(|| {
+                    MultiSigError::XdrBuild("missing 'amount_stroops'".to_string())
+                })?;
                 let amount: i64 = amount_str
                     .parse()
                     .map_err(|_| MultiSigError::XdrBuild("invalid 'amount_stroops'".to_string()))?;
@@ -640,9 +641,9 @@ impl MultiSigService {
                 let source = params["source"]
                     .as_str()
                     .ok_or_else(|| MultiSigError::XdrBuild("missing 'source'".to_string()))?;
-                let amount_str = params["amount_stroops"]
-                    .as_str()
-                    .ok_or_else(|| MultiSigError::XdrBuild("missing 'amount_stroops'".to_string()))?;
+                let amount_str = params["amount_stroops"].as_str().ok_or_else(|| {
+                    MultiSigError::XdrBuild("missing 'amount_stroops'".to_string())
+                })?;
                 let amount: i64 = amount_str
                     .parse()
                     .map_err(|_| MultiSigError::XdrBuild("invalid 'amount_stroops'".to_string()))?;

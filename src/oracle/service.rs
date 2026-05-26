@@ -36,13 +36,25 @@ struct Inner {
 }
 
 impl OracleService {
-    pub fn new(adapters: Vec<Box<dyn PriceAdapter>>, pair: impl Into<String>, pool: Option<PgPool>) -> Self {
+    pub fn new(
+        adapters: Vec<Box<dyn PriceAdapter>>,
+        pair: impl Into<String>,
+        pool: Option<PgPool>,
+    ) -> Self {
         let pair = pair.into();
         let health: HashMap<String, SourceHealth> = adapters
             .iter()
             .map(|a| {
                 let name = a.name().to_string();
-                (name.clone(), SourceHealth { name, healthy: true, last_seen: None, failures: 0 })
+                (
+                    name.clone(),
+                    SourceHealth {
+                        name,
+                        healthy: true,
+                        last_seen: None,
+                        failures: 0,
+                    },
+                )
             })
             .collect();
 
@@ -142,7 +154,10 @@ impl OracleService {
         for adapter in &self.inner.adapters {
             // Only query sources that haven't been slashed
             let src_health = health.get(adapter.name());
-            if src_health.map(|h| h.failures >= MAX_SOURCE_FAILURES).unwrap_or(false) {
+            if src_health
+                .map(|h| h.failures >= MAX_SOURCE_FAILURES)
+                .unwrap_or(false)
+            {
                 continue;
             }
             // We can't move adapter into async block directly (it's behind &),
@@ -184,7 +199,8 @@ impl OracleService {
                 if h.failures >= MAX_SOURCE_FAILURES {
                     if h.healthy {
                         warn!(source = %name, "Oracle source slashed — too many consecutive failures");
-                        self.audit_exclusion_unlocked(name, "consecutive_failures").await;
+                        self.audit_exclusion_unlocked(name, "consecutive_failures")
+                            .await;
                     }
                     h.healthy = false;
                 }

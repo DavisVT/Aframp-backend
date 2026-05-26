@@ -36,13 +36,8 @@ mod tests {
     }
 
     fn make_http_gauge(r: &Registry) -> prometheus::GaugeVec {
-        register_gauge_vec_with_registry!(
-            "test_http_requests_in_flight",
-            "test",
-            &["route"],
-            r
-        )
-        .unwrap()
+        register_gauge_vec_with_registry!("test_http_requests_in_flight", "test", &["route"], r)
+            .unwrap()
     }
 
     fn make_cngn_counter(r: &Registry) -> prometheus::CounterVec {
@@ -107,13 +102,8 @@ mod tests {
     }
 
     fn make_worker_cycles(r: &Registry) -> prometheus::CounterVec {
-        register_counter_vec_with_registry!(
-            "test_worker_cycles_total",
-            "test",
-            &["worker"],
-            r
-        )
-        .unwrap()
+        register_counter_vec_with_registry!("test_worker_cycles_total", "test", &["worker"], r)
+            .unwrap()
     }
 
     fn make_worker_errors(r: &Registry) -> prometheus::CounterVec {
@@ -127,53 +117,28 @@ mod tests {
     }
 
     fn make_worker_records(r: &Registry) -> prometheus::GaugeVec {
-        register_gauge_vec_with_registry!(
-            "test_worker_records_processed",
-            "test",
-            &["worker"],
-            r
-        )
-        .unwrap()
+        register_gauge_vec_with_registry!("test_worker_records_processed", "test", &["worker"], r)
+            .unwrap()
     }
 
     fn make_cache_hits(r: &Registry) -> prometheus::CounterVec {
-        register_counter_vec_with_registry!(
-            "test_cache_hits_total",
-            "test",
-            &["key_prefix"],
-            r
-        )
-        .unwrap()
+        register_counter_vec_with_registry!("test_cache_hits_total", "test", &["key_prefix"], r)
+            .unwrap()
     }
 
     fn make_cache_misses(r: &Registry) -> prometheus::CounterVec {
-        register_counter_vec_with_registry!(
-            "test_cache_misses_total",
-            "test",
-            &["key_prefix"],
-            r
-        )
-        .unwrap()
+        register_counter_vec_with_registry!("test_cache_misses_total", "test", &["key_prefix"], r)
+            .unwrap()
     }
 
     fn make_db_errors(r: &Registry) -> prometheus::CounterVec {
-        register_counter_vec_with_registry!(
-            "test_db_errors_total",
-            "test",
-            &["error_type"],
-            r
-        )
-        .unwrap()
+        register_counter_vec_with_registry!("test_db_errors_total", "test", &["error_type"], r)
+            .unwrap()
     }
 
     fn make_db_pool_gauge(r: &Registry) -> prometheus::GaugeVec {
-        register_gauge_vec_with_registry!(
-            "test_db_connections_active",
-            "test",
-            &["pool"],
-            r
-        )
-        .unwrap()
+        register_gauge_vec_with_registry!("test_db_connections_active", "test", &["pool"], r)
+            .unwrap()
     }
 
     // -----------------------------------------------------------------------
@@ -185,16 +150,26 @@ mod tests {
         let r = Registry::new();
         let counter = make_http_counters(&r);
 
-        counter.with_label_values(&["GET", "/api/rates", "200"]).inc();
-        counter.with_label_values(&["POST", "/api/onramp/quote", "201"]).inc();
-        counter.with_label_values(&["GET", "/api/rates", "200"]).inc();
+        counter
+            .with_label_values(&["GET", "/api/rates", "200"])
+            .inc();
+        counter
+            .with_label_values(&["POST", "/api/onramp/quote", "201"])
+            .inc();
+        counter
+            .with_label_values(&["GET", "/api/rates", "200"])
+            .inc();
 
         assert_eq!(
-            counter.with_label_values(&["GET", "/api/rates", "200"]).get(),
+            counter
+                .with_label_values(&["GET", "/api/rates", "200"])
+                .get(),
             2.0
         );
         assert_eq!(
-            counter.with_label_values(&["POST", "/api/onramp/quote", "201"]).get(),
+            counter
+                .with_label_values(&["POST", "/api/onramp/quote", "201"])
+                .get(),
             1.0
         );
     }
@@ -208,7 +183,9 @@ mod tests {
         hist.with_label_values(&["GET", "/health"]).observe(0.2);
 
         let mf = r.gather();
-        let metric = mf.iter().find(|m| m.get_name() == "test_http_request_duration_seconds");
+        let metric = mf
+            .iter()
+            .find(|m| m.get_name() == "test_http_request_duration_seconds");
         assert!(metric.is_some());
     }
 
@@ -237,14 +214,30 @@ mod tests {
         counter.with_label_values(&["onramp", "completed"]).inc();
         counter.with_label_values(&["onramp", "failed"]).inc();
         counter.with_label_values(&["offramp", "completed"]).inc();
-        counter.with_label_values(&["bill_payment", "completed"]).inc();
+        counter
+            .with_label_values(&["bill_payment", "completed"])
+            .inc();
         counter.with_label_values(&["onramp", "refunded"]).inc();
 
-        assert_eq!(counter.with_label_values(&["onramp", "completed"]).get(), 1.0);
+        assert_eq!(
+            counter.with_label_values(&["onramp", "completed"]).get(),
+            1.0
+        );
         assert_eq!(counter.with_label_values(&["onramp", "failed"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["offramp", "completed"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["bill_payment", "completed"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["onramp", "refunded"]).get(), 1.0);
+        assert_eq!(
+            counter.with_label_values(&["offramp", "completed"]).get(),
+            1.0
+        );
+        assert_eq!(
+            counter
+                .with_label_values(&["bill_payment", "completed"])
+                .get(),
+            1.0
+        );
+        assert_eq!(
+            counter.with_label_values(&["onramp", "refunded"]).get(),
+            1.0
+        );
     }
 
     #[test]
@@ -256,7 +249,9 @@ mod tests {
         hist.with_label_values(&["offramp"]).observe(10000.0);
 
         let mf = r.gather();
-        let metric = mf.iter().find(|m| m.get_name() == "test_cngn_transaction_volume_ngn");
+        let metric = mf
+            .iter()
+            .find(|m| m.get_name() == "test_cngn_transaction_volume_ngn");
         assert!(metric.is_some());
     }
 
@@ -271,12 +266,25 @@ mod tests {
 
         counter.with_label_values(&["paystack", "initiate"]).inc();
         counter.with_label_values(&["paystack", "verify"]).inc();
-        counter.with_label_values(&["flutterwave", "initiate"]).inc();
+        counter
+            .with_label_values(&["flutterwave", "initiate"])
+            .inc();
         counter.with_label_values(&["paystack", "initiate"]).inc();
 
-        assert_eq!(counter.with_label_values(&["paystack", "initiate"]).get(), 2.0);
-        assert_eq!(counter.with_label_values(&["paystack", "verify"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["flutterwave", "initiate"]).get(), 1.0);
+        assert_eq!(
+            counter.with_label_values(&["paystack", "initiate"]).get(),
+            2.0
+        );
+        assert_eq!(
+            counter.with_label_values(&["paystack", "verify"]).get(),
+            1.0
+        );
+        assert_eq!(
+            counter
+                .with_label_values(&["flutterwave", "initiate"])
+                .get(),
+            1.0
+        );
     }
 
     #[test]
@@ -284,12 +292,24 @@ mod tests {
         let r = Registry::new();
         let counter = make_payment_failures(&r);
 
-        counter.with_label_values(&["paystack", "network_error"]).inc();
+        counter
+            .with_label_values(&["paystack", "network_error"])
+            .inc();
         counter.with_label_values(&["flutterwave", "timeout"]).inc();
-        counter.with_label_values(&["paystack", "network_error"]).inc();
+        counter
+            .with_label_values(&["paystack", "network_error"])
+            .inc();
 
-        assert_eq!(counter.with_label_values(&["paystack", "network_error"]).get(), 2.0);
-        assert_eq!(counter.with_label_values(&["flutterwave", "timeout"]).get(), 1.0);
+        assert_eq!(
+            counter
+                .with_label_values(&["paystack", "network_error"])
+                .get(),
+            2.0
+        );
+        assert_eq!(
+            counter.with_label_values(&["flutterwave", "timeout"]).get(),
+            1.0
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -339,7 +359,10 @@ mod tests {
 
         assert_eq!(counter.with_label_values(&["onramp_processor"]).get(), 2.0);
         assert_eq!(counter.with_label_values(&["offramp_processor"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["transaction_monitor"]).get(), 1.0);
+        assert_eq!(
+            counter.with_label_values(&["transaction_monitor"]).get(),
+            1.0
+        );
     }
 
     #[test]
@@ -347,13 +370,34 @@ mod tests {
         let r = Registry::new();
         let counter = make_worker_errors(&r);
 
-        counter.with_label_values(&["onramp_processor", "timeout"]).inc();
-        counter.with_label_values(&["onramp_processor", "stellar_error"]).inc();
-        counter.with_label_values(&["offramp_processor", "database"]).inc();
+        counter
+            .with_label_values(&["onramp_processor", "timeout"])
+            .inc();
+        counter
+            .with_label_values(&["onramp_processor", "stellar_error"])
+            .inc();
+        counter
+            .with_label_values(&["offramp_processor", "database"])
+            .inc();
 
-        assert_eq!(counter.with_label_values(&["onramp_processor", "timeout"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["onramp_processor", "stellar_error"]).get(), 1.0);
-        assert_eq!(counter.with_label_values(&["offramp_processor", "database"]).get(), 1.0);
+        assert_eq!(
+            counter
+                .with_label_values(&["onramp_processor", "timeout"])
+                .get(),
+            1.0
+        );
+        assert_eq!(
+            counter
+                .with_label_values(&["onramp_processor", "stellar_error"])
+                .get(),
+            1.0
+        );
+        assert_eq!(
+            counter
+                .with_label_values(&["offramp_processor", "database"])
+                .get(),
+            1.0
+        );
     }
 
     #[test]

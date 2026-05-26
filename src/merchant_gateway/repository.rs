@@ -256,7 +256,10 @@ impl PaymentIntentRepository {
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn find_expired(&self, limit: i64) -> Result<Vec<MerchantPaymentIntent>, DatabaseError> {
+    pub async fn find_expired(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<MerchantPaymentIntent>, DatabaseError> {
         sqlx::query_as::<_, MerchantPaymentIntent>(
             r#"
             SELECT * FROM merchant_payment_intents
@@ -770,7 +773,10 @@ impl RefundRepository {
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn find_by_id(&self, refund_id: Uuid) -> Result<Option<MerchantRefund>, DatabaseError> {
+    pub async fn find_by_id(
+        &self,
+        refund_id: Uuid,
+    ) -> Result<Option<MerchantRefund>, DatabaseError> {
         sqlx::query_as::<_, MerchantRefund>("SELECT * FROM merchant_refunds WHERE id = $1")
             .bind(refund_id)
             .fetch_optional(&self.pool)

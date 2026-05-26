@@ -10,7 +10,7 @@
 use crate::multisig::error::MultiSigError;
 use stellar_strkey::ed25519::PublicKey as StrkeyPublicKey;
 use stellar_xdr::next::{
-    AccountId, AlphaNum12, AssetCode12, Asset as XdrAsset, Limits, MuxedAccount, Operation,
+    AccountId, AlphaNum12, Asset as XdrAsset, AssetCode12, Limits, MuxedAccount, Operation,
     OperationBody, PaymentOp, Preconditions, PublicKey, SequenceNumber, Transaction,
     TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
 };
@@ -178,9 +178,7 @@ pub fn build_set_options_xdr(
     sequence: i64,
     params: SetOptionsParams,
 ) -> Result<String, MultiSigError> {
-    use stellar_xdr::next::{
-        SetOptionsOp, Signer as XdrSigner, SignerKey, SignerKeyEd25519,
-    };
+    use stellar_xdr::next::{SetOptionsOp, Signer as XdrSigner, SignerKey, SignerKeyEd25519};
 
     let signer_xdr = if let Some((key, weight)) = params.signer {
         let signer_pk = parse_public_key(&key)?;

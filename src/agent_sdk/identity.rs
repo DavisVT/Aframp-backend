@@ -41,8 +41,7 @@ impl AgentIdentity {
         let signing_key = SigningKey::generate(&mut csprng);
         let verifying_key: VerifyingKey = signing_key.verifying_key();
 
-        let public_key = StrkeyPublic(verifying_key.to_bytes())
-            .to_string();
+        let public_key = StrkeyPublic(verifying_key.to_bytes()).to_string();
 
         Ok(Self {
             name: name.into(),

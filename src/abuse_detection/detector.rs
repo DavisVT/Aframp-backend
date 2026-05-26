@@ -58,13 +58,19 @@ impl AbuseDetector {
 
         let duration = match tier {
             ResponseTier::Monitor => None,
-            ResponseTier::Soft => Some(Duration::minutes(self.config.soft_response_duration_mins as i64)),
-            ResponseTier::Hard => Some(Duration::hours(self.config.hard_response_duration_hours as i64)),
+            ResponseTier::Soft => Some(Duration::minutes(
+                self.config.soft_response_duration_mins as i64,
+            )),
+            ResponseTier::Hard => Some(Duration::hours(
+                self.config.hard_response_duration_hours as i64,
+            )),
             ResponseTier::Critical => {
                 if self.config.critical_response_permanent {
                     None
                 } else {
-                    Some(Duration::hours(self.config.hard_response_duration_hours as i64))
+                    Some(Duration::hours(
+                        self.config.hard_response_duration_hours as i64,
+                    ))
                 }
             }
         };
@@ -140,7 +146,9 @@ impl AbuseDetector {
         let usage_key = format!("abuse:token_usage:{}", consumer_id);
         let window_secs = self.config.token_harvesting_window_secs;
 
-        let issuance_count = self.get_counter_in_window(&issuance_key, window_secs).await?;
+        let issuance_count = self
+            .get_counter_in_window(&issuance_key, window_secs)
+            .await?;
         let usage_count = self.get_counter_in_window(&usage_key, window_secs).await?;
 
         if issuance_count >= self.config.token_harvesting_threshold && usage_count > 0 {
@@ -195,7 +203,10 @@ impl AbuseDetector {
         ip_address: &str,
         resource_type: &str,
     ) -> Result<Option<DetectionSignal>, Box<dyn std::error::Error + Send + Sync>> {
-        let key = format!("abuse:scraping:{}:{}:{}", consumer_id, ip_address, resource_type);
+        let key = format!(
+            "abuse:scraping:{}:{}:{}",
+            consumer_id, ip_address, resource_type
+        );
         let window_secs = self.config.scraping_window_secs;
 
         let distinct_resources = self.get_set_size(&key).await?;
@@ -224,7 +235,9 @@ impl AbuseDetector {
         let window_secs = self.config.quote_farming_window_secs;
 
         let quote_count = self.get_counter_in_window(&quote_key, window_secs).await?;
-        let initiation_count = self.get_counter_in_window(&initiation_key, window_secs).await?;
+        let initiation_count = self
+            .get_counter_in_window(&initiation_key, window_secs)
+            .await?;
 
         if quote_count >= self.config.quote_farming_threshold && initiation_count > 0 {
             let ratio = Decimal::from(quote_count) / Decimal::from(initiation_count);
@@ -251,7 +264,8 @@ impl AbuseDetector {
         ip_address: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let key = format!("abuse:auth_failures:{}:{}", consumer_id, ip_address);
-        self.increment_counter(&key, self.config.credential_stuffing_window_secs).await
+        self.increment_counter(&key, self.config.credential_stuffing_window_secs)
+            .await
     }
 
     /// Record token issuance
@@ -260,7 +274,8 @@ impl AbuseDetector {
         consumer_id: Uuid,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let key = format!("abuse:token_issuance:{}", consumer_id);
-        self.increment_counter(&key, self.config.token_harvesting_window_secs).await
+        self.increment_counter(&key, self.config.token_harvesting_window_secs)
+            .await
     }
 
     /// Record token usage
@@ -269,7 +284,8 @@ impl AbuseDetector {
         consumer_id: Uuid,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let key = format!("abuse:token_usage:{}", consumer_id);
-        self.increment_counter(&key, self.config.token_harvesting_window_secs).await
+        self.increment_counter(&key, self.config.token_harvesting_window_secs)
+            .await
     }
 
     /// Record invalid API key attempt
@@ -281,8 +297,14 @@ impl AbuseDetector {
         let count_key = format!("abuse:key_enum_count:{}", ip_address);
         let prefixes_key = format!("abuse:key_enum_prefixes:{}", ip_address);
 
-        self.increment_counter(&count_key, self.config.key_enumeration_window_secs).await?;
-        self.add_to_set(&prefixes_key, key_prefix, self.config.key_enumeration_window_secs).await
+        self.increment_counter(&count_key, self.config.key_enumeration_window_secs)
+            .await?;
+        self.add_to_set(
+            &prefixes_key,
+            key_prefix,
+            self.config.key_enumeration_window_secs,
+        )
+        .await
     }
 
     /// Record resource access for scraping detection
@@ -293,8 +315,12 @@ impl AbuseDetector {
         resource_type: &str,
         resource_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let key = format!("abuse:scraping:{}:{}:{}", consumer_id, ip_address, resource_type);
-        self.add_to_set(&key, resource_id, self.config.scraping_window_secs).await
+        let key = format!(
+            "abuse:scraping:{}:{}:{}",
+            consumer_id, ip_address, resource_type
+        );
+        self.add_to_set(&key, resource_id, self.config.scraping_window_secs)
+            .await
     }
 
     /// Record quote generation
@@ -303,7 +329,8 @@ impl AbuseDetector {
         consumer_id: Uuid,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let key = format!("abuse:quotes:{}", consumer_id);
-        self.increment_counter(&key, self.config.quote_farming_window_secs).await
+        self.increment_counter(&key, self.config.quote_farming_window_secs)
+            .await
     }
 
     /// Record transaction initiation
@@ -312,7 +339,8 @@ impl AbuseDetector {
         consumer_id: Uuid,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let key = format!("abuse:initiations:{}", consumer_id);
-        self.increment_counter(&key, self.config.quote_farming_window_secs).await
+        self.increment_counter(&key, self.config.quote_farming_window_secs)
+            .await
     }
 
     // Helper methods for Redis operations
@@ -340,10 +368,7 @@ impl AbuseDetector {
         _window_secs: u64,
     ) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.cache.get_connection().await?;
-        let count: Option<u32> = redis::cmd("GET")
-            .arg(key)
-            .query_async(&mut *conn)
-            .await?;
+        let count: Option<u32> = redis::cmd("GET").arg(key).query_async(&mut *conn).await?;
         Ok(count.unwrap_or(0))
     }
 
@@ -372,10 +397,7 @@ impl AbuseDetector {
         key: &str,
     ) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.cache.get_connection().await?;
-        let size: u32 = redis::cmd("SCARD")
-            .arg(key)
-            .query_async(&mut *conn)
-            .await?;
+        let size: u32 = redis::cmd("SCARD").arg(key).query_async(&mut *conn).await?;
         Ok(size)
     }
 }

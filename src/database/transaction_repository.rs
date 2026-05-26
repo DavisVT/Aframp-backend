@@ -246,13 +246,11 @@ impl TransactionRepository {
             })
         })?;
 
-        sqlx::query_scalar::<_, String>(
-            "SELECT status FROM transactions WHERE transaction_id = $1"
-        )
-        .bind(uuid)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(DatabaseError::from_sqlx)
+        sqlx::query_scalar::<_, String>("SELECT status FROM transactions WHERE transaction_id = $1")
+            .bind(uuid)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(DatabaseError::from_sqlx)
     }
 
     /// Find pending payments for monitoring

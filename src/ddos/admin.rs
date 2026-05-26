@@ -103,7 +103,9 @@ async fn block_target(
             .into_response();
     }
 
-    state.block_target(&req.target, &req.reason, &req.blocked_by).await;
+    state
+        .block_target(&req.target, &req.reason, &req.blocked_by)
+        .await;
 
     (
         StatusCode::OK,
@@ -150,13 +152,12 @@ async fn activate_lockdown(
     // Escalate detector mode
     *state.detector.mode.write().await = ProtectionMode::EmergencyLockdown;
 
-    tracing::warn!(trigger = trigger, "Emergency lockdown activated via admin API");
+    tracing::warn!(
+        trigger = trigger,
+        "Emergency lockdown activated via admin API"
+    );
 
-    (
-        StatusCode::OK,
-        Json(state.lockdown.status().await),
-    )
-        .into_response()
+    (StatusCode::OK, Json(state.lockdown.status().await)).into_response()
 }
 
 async fn deactivate_lockdown(State(state): State<Arc<DdosState>>) -> impl IntoResponse {

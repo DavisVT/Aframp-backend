@@ -16,13 +16,13 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tower::util::ServiceExt;
 
-use Bitmesh_backend::api::analytics::{
-    get_counterparties, get_insights, get_insight_preferences, get_providers, get_spending,
-    get_summary, get_trends, update_insight_preferences, AnalyticsState,
-};
 use Bitmesh_backend::api::admin::analytics::{
     get_anomalies, get_behaviour_profile, get_cohorts, get_overview, get_retention,
     get_risk_distribution, AdminAnalyticsState,
+};
+use Bitmesh_backend::api::analytics::{
+    get_counterparties, get_insight_preferences, get_insights, get_providers, get_spending,
+    get_summary, get_trends, update_insight_preferences, AnalyticsState,
 };
 use Bitmesh_backend::database::analytics_repository::{
     AnalyticsRepository, UpsertProfile, UpsertSnapshot,
@@ -36,7 +36,9 @@ use Bitmesh_backend::services::analytics::{AnalyticsConfig, AnalyticsService};
 async fn test_pool() -> PgPool {
     let url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost/aframp_test".to_string());
-    PgPool::connect(&url).await.expect("Failed to connect to test DB")
+    PgPool::connect(&url)
+        .await
+        .expect("Failed to connect to test DB")
 }
 
 const TEST_WALLET: &str = "GTEST_ANALYTICS_WALLET_INTEGRATION_001";
@@ -78,11 +80,23 @@ fn consumer_router(repo: Arc<AnalyticsRepository>) -> Router {
     let state = Arc::new(AnalyticsState { repo, redis: None });
     Router::new()
         .route("/api/wallet/:wallet_id/analytics/summary", get(get_summary))
-        .route("/api/wallet/:wallet_id/analytics/spending", get(get_spending))
+        .route(
+            "/api/wallet/:wallet_id/analytics/spending",
+            get(get_spending),
+        )
         .route("/api/wallet/:wallet_id/analytics/trends", get(get_trends))
-        .route("/api/wallet/:wallet_id/analytics/counterparties", get(get_counterparties))
-        .route("/api/wallet/:wallet_id/analytics/providers", get(get_providers))
-        .route("/api/wallet/:wallet_id/analytics/insights", get(get_insights))
+        .route(
+            "/api/wallet/:wallet_id/analytics/counterparties",
+            get(get_counterparties),
+        )
+        .route(
+            "/api/wallet/:wallet_id/analytics/providers",
+            get(get_providers),
+        )
+        .route(
+            "/api/wallet/:wallet_id/analytics/insights",
+            get(get_insights),
+        )
         .route(
             "/api/wallet/:wallet_id/analytics/insights/preferences",
             get(get_insight_preferences).put(update_insight_preferences),
@@ -95,10 +109,16 @@ fn admin_router(repo: Arc<AnalyticsRepository>) -> Router {
     Router::new()
         .route("/api/admin/analytics/wallets/overview", get(get_overview))
         .route("/api/admin/analytics/wallets/anomalies", get(get_anomalies))
-        .route("/api/admin/analytics/wallets/risk-distribution", get(get_risk_distribution))
+        .route(
+            "/api/admin/analytics/wallets/risk-distribution",
+            get(get_risk_distribution),
+        )
         .route("/api/admin/analytics/wallets/cohorts", get(get_cohorts))
         .route("/api/admin/analytics/wallets/retention", get(get_retention))
-        .route("/api/admin/wallets/:wallet_id/behaviour-profile", get(get_behaviour_profile))
+        .route(
+            "/api/admin/wallets/:wallet_id/behaviour-profile",
+            get(get_behaviour_profile),
+        )
         .with_state(state)
 }
 
@@ -172,7 +192,10 @@ async fn test_incremental_snapshot_skips_existing() {
     repo.upsert_snapshot(snap).await.unwrap();
 
     // Check last snapshot_at is set
-    let last = repo.get_latest_snapshot_at(TEST_WALLET, "daily").await.unwrap();
+    let last = repo
+        .get_latest_snapshot_at(TEST_WALLET, "daily")
+        .await
+        .unwrap();
     assert!(last.is_some(), "Expected a snapshot_at timestamp");
 }
 
@@ -311,7 +334,10 @@ async fn test_consumer_trends_endpoint_returns_200() {
     let app = consumer_router(repo);
 
     let req = Request::builder()
-        .uri(format!("/api/wallet/{}/analytics/trends?granularity=daily", TEST_WALLET))
+        .uri(format!(
+            "/api/wallet/{}/analytics/trends?granularity=daily",
+            TEST_WALLET
+        ))
         .body(Body::empty())
         .unwrap();
 
@@ -331,7 +357,10 @@ async fn test_consumer_insight_preferences_roundtrip() {
     let body = serde_json::json!({"weekly_insights": false, "monthly_insights": true});
     let req = Request::builder()
         .method("PUT")
-        .uri(format!("/api/wallet/{}/analytics/insights/preferences", TEST_WALLET))
+        .uri(format!(
+            "/api/wallet/{}/analytics/insights/preferences",
+            TEST_WALLET
+        ))
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
         .unwrap();
@@ -341,12 +370,17 @@ async fn test_consumer_insight_preferences_roundtrip() {
 
     // GET preferences
     let req = Request::builder()
-        .uri(format!("/api/wallet/{}/analytics/insights/preferences", TEST_WALLET))
+        .uri(format!(
+            "/api/wallet/{}/analytics/insights/preferences",
+            TEST_WALLET
+        ))
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(json["weekly_insights"], false);
     assert_eq!(json["monthly_insights"], true);
@@ -428,13 +462,22 @@ async fn test_full_snapshot_lifecycle() {
     let period_start = now - chrono::Duration::days(30);
 
     // Compute snapshot
-    svc.compute_snapshot(TEST_WALLET, "monthly", period_start, now).await;
+    svc.compute_snapshot(TEST_WALLET, "monthly", period_start, now)
+        .await;
 
     // Verify it was persisted
     let repo = AnalyticsRepository::new(pool);
     let snaps = repo
-        .get_snapshots(TEST_WALLET, "monthly", period_start - chrono::Duration::days(1), now)
+        .get_snapshots(
+            TEST_WALLET,
+            "monthly",
+            period_start - chrono::Duration::days(1),
+            now,
+        )
         .await
         .unwrap();
-    assert!(!snaps.is_empty(), "Monthly snapshot should have been persisted");
+    assert!(
+        !snaps.is_empty(),
+        "Monthly snapshot should have been persisted"
+    );
 }

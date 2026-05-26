@@ -1,7 +1,4 @@
-use crate::sla::{
-    models::*,
-    repository::SlaRepository,
-};
+use crate::sla::{models::*, repository::SlaRepository};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -186,17 +183,22 @@ pub fn sla_routes(state: Arc<SlaState>) -> axum::Router {
     use axum::routing::{get, patch, post};
     axum::Router::new()
         // Dashboard
-        .route("/api/admin/sla/dashboard",          get(get_dashboard))
+        .route("/api/admin/sla/dashboard", get(get_dashboard))
         // SLO definitions
-        .route("/api/admin/sla/slos",               get(list_slos))
+        .route("/api/admin/sla/slos", get(list_slos))
         // Incidents
-        .route("/api/admin/sla/incidents",          get(list_incidents))
-        .route("/api/admin/sla/incidents/:id",      get(get_incident).patch(update_incident))
+        .route("/api/admin/sla/incidents", get(list_incidents))
+        .route(
+            "/api/admin/sla/incidents/:id",
+            get(get_incident).patch(update_incident),
+        )
         // Post-mortems
-        .route("/api/admin/sla/incidents/:id/post-mortem",
-               post(create_post_mortem).get(get_post_mortem))
+        .route(
+            "/api/admin/sla/incidents/:id/post-mortem",
+            post(create_post_mortem).get(get_post_mortem),
+        )
         // Compliance reports
-        .route("/api/admin/sla/reports",            get(list_reports))
-        .route("/api/admin/sla/reports/generate",   post(generate_report))
+        .route("/api/admin/sla/reports", get(list_reports))
+        .route("/api/admin/sla/reports/generate", post(generate_report))
         .with_state(state)
 }

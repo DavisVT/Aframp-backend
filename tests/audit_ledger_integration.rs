@@ -25,7 +25,7 @@ mod tests {
         // Test appending a single entry
         // let pool = setup_test_db().await;
         // let ledger = Arc::new(AuditLedger::new(pool).await.unwrap());
-        
+
         // let entry = ledger.append(
         //     "user123".to_string(),
         //     ActorType::User,
@@ -39,7 +39,7 @@ mod tests {
         //     "success".to_string(),
         //     None,
         // ).await.unwrap();
-        
+
         // assert_eq!(entry.sequence, 1);
         // assert_eq!(entry.actor_id, "user123");
     }
@@ -50,12 +50,12 @@ mod tests {
         // Test that hash chain is maintained correctly
         // let pool = setup_test_db().await;
         // let ledger = Arc::new(AuditLedger::new(pool).await.unwrap());
-        
+
         // Append multiple entries
         // for i in 0..10 {
         //     ledger.append(...).await.unwrap();
         // }
-        
+
         // Verify chain
         // let result = ledger.verify_chain(0, None).await.unwrap();
         // assert!(result.valid);
@@ -76,7 +76,7 @@ mod tests {
         // Test that concurrent appends maintain sequence integrity
         // let pool = setup_test_db().await;
         // let ledger = Arc::new(AuditLedger::new(pool).await.unwrap());
-        
+
         // Spawn multiple tasks appending concurrently
         // let mut handles = vec![];
         // for i in 0..100 {
@@ -85,12 +85,12 @@ mod tests {
         //         ledger_clone.append(...).await
         //     }));
         // }
-        
+
         // Wait for all to complete
         // for handle in handles {
         //     handle.await.unwrap().unwrap();
         // }
-        
+
         // Verify chain integrity
         // let result = ledger.verify_chain(0, None).await.unwrap();
         // assert!(result.valid);
@@ -103,10 +103,10 @@ mod tests {
         // Test creating an anchor point
         // let pool = setup_test_db().await;
         // let ledger = Arc::new(AuditLedger::new(pool).await.unwrap());
-        
+
         // Append some entries
         // ledger.append(...).await.unwrap();
-        
+
         // Create anchor
         // let anchor = ledger.create_anchor().await.unwrap();
         // assert!(anchor.sequence > 0);
@@ -127,13 +127,13 @@ mod tests {
         // let pool = setup_test_db().await;
         // let ledger = Arc::new(AuditLedger::new(pool).await.unwrap());
         // let logger = AuditLogger::new(ledger);
-        
+
         // Test transaction logging
         // logger.log_transaction(...).await.unwrap();
-        
+
         // Test authentication logging
         // logger.log_authentication(...).await.unwrap();
-        
+
         // Test governance logging
         // logger.log_governance(...).await.unwrap();
     }
@@ -152,13 +152,13 @@ mod tests {
         // Test that related operations can be tracked via correlation_id
         // let pool = setup_test_db().await;
         // let ledger = Arc::new(AuditLedger::new(pool).await.unwrap());
-        
+
         // let correlation_id = Uuid::new_v4().to_string();
-        
+
         // Append multiple related entries
         // ledger.append(..., Some(correlation_id.clone()), ...).await.unwrap();
         // ledger.append(..., Some(correlation_id.clone()), ...).await.unwrap();
-        
+
         // Query by correlation_id and verify all entries are found
     }
 
@@ -173,12 +173,12 @@ mod tests {
     // async fn setup_test_db() -> PgPool {
     //     let database_url = std::env::var("TEST_DATABASE_URL")
     //         .unwrap_or_else(|_| "postgres://user:password@localhost:5432/aframp_test".to_string());
-    //     
+    //
     //     let pool = PgPool::connect(&database_url).await.unwrap();
-    //     
+    //
     //     // Run migrations
     //     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-    //     
+    //
     //     pool
     // }
 }

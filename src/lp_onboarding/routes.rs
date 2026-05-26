@@ -9,8 +9,14 @@ pub fn partner_routes(state: LpOnboardingState) -> Router {
     Router::new()
         .route("/api/lp/register", post(register_partner))
         .route("/api/lp/partners/:partner_id/dashboard", get(get_dashboard))
-        .route("/api/lp/partners/:partner_id/documents", post(upload_document))
-        .route("/api/lp/partners/:partner_id/stellar-keys", post(add_stellar_key))
+        .route(
+            "/api/lp/partners/:partner_id/documents",
+            post(upload_document),
+        )
+        .route(
+            "/api/lp/partners/:partner_id/stellar-keys",
+            post(add_stellar_key),
+        )
         .with_state(state)
 }
 
@@ -18,10 +24,22 @@ pub fn partner_routes(state: LpOnboardingState) -> Router {
 pub fn admin_routes(state: LpOnboardingState) -> Router {
     Router::new()
         .route("/api/admin/lp/partners", get(list_partners))
-        .route("/api/admin/lp/partners/:partner_id/tier", patch(update_tier))
-        .route("/api/admin/lp/partners/:partner_id/revoke", post(revoke_partner))
-        .route("/api/admin/lp/partners/:partner_id/kyb-passed", post(mark_kyb_passed))
-        .route("/api/admin/lp/partners/:partner_id/agreements", post(send_agreement))
+        .route(
+            "/api/admin/lp/partners/:partner_id/tier",
+            patch(update_tier),
+        )
+        .route(
+            "/api/admin/lp/partners/:partner_id/revoke",
+            post(revoke_partner),
+        )
+        .route(
+            "/api/admin/lp/partners/:partner_id/kyb-passed",
+            post(mark_kyb_passed),
+        )
+        .route(
+            "/api/admin/lp/partners/:partner_id/agreements",
+            post(send_agreement),
+        )
         .route(
             "/api/admin/lp/partners/:partner_id/documents/:document_id/review",
             post(review_document),

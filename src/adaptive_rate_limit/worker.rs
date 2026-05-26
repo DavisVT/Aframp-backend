@@ -9,8 +9,7 @@ use tokio::sync::watch;
 use tracing::{info, warn};
 
 use crate::adaptive_rate_limit::{
-    engine::AdaptiveRateLimitEngine,
-    repository::AdaptiveRateLimitRepository,
+    engine::AdaptiveRateLimitEngine, repository::AdaptiveRateLimitRepository,
 };
 
 pub struct AdaptiveRateLimitWorker {
@@ -19,10 +18,7 @@ pub struct AdaptiveRateLimitWorker {
 }
 
 impl AdaptiveRateLimitWorker {
-    pub fn new(
-        engine: Arc<AdaptiveRateLimitEngine>,
-        repo: AdaptiveRateLimitRepository,
-    ) -> Self {
+    pub fn new(engine: Arc<AdaptiveRateLimitEngine>, repo: AdaptiveRateLimitRepository) -> Self {
         Self {
             engine,
             repo: Arc::new(repo),

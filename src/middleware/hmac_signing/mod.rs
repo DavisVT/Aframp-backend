@@ -108,14 +108,13 @@ pub struct HmacSigningState {
 pub fn derive_signing_key(api_secret: &[u8]) -> Vec<u8> {
     // HKDF extract: PRK = HMAC-SHA256(salt, ikm)
     type HmacSha256 = Hmac<Sha256>;
-    let mut extract_mac = HmacSha256::new_from_slice(HKDF_SALT)
-        .expect("HMAC accepts any key length");
+    let mut extract_mac =
+        HmacSha256::new_from_slice(HKDF_SALT).expect("HMAC accepts any key length");
     extract_mac.update(api_secret);
     let prk = extract_mac.finalize().into_bytes();
 
     // HKDF expand: OKM = T(1) where T(1) = HMAC-SHA256(PRK, info || 0x01)
-    let mut expand_mac = HmacSha256::new_from_slice(&prk)
-        .expect("HMAC accepts any key length");
+    let mut expand_mac = HmacSha256::new_from_slice(&prk).expect("HMAC accepts any key length");
     expand_mac.update(HKDF_INFO);
     expand_mac.update(&[0x01u8]);
     expand_mac.finalize().into_bytes().to_vec()
@@ -203,15 +202,15 @@ pub fn compute_signature(
     match algorithm {
         HmacAlgorithm::Sha256 => {
             type HmacSha256 = Hmac<Sha256>;
-            let mut mac = HmacSha256::new_from_slice(signing_key)
-                .expect("HMAC accepts any key length");
+            let mut mac =
+                HmacSha256::new_from_slice(signing_key).expect("HMAC accepts any key length");
             mac.update(canonical_request.as_bytes());
             hex::encode(mac.finalize().into_bytes())
         }
         HmacAlgorithm::Sha512 => {
             type HmacSha512 = Hmac<Sha512>;
-            let mut mac = HmacSha512::new_from_slice(signing_key)
-                .expect("HMAC accepts any key length");
+            let mut mac =
+                HmacSha512::new_from_slice(signing_key).expect("HMAC accepts any key length");
             mac.update(canonical_request.as_bytes());
             hex::encode(mac.finalize().into_bytes())
         }
@@ -294,7 +293,11 @@ pub async fn hmac_signing_middleware(
     let endpoint = req.uri().path().to_string();
 
     // ── 1. Extract X-Aframp-Signature header ─────────────────────────────────
-    let sig_header = match req.headers().get("x-aframp-signature").and_then(|v| v.to_str().ok()) {
+    let sig_header = match req
+        .headers()
+        .get("x-aframp-signature")
+        .and_then(|v| v.to_str().ok())
+    {
         Some(v) => v.to_string(),
         None => {
             if !state.enforce {
@@ -317,7 +320,11 @@ pub async fn hmac_signing_middleware(
     };
 
     // ── 3. Extract key-id ─────────────────────────────────────────────────────
-    let key_id = match req.headers().get("x-aframp-key-id").and_then(|v| v.to_str().ok()) {
+    let key_id = match req
+        .headers()
+        .get("x-aframp-key-id")
+        .and_then(|v| v.to_str().ok())
+    {
         Some(v) => v.to_string(),
         None => return signing_401("MISSING_KEY_ID", "X-Aframp-Key-Id header is required"),
     };
@@ -327,7 +334,10 @@ pub async fn hmac_signing_middleware(
         Some(s) => s,
         None => {
             warn!(key_id = %key_id, endpoint = %endpoint, "Unknown key-id in HMAC verification");
-            return signing_401("UNKNOWN_KEY_ID", "The provided X-Aframp-Key-Id is not recognised");
+            return signing_401(
+                "UNKNOWN_KEY_ID",
+                "The provided X-Aframp-Key-Id is not recognised",
+            );
         }
     };
 
@@ -338,7 +348,10 @@ pub async fn hmac_signing_middleware(
         Err(_) => return signing_401("BODY_READ_ERROR", "Failed to read request body for signing"),
     };
     if body_bytes.len() > MAX_BODY_BYTES {
-        return signing_401("BODY_TOO_LARGE", "Request body exceeds the 1 MiB signing limit");
+        return signing_401(
+            "BODY_TOO_LARGE",
+            "Request body exceeds the 1 MiB signing limit",
+        );
     }
 
     // ── 6. Build canonical request ────────────────────────────────────────────
@@ -374,7 +387,10 @@ pub async fn hmac_signing_middleware(
             algorithm = parsed.algorithm.as_str(),
             "HMAC signature mismatch"
         );
-        return signing_401("SIGNATURE_MISMATCH", "Request signature verification failed");
+        return signing_401(
+            "SIGNATURE_MISMATCH",
+            "Request signature verification failed",
+        );
     }
 
     debug!(
@@ -543,7 +559,10 @@ mod tests {
     fn sha256_hex_of_empty_body_is_known_value() {
         // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         let h = sha256_hex(b"");
-        assert_eq!(h, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assert_eq!(
+            h,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 
     #[test]
@@ -683,8 +702,24 @@ mod tests {
             ("x-aframp-timestamp", "1700000000"),
         ];
         let body = br#"{"amount":"100"}"#;
-        let h256 = sign_request(HmacAlgorithm::Sha256, "POST", "/test", "", headers, body, SECRET);
-        let h512 = sign_request(HmacAlgorithm::Sha512, "POST", "/test", "", headers, body, SECRET);
+        let h256 = sign_request(
+            HmacAlgorithm::Sha256,
+            "POST",
+            "/test",
+            "",
+            headers,
+            body,
+            SECRET,
+        );
+        let h512 = sign_request(
+            HmacAlgorithm::Sha512,
+            "POST",
+            "/test",
+            "",
+            headers,
+            body,
+            SECRET,
+        );
         assert_ne!(h256, h512);
     }
 
@@ -696,12 +731,22 @@ mod tests {
             ("x-aframp-timestamp", "1700000000"),
         ];
         let original = sign_request(
-            HmacAlgorithm::Sha256, "POST", "/test", "", headers,
-            br#"{"amount":"100"}"#, SECRET,
+            HmacAlgorithm::Sha256,
+            "POST",
+            "/test",
+            "",
+            headers,
+            br#"{"amount":"100"}"#,
+            SECRET,
         );
         let tampered = sign_request(
-            HmacAlgorithm::Sha256, "POST", "/test", "", headers,
-            br#"{"amount":"9999"}"#, SECRET,
+            HmacAlgorithm::Sha256,
+            "POST",
+            "/test",
+            "",
+            headers,
+            br#"{"amount":"9999"}"#,
+            SECRET,
         );
         assert_ne!(original, tampered);
     }
@@ -719,8 +764,24 @@ mod tests {
             ("x-aframp-timestamp", "1700000000"),
         ];
         let body = br#"{"amount":"100"}"#;
-        let s1 = sign_request(HmacAlgorithm::Sha256, "POST", "/test", "", headers_original, body, SECRET);
-        let s2 = sign_request(HmacAlgorithm::Sha256, "POST", "/test", "", headers_tampered, body, SECRET);
+        let s1 = sign_request(
+            HmacAlgorithm::Sha256,
+            "POST",
+            "/test",
+            "",
+            headers_original,
+            body,
+            SECRET,
+        );
+        let s2 = sign_request(
+            HmacAlgorithm::Sha256,
+            "POST",
+            "/test",
+            "",
+            headers_tampered,
+            body,
+            SECRET,
+        );
         assert_ne!(s1, s2);
     }
 }

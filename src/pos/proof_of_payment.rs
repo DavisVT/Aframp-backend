@@ -25,16 +25,13 @@ impl ProofOfPayment {
 
     /// Generate proof of payment record for a confirmed transaction
     #[instrument(skip(self))]
-    pub async fn generate_proof(
-        &self,
-        payment_id: Uuid,
-    ) -> Result<ProofOfPaymentRecord, AppError> {
+    pub async fn generate_proof(&self, payment_id: Uuid) -> Result<ProofOfPaymentRecord, AppError> {
         // Fetch payment intent
         let payment = sqlx::query_as::<_, PosPaymentIntent>(
             r#"
             SELECT * FROM pos_payment_intents
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(payment_id)
         .fetch_optional(&self.db)
@@ -48,11 +45,12 @@ impl ProofOfPayment {
             crate::pos::models::PosPaymentStatus::Confirmed
         ) {
             return Err(AppError::BadRequest(
-                "Payment must be confirmed to generate proof".to_string()
+                "Payment must be confirmed to generate proof".to_string(),
             ));
         }
 
-        let tx_hash = payment.stellar_tx_hash
+        let tx_hash = payment
+            .stellar_tx_hash
             .ok_or_else(|| AppError::BadRequest("No transaction hash available".to_string()))?;
 
         // Fetch merchant name
@@ -60,7 +58,7 @@ impl ProofOfPayment {
             r#"
             SELECT * FROM pos_merchants
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(payment.merchant_id)
         .fetch_optional(&self.db)
@@ -106,7 +104,7 @@ impl ProofOfPayment {
             r#"
             SELECT * FROM pos_payment_intents
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(payment_id)
         .fetch_optional(&self.db)
@@ -114,7 +112,8 @@ impl ProofOfPayment {
         .map_err(|e| AppError::DatabaseError(e.to_string()))?
         .ok_or_else(|| AppError::NotFound("Payment not found".to_string()))?;
 
-        let tx_hash = payment.stellar_tx_hash
+        let tx_hash = payment
+            .stellar_tx_hash
             .ok_or_else(|| AppError::BadRequest("No transaction hash available".to_string()))?;
 
         // Regenerate verification code and compare
@@ -136,28 +135,20 @@ impl ProofOfPayment {
     }
 
     /// Generate a verification code using HMAC-SHA256
-    fn generate_verification_code(
-        &self,
-        payment_id: &str,
-        tx_hash: &str,
-        amount: &str,
-    ) -> String {
+    fn generate_verification_code(&self, payment_id: &str, tx_hash: &str, amount: &str) -> String {
         let data = format!("{}:{}:{}", payment_id, tx_hash, amount);
         let mut hasher = Sha256::new();
         hasher.update(data.as_bytes());
         hasher.update(self.verification_secret.as_bytes());
         let result = hasher.finalize();
-        
+
         // Take first 8 bytes and encode as hex (16 characters)
         hex::encode(&result[..8]).to_uppercase()
     }
 
     /// Generate QR code for proof of payment (for customer's phone)
     #[instrument(skip(self))]
-    pub fn generate_proof_qr(
-        &self,
-        proof: &ProofOfPaymentRecord,
-    ) -> Result<String, AppError> {
+    pub fn generate_proof_qr(&self, proof: &ProofOfPaymentRecord) -> Result<String, AppError> {
         // Encode proof data as JSON
         let proof_json = serde_json::to_string(proof)
             .map_err(|e| AppError::InternalError(format!("JSON encoding failed: {}", e)))?;
@@ -222,17 +213,9 @@ mod tests {
             verification_secret: "test-secret".to_string(),
         };
 
-        let code1 = service.generate_verification_code(
-            "payment-123",
-            "tx-hash-456",
-            "1000.00"
-        );
+        let code1 = service.generate_verification_code("payment-123", "tx-hash-456", "1000.00");
 
-        let code2 = service.generate_verification_code(
-            "payment-123",
-            "tx-hash-456",
-            "1000.00"
-        );
+        let code2 = service.generate_verification_code("payment-123", "tx-hash-456", "1000.00");
 
         // Same inputs should produce same code
         assert_eq!(code1, code2);
@@ -246,16 +229,12 @@ mod tests {
             verification_secret: "test-secret".to_string(),
         };
 
-        let code1 = service.generate_verification_code(
-            "payment-123",
-            "tx-hash-456",
-            "1000.00"
-        );
+        let code1 = service.generate_verification_code("payment-123", "tx-hash-456", "1000.00");
 
         let code2 = service.generate_verification_code(
             "payment-123",
             "tx-hash-456",
-            "2000.00" // Different amount
+            "2000.00", // Different amount
         );
 
         // Different inputs should produce different codes

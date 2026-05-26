@@ -1,8 +1,8 @@
 //! Prometheus metrics for DDoS protection.
 
 use prometheus::{
-    register_counter_vec_with_registry, register_gauge_vec_with_registry,
-    CounterVec, GaugeVec, Registry,
+    register_counter_vec_with_registry, register_gauge_vec_with_registry, CounterVec, GaugeVec,
+    Registry,
 };
 use std::sync::OnceLock;
 
@@ -131,11 +131,15 @@ pub fn request_rate() -> &'static GaugeVec {
 }
 
 pub fn endpoint_request_rate() -> &'static GaugeVec {
-    ENDPOINT_REQUEST_RATE.get().expect("ddos metrics not initialised")
+    ENDPOINT_REQUEST_RATE
+        .get()
+        .expect("ddos metrics not initialised")
 }
 
 pub fn connection_count() -> &'static GaugeVec {
-    CONNECTION_COUNT.get().expect("ddos metrics not initialised")
+    CONNECTION_COUNT
+        .get()
+        .expect("ddos metrics not initialised")
 }
 
 pub fn queue_depth() -> &'static GaugeVec {
@@ -143,21 +147,31 @@ pub fn queue_depth() -> &'static GaugeVec {
 }
 
 pub fn dropped_requests() -> &'static CounterVec {
-    DROPPED_REQUESTS.get().expect("ddos metrics not initialised")
+    DROPPED_REQUESTS
+        .get()
+        .expect("ddos metrics not initialised")
 }
 
 pub fn challenges_issued() -> &'static CounterVec {
-    CHALLENGES_ISSUED.get().expect("ddos metrics not initialised")
+    CHALLENGES_ISSUED
+        .get()
+        .expect("ddos metrics not initialised")
 }
 
 pub fn challenges_solved() -> &'static CounterVec {
-    CHALLENGES_SOLVED.get().expect("ddos metrics not initialised")
+    CHALLENGES_SOLVED
+        .get()
+        .expect("ddos metrics not initialised")
 }
 
 pub fn cdn_under_attack_activations() -> &'static CounterVec {
-    CDN_UNDER_ATTACK_ACTIVATIONS.get().expect("ddos metrics not initialised")
+    CDN_UNDER_ATTACK_ACTIVATIONS
+        .get()
+        .expect("ddos metrics not initialised")
 }
 
 pub fn lockdown_activations() -> &'static CounterVec {
-    LOCKDOWN_ACTIVATIONS.get().expect("ddos metrics not initialised")
+    LOCKDOWN_ACTIVATIONS
+        .get()
+        .expect("ddos metrics not initialised")
 }

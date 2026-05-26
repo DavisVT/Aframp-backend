@@ -248,11 +248,7 @@ fn extract_consumer_info(req: &Request<Body>) -> (Uuid, ConsumerPriorityTier) {
     (Uuid::nil(), ConsumerPriorityTier::Standard)
 }
 
-fn too_many_requests_response(
-    mode: AdaptationMode,
-    multiplier: f64,
-    retry_after: u64,
-) -> Response {
+fn too_many_requests_response(mode: AdaptationMode, multiplier: f64, retry_after: u64) -> Response {
     let mut res = (
         StatusCode::TOO_MANY_REQUESTS,
         Json(json!({

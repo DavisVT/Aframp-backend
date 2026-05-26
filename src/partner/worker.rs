@@ -40,12 +40,18 @@ impl DeprecationNotificationWorker {
     }
 
     async fn notify_pending(&self) -> Result<(), PartnerError> {
-        let deprecations = self.repo.deprecations_due_for_notification(NOTIFY_DAYS_AHEAD).await
+        let deprecations = self
+            .repo
+            .deprecations_due_for_notification(NOTIFY_DAYS_AHEAD)
+            .await
             .map_err(PartnerError::Database)?;
 
         for dep in deprecations {
             // Find all active partners on this API version
-            let partners = self.repo.find_partners_by_api_version(&dep.api_version).await
+            let partners = self
+                .repo
+                .find_partners_by_api_version(&dep.api_version)
+                .await
                 .map_err(PartnerError::Database)?;
 
             for partner in &partners {

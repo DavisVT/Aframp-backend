@@ -1,3 +1,5 @@
+#![cfg(feature = "database")]
+
 //! Unit and integration tests for Issue #138 — API Key Revocation & Blacklisting.
 //!
 //! Test coverage:
@@ -15,7 +17,7 @@
 
 #[cfg(test)]
 mod revocation_unit_tests {
-    use crate::services::revocation::{
+    use aframp_backend::services::revocation::{
         REDIS_BLACKLISTED_CONSUMERS_SET, REDIS_REVOKED_KEYS_SET,
     };
     use uuid::Uuid;
@@ -225,12 +227,12 @@ mod revocation_unit_tests {
 // These tests require a live PostgreSQL + Redis instance.
 // Run with: cargo test --features integration -- revocation_integration
 
-#[cfg(all(test, feature = "integration"))]
+#[cfg(all(test, feature = "integration", feature = "cache"))]
 mod revocation_integration_tests {
-    use crate::cache::{init_cache_pool, CacheConfig, RedisCache};
-    use crate::database::init_pool;
-    use crate::services::notification::NotificationService;
-    use crate::services::revocation::{
+    use aframp_backend::cache::{init_cache_pool, CacheConfig, RedisCache};
+    use aframp_backend::database::init_pool;
+    use aframp_backend::services::notification::NotificationService;
+    use aframp_backend::services::revocation::{
         BlacklistConsumerInput, RevocationService, RevokeKeyInput,
         REDIS_BLACKLISTED_CONSUMERS_SET, REDIS_REVOKED_KEYS_SET,
     };

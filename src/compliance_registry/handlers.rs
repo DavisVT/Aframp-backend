@@ -82,12 +82,7 @@ pub async fn create_corridor_handler(
 pub async fn list_corridors_handler(
     State(state): State<Arc<ComplianceRegistryState>>,
 ) -> Result<Json<ApiResponse<Vec<PaymentCorridor>>>, (StatusCode, Json<ApiError>)> {
-    state
-        .repo
-        .list_corridors()
-        .await
-        .map(ok)
-        .map_err(db_err)
+    state.repo.list_corridors().await.map(ok).map_err(db_err)
 }
 
 pub async fn get_corridor_handler(
@@ -110,7 +105,10 @@ pub async fn update_corridor_status_handler(
 ) -> Result<Json<ApiResponse<()>>, (StatusCode, Json<ApiError>)> {
     // Audit: capture previous state
     let prev = state.repo.get_corridor(id).await.map_err(db_err)?;
-    let prev_json = prev.as_ref().map(|c| serde_json::to_value(c).ok()).flatten();
+    let prev_json = prev
+        .as_ref()
+        .map(|c| serde_json::to_value(c).ok())
+        .flatten();
 
     state
         .repo
@@ -184,7 +182,10 @@ pub async fn update_license_status_handler(
     Json(req): Json<UpdateLicenseStatusRequest>,
 ) -> Result<Json<ApiResponse<CorridorLicense>>, (StatusCode, Json<ApiError>)> {
     let prev = state.repo.get_license(id).await.map_err(db_err)?;
-    let prev_json = prev.as_ref().map(|l| serde_json::to_value(l).ok()).flatten();
+    let prev_json = prev
+        .as_ref()
+        .map(|l| serde_json::to_value(l).ok())
+        .flatten();
 
     let license = state
         .repo
@@ -265,7 +266,10 @@ pub async fn update_ruleset_handler(
     Json(req): Json<UpdateRulesetRequest>,
 ) -> Result<Json<ApiResponse<RegulatoryRuleset>>, (StatusCode, Json<ApiError>)> {
     let prev = state.repo.get_ruleset(id).await.map_err(db_err)?;
-    let prev_json = prev.as_ref().map(|r| serde_json::to_value(r).ok()).flatten();
+    let prev_json = prev
+        .as_ref()
+        .map(|r| serde_json::to_value(r).ok())
+        .flatten();
 
     let ruleset = state
         .repo
@@ -313,9 +317,9 @@ pub async fn readiness_report_handler(
     Path(corridor_id): Path<Uuid>,
     Query(params): Query<ReportQuery>,
 ) -> Result<Json<ApiResponse<ComplianceReadinessReport>>, (StatusCode, Json<ApiError>)> {
-    let from = params.from.unwrap_or_else(|| {
-        Utc::now() - chrono::Duration::days(90)
-    });
+    let from = params
+        .from
+        .unwrap_or_else(|| Utc::now() - chrono::Duration::days(90));
     let to = params.to.unwrap_or_else(Utc::now);
 
     state
@@ -350,10 +354,7 @@ fn not_found(msg: &str) -> (StatusCode, Json<ApiError>) {
 }
 
 /// Auto-block a corridor if it has no remaining active licenses (stop-loss).
-async fn auto_block_corridor_if_needed(
-    state: &ComplianceRegistryState,
-    corridor_id: Uuid,
-) {
+async fn auto_block_corridor_if_needed(state: &ComplianceRegistryState, corridor_id: Uuid) {
     let licenses = match state.repo.list_licenses_for_corridor(corridor_id).await {
         Ok(l) => l,
         Err(_) => return,

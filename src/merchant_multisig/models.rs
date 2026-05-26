@@ -273,7 +273,9 @@ pub enum MultisigError {
     ProposalNotPending(String),
     #[error("merchant account is frozen — all outgoing actions are blocked")]
     AccountFrozen,
-    #[error("amount {amount} does not meet the high-value threshold {threshold} for policy {policy}")]
+    #[error(
+        "amount {amount} does not meet the high-value threshold {threshold} for policy {policy}"
+    )]
     BelowThreshold {
         amount: String,
         threshold: String,

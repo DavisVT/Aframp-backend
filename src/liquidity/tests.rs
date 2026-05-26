@@ -59,7 +59,11 @@ mod tests {
     #[test]
     fn effective_depth_applies_slippage_tolerance() {
         let available = bd("1000000");
-        let factor = BigDecimal::from_str(&format!("{:.4}", 1.0 - crate::liquidity::SLIPPAGE_TOLERANCE)).unwrap();
+        let factor = BigDecimal::from_str(&format!(
+            "{:.4}",
+            1.0 - crate::liquidity::SLIPPAGE_TOLERANCE
+        ))
+        .unwrap();
         let depth = &available * &factor;
         // 1% slippage → effective depth = 990_000
         assert_eq!(depth, bd("990000.0000"));
@@ -67,7 +71,13 @@ mod tests {
 
     // ── Health status ─────────────────────────────────────────────────────────
 
-    fn make_pool(available: &str, min: &str, target: &str, cap: &str, reserved: &str) -> LiquidityPool {
+    fn make_pool(
+        available: &str,
+        min: &str,
+        target: &str,
+        cap: &str,
+        reserved: &str,
+    ) -> LiquidityPool {
         use chrono::Utc;
         use uuid::Uuid;
         LiquidityPool {

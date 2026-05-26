@@ -99,7 +99,11 @@ pub struct ReconciliationWorker {
 
 impl ReconciliationWorker {
     pub fn new(pool: PgPool, stellar: Arc<StellarClient>, config: ReconciliationConfig) -> Self {
-        Self { pool, stellar, config }
+        Self {
+            pool,
+            stellar,
+            config,
+        }
     }
 
     pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
@@ -230,11 +234,7 @@ impl ReconciliationWorker {
             }
         }
 
-        info!(
-            checked,
-            flagged,
-            "Reconciliation cycle complete"
-        );
+        info!(checked, flagged, "Reconciliation cycle complete");
 
         Ok(())
     }

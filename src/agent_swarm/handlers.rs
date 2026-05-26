@@ -36,7 +36,11 @@ pub async fn register_peer(
     State(s): State<SwarmState>,
     Json(req): Json<RegisterPeerRequest>,
 ) -> impl IntoResponse {
-    match s.discovery.register_peer(&req.peer_id, req.agent_id, &req.endpoint).await {
+    match s
+        .discovery
+        .register_peer(&req.peer_id, req.agent_id, &req.endpoint)
+        .await
+    {
         Ok(peer) => (StatusCode::CREATED, Json(serde_json::json!(peer))).into_response(),
         Err(e) => err(e).into_response(),
     }
@@ -59,7 +63,11 @@ pub async fn revoke_peer(
     Path(peer_id): Path<String>,
 ) -> impl IntoResponse {
     match s.discovery.revoke_peer(&peer_id).await {
-        Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "revoked": peer_id }))).into_response(),
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "revoked": peer_id })),
+        )
+            .into_response(),
         Err(e) => err(e).into_response(),
     }
 }
@@ -105,7 +113,11 @@ pub async fn submit_micro_task(
     Path(micro_task_id): Path<Uuid>,
     Json(req): Json<SubmitMicroTaskRequest>,
 ) -> impl IntoResponse {
-    match s.delegation.submit_micro_task(micro_task_id, req.agent_id, req.result_payload).await {
+    match s
+        .delegation
+        .submit_micro_task(micro_task_id, req.agent_id, req.result_payload)
+        .await
+    {
         Ok(mt) => (StatusCode::OK, Json(serde_json::json!(mt))).into_response(),
         Err(e) => err(e).into_response(),
     }
@@ -119,13 +131,20 @@ pub async fn cast_vote(
     Path(task_id): Path<Uuid>,
     Json(req): Json<CastVoteRequest>,
 ) -> impl IntoResponse {
-    match s.consensus.cast_vote(task_id, req.voter_agent_id, &req.result_hash).await {
+    match s
+        .consensus
+        .cast_vote(task_id, req.voter_agent_id, &req.result_hash)
+        .await
+    {
         Ok((vote, outcome)) => {
             // If consensus reached, auto-settle
             if outcome.reached {
                 let task = s.delegation.get_task(task_id).await;
                 if let Ok(t) = task {
-                    let _ = s.settlement.settle_completed_task(task_id, t.manager_agent_id).await;
+                    let _ = s
+                        .settlement
+                        .settle_completed_task(task_id, t.manager_agent_id)
+                        .await;
                     // Promote voters' reputation
                     if let Some(ref hash) = outcome.winning_hash {
                         let voters = sqlx::query!(
@@ -145,7 +164,11 @@ pub async fn cast_vote(
                     }
                 }
             }
-            (StatusCode::OK, Json(serde_json::json!({ "vote": vote, "consensus": outcome }))).into_response()
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({ "vote": vote, "consensus": outcome })),
+            )
+                .into_response()
         }
         Err(e) => err(e).into_response(),
     }
@@ -184,13 +207,14 @@ pub async fn gossip_snapshot(State(s): State<SwarmState>) -> impl IntoResponse {
 }
 
 /// GET /agent-swarm/gossip/:key
-pub async fn gossip_get(
-    State(s): State<SwarmState>,
-    Path(key): Path<String>,
-) -> impl IntoResponse {
+pub async fn gossip_get(State(s): State<SwarmState>, Path(key): Path<String>) -> impl IntoResponse {
     match s.gossip.get(&key).await {
         Ok(Some(entry)) => (StatusCode::OK, Json(serde_json::json!(entry))).into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "key not found" }))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "key not found" })),
+        )
+            .into_response(),
         Err(e) => err(e).into_response(),
     }
 }
@@ -218,7 +242,11 @@ pub async fn confirm_settlement(
         Some(h) => h.to_string(),
         None => return err("stellar_tx_hash required".to_string()).into_response(),
     };
-    match s.settlement.confirm_settlement(settlement_id, &tx_hash).await {
+    match s
+        .settlement
+        .confirm_settlement(settlement_id, &tx_hash)
+        .await
+    {
         Ok(s) => (StatusCode::OK, Json(serde_json::json!(s))).into_response(),
         Err(e) => err(e).into_response(),
     }
@@ -227,5 +255,8 @@ pub async fn confirm_settlement(
 // ── helper ────────────────────────────────────────────────────────────────────
 
 fn err(msg: String) -> (StatusCode, Json<serde_json::Value>) {
-    (StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({ "error": msg })))
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(serde_json::json!({ "error": msg })),
+    )
 }

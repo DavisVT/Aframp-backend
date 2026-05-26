@@ -51,7 +51,8 @@ pub async fn abuse_check_middleware(
                                 "Consumer under soft response (rate limit tightened)"
                             );
                         }
-                        super::response::ResponseTier::Hard | super::response::ResponseTier::Critical => {
+                        super::response::ResponseTier::Hard
+                        | super::response::ResponseTier::Critical => {
                             // Block the request
                             warn!(
                                 consumer_id = %consumer_id,

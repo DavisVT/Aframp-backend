@@ -181,7 +181,10 @@ mod tests {
     #[test]
     fn test_validate_stellar_toml_missing_issuer() {
         let toml = "VERSION = \"2.0.0\"\nNETWORK_PASSPHRASE = \"test\"\n[[CURRENCIES]]\nis_asset_anchored = true";
-        let result = validate_stellar_toml(toml, "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX");
+        let result = validate_stellar_toml(
+            toml,
+            "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX",
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
     }

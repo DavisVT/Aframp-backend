@@ -23,18 +23,14 @@ mod helpers {
     // Generated with `stellar-strkey` from a fixed 32-byte seed.
     // Secret seed  : SCZANGBA5RLKJEVELBE3WWWB7JMVVBBTE7A5ZN7JQUNN5WUHUHKQXNM
     // Public key   : GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZXG5CPCJDGBI7XTPBGGM
-    pub const SOURCE_SECRET: &str =
-        "SCZANGBA5RLKJEVELBE3WWWB7JMVVBBTE7A5ZN7JQUNN5WUHUHKQXNM";
-    pub const SOURCE_ADDR: &str =
-        "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZXG5CPCJDGBI7XTPBGGM";
+    pub const SOURCE_SECRET: &str = "SCZANGBA5RLKJEVELBE3WWWB7JMVVBBTE7A5ZN7JQUNN5WUHUHKQXNM";
+    pub const SOURCE_ADDR: &str = "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZXG5CPCJDGBI7XTPBGGM";
 
     // A second valid address used as destination / cNGN issuer.
-    pub const DEST_ADDR: &str =
-        "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX";
+    pub const DEST_ADDR: &str = "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX";
 
     // A valid-format address that will never exist on any network.
-    pub const NONEXISTENT_ADDR: &str =
-        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+    pub const NONEXISTENT_ADDR: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
 
     // ── Config helpers ────────────────────────────────────────────────────────
 
@@ -463,7 +459,10 @@ mod trustline_tests {
         assert_eq!(tx.issuer, DEST_ADDR);
         assert_eq!(tx.fee_stroops, 100);
         assert_eq!(tx.sequence, 101); // sequence 100 + 1
-        assert!(!tx.unsigned_envelope_xdr.is_empty(), "XDR must not be empty");
+        assert!(
+            !tx.unsigned_envelope_xdr.is_empty(),
+            "XDR must not be empty"
+        );
         assert!(!tx.transaction_hash.is_empty(), "hash must not be empty");
         // XDR is base64 — must not contain whitespace
         assert!(!tx.unsigned_envelope_xdr.contains(' '));
@@ -1049,7 +1048,9 @@ mod error_tests {
         let url = mock_n(429, r#"{"status":429,"title":"Too Many Requests"}"#, 1).await;
         let client = StellarClient::new(config_pointing_at(&url)).unwrap();
 
-        let result = client.list_account_transactions(SOURCE_ADDR, 10, None).await;
+        let result = client
+            .list_account_transactions(SOURCE_ADDR, 10, None)
+            .await;
 
         assert!(
             matches!(result, Err(StellarError::RateLimitError)),
@@ -1362,7 +1363,12 @@ mod unit_tests {
         },
     };
 
-    fn bal(asset_type: &str, code: Option<&str>, issuer: Option<&str>, amount: &str) -> AssetBalance {
+    fn bal(
+        asset_type: &str,
+        code: Option<&str>,
+        issuer: Option<&str>,
+        amount: &str,
+    ) -> AssetBalance {
         AssetBalance {
             asset_type: asset_type.to_string(),
             asset_code: code.map(str::to_string),
@@ -1412,7 +1418,12 @@ mod unit_tests {
         let issuer = "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX";
         let balances = vec![
             bal("native", None, None, "5.0000000"),
-            bal("credit_alphanum4", Some("cNGN"), Some(issuer), "200.0000000"),
+            bal(
+                "credit_alphanum4",
+                Some("cNGN"),
+                Some(issuer),
+                "200.0000000",
+            ),
         ];
         assert_eq!(
             extract_asset_balance(&balances, "cNGN", Some(issuer)),
@@ -1446,8 +1457,18 @@ mod unit_tests {
         let issuer_a = "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX";
         let issuer_b = "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZXG5CPCJDGBI7XTPBGGM";
         let balances = vec![
-            bal("credit_alphanum4", Some("cNGN"), Some(issuer_a), "100.0000000"),
-            bal("credit_alphanum4", Some("cNGN"), Some(issuer_b), "999.0000000"),
+            bal(
+                "credit_alphanum4",
+                Some("cNGN"),
+                Some(issuer_a),
+                "100.0000000",
+            ),
+            bal(
+                "credit_alphanum4",
+                Some("cNGN"),
+                Some(issuer_b),
+                "999.0000000",
+            ),
         ];
         assert_eq!(
             extract_asset_balance(&balances, "cNGN", Some(issuer_a)),
@@ -1464,7 +1485,12 @@ mod unit_tests {
         let issuer = "GCJRI5CIWK5IU67Q6DGA7QW52JDKRO7JEAHQKFNDUJUPEZGURDBX3LDX";
         let balances = vec![
             bal("native", None, None, "5.0000000"),
-            bal("credit_alphanum4", Some("cNGN"), Some(issuer), "750.0000000"),
+            bal(
+                "credit_alphanum4",
+                Some("cNGN"),
+                Some(issuer),
+                "750.0000000",
+            ),
         ];
         assert_eq!(
             extract_cngn_balance(&balances, Some(issuer)),
@@ -1503,7 +1529,10 @@ mod unit_tests {
         let json_err: serde_json::Error =
             serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
         let stellar_err: StellarError = json_err.into();
-        assert!(matches!(stellar_err, StellarError::SerializationError { .. }));
+        assert!(matches!(
+            stellar_err,
+            StellarError::SerializationError { .. }
+        ));
     }
 
     // ── Config validation ─────────────────────────────────────────────────────

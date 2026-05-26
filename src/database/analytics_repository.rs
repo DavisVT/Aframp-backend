@@ -675,11 +675,17 @@ impl AnalyticsRepository {
     }
 
     /// Risk score distribution across all profiles.
-    pub async fn risk_score_distribution(&self) -> Result<Vec<(String, i64, f64, f64)>, DatabaseError> {
+    pub async fn risk_score_distribution(
+        &self,
+    ) -> Result<Vec<(String, i64, f64, f64)>, DatabaseError> {
         // Returns (band_label, count, min_score, max_score)
-        let rows: Vec<(String, i64, sqlx::types::BigDecimal, sqlx::types::BigDecimal)> =
-            sqlx::query_as(
-                r#"SELECT
+        let rows: Vec<(
+            String,
+            i64,
+            sqlx::types::BigDecimal,
+            sqlx::types::BigDecimal,
+        )> = sqlx::query_as(
+            r#"SELECT
                      CASE
                        WHEN risk_score < 25 THEN 'low'
                        WHEN risk_score < 50 THEN 'medium'
@@ -692,16 +698,21 @@ impl AnalyticsRepository {
                    FROM wallet_behaviour_profiles
                    GROUP BY band
                    ORDER BY min_score"#,
-            )
-            .fetch_all(&self.pool)
-            .await
-            .map_err(DatabaseError::from_sqlx)?;
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(DatabaseError::from_sqlx)?;
 
         use bigdecimal::ToPrimitive;
         Ok(rows
             .into_iter()
             .map(|(band, cnt, min_s, max_s)| {
-                (band, cnt, min_s.to_f64().unwrap_or(0.0), max_s.to_f64().unwrap_or(0.0))
+                (
+                    band,
+                    cnt,
+                    min_s.to_f64().unwrap_or(0.0),
+                    max_s.to_f64().unwrap_or(0.0),
+                )
             })
             .collect())
     }

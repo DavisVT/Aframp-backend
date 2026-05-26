@@ -282,11 +282,7 @@ impl LogSanitizer {
         );
 
         // Card PANs (13-19 digit sequences, optionally space/dash separated)
-        result = redact_pattern(
-            &result,
-            r"\b(?:\d[ -]?){13,19}\b",
-            "[CARD_PAN_REDACTED]",
-        );
+        result = redact_pattern(&result, r"\b(?:\d[ -]?){13,19}\b", "[CARD_PAN_REDACTED]");
 
         result
     }

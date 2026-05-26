@@ -251,9 +251,7 @@ impl DataField {
             | DataField::TransactionAfriAmount
             | DataField::FiatAmount => DataCategory::TransactionAmount,
 
-            DataField::PaymentMethodEncryptedData | DataField::CardToken => {
-                DataCategory::CardToken
-            }
+            DataField::PaymentMethodEncryptedData | DataField::CardToken => DataCategory::CardToken,
             DataField::PaymentMethodPhoneNumber | DataField::BillAccountNumber => {
                 DataCategory::MobileMoneyIdentifier
             }
@@ -285,9 +283,7 @@ impl DataField {
             DataField::IpAddress => DataCategory::IpAddress,
             DataField::IpReputationScore => DataCategory::RiskScore,
             DataField::GeoCountryCode => DataCategory::PublicApiMetadata,
-            DataField::ComplianceFlag | DataField::AmlAlertDetails => {
-                DataCategory::ComplianceFlag
-            }
+            DataField::ComplianceFlag | DataField::AmlAlertDetails => DataCategory::ComplianceFlag,
 
             DataField::ExchangeRate => DataCategory::ExchangeRate,
             DataField::FeeAmount | DataField::FeeStructureDetails => DataCategory::FeeStructure,
@@ -296,9 +292,9 @@ impl DataField {
             DataField::ErrorStackTrace => DataCategory::ErrorMessage,
 
             DataField::CurrencyCode => DataCategory::CurrencyCode,
-            DataField::SupportedChain
-            | DataField::ApiVersion
-            | DataField::HealthStatus => DataCategory::PublicApiMetadata,
+            DataField::SupportedChain | DataField::ApiVersion | DataField::HealthStatus => {
+                DataCategory::PublicApiMetadata
+            }
         }
     }
 
@@ -396,17 +392,26 @@ mod tests {
 
     #[test]
     fn private_key_is_critical() {
-        assert_eq!(DataField::WalletPrivateKey.tier(), ClassificationTier::Critical);
+        assert_eq!(
+            DataField::WalletPrivateKey.tier(),
+            ClassificationTier::Critical
+        );
     }
 
     #[test]
     fn email_is_confidential() {
-        assert_eq!(DataField::UserEmail.tier(), ClassificationTier::Confidential);
+        assert_eq!(
+            DataField::UserEmail.tier(),
+            ClassificationTier::Confidential
+        );
     }
 
     #[test]
     fn transaction_status_is_public() {
-        assert_eq!(DataField::TransactionStatus.tier(), ClassificationTier::Public);
+        assert_eq!(
+            DataField::TransactionStatus.tier(),
+            ClassificationTier::Public
+        );
     }
 
     #[test]

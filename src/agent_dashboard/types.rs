@@ -133,9 +133,15 @@ pub struct AgentListQuery {
 }
 
 impl AgentListQuery {
-    pub fn page(&self) -> i64 { self.page.unwrap_or(1).max(1) }
-    pub fn page_size(&self) -> i64 { self.page_size.unwrap_or(50).clamp(1, 200) }
-    pub fn offset(&self) -> i64 { (self.page() - 1) * self.page_size() }
+    pub fn page(&self) -> i64 {
+        self.page.unwrap_or(1).max(1)
+    }
+    pub fn page_size(&self) -> i64 {
+        self.page_size.unwrap_or(50).clamp(1, 200)
+    }
+    pub fn offset(&self) -> i64 {
+        (self.page() - 1) * self.page_size()
+    }
 }
 
 /// Audit-ready export row.

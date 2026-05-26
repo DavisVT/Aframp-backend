@@ -1,9 +1,6 @@
 //! HTTP handlers for Merchant Multi-Sig & Treasury Controls.
 
-use crate::merchant_multisig::{
-    models::*,
-    service::MerchantMultisigService,
-};
+use crate::merchant_multisig::{models::*, service::MerchantMultisigService};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -22,8 +19,13 @@ fn err(code: StatusCode, msg: impl std::fmt::Display) -> axum::response::Respons
 
 fn map_err(e: MultisigError) -> axum::response::Response {
     let code = match &e {
-        MultisigError::ProposalNotFound(_) | MultisigError::PolicyNotFound(_) | MultisigError::GroupNotFound(_) => StatusCode::NOT_FOUND,
-        MultisigError::AccountFrozen | MultisigError::DuplicateSignature(_) | MultisigError::ProposalNotPending(_) | MultisigError::NotGroupMember(_) => StatusCode::UNPROCESSABLE_ENTITY,
+        MultisigError::ProposalNotFound(_)
+        | MultisigError::PolicyNotFound(_)
+        | MultisigError::GroupNotFound(_) => StatusCode::NOT_FOUND,
+        MultisigError::AccountFrozen
+        | MultisigError::DuplicateSignature(_)
+        | MultisigError::ProposalNotPending(_)
+        | MultisigError::NotGroupMember(_) => StatusCode::UNPROCESSABLE_ENTITY,
         MultisigError::NoPolicyApplicable(_, _) => StatusCode::BAD_REQUEST,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };

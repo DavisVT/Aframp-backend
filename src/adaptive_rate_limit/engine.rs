@@ -92,11 +92,7 @@ impl AdaptiveRateLimitEngine {
     /// Compute the effective rate limit multiplier for a consumer.
     ///
     /// Returns a value in (0.0, 1.0] where 1.0 means "apply static limit as-is".
-    pub async fn effective_multiplier(
-        &self,
-        consumer_id: Uuid,
-        tier: ConsumerPriorityTier,
-    ) -> f64 {
+    pub async fn effective_multiplier(&self, consumer_id: Uuid, tier: ConsumerPriorityTier) -> f64 {
         let mode = self.current_mode().await;
         let base = self.base_multiplier(mode, tier);
         let extra = {
@@ -391,12 +387,7 @@ impl AdaptiveRateLimitEngine {
         }
     }
 
-    async fn transition_to(
-        &self,
-        target: AdaptationMode,
-        snapshot: &SignalSnapshot,
-        reason: &str,
-    ) {
+    async fn transition_to(&self, target: AdaptationMode, snapshot: &SignalSnapshot, reason: &str) {
         let current = {
             let mut state = self.state.write().await;
             let from = state.current_mode;

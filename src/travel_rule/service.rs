@@ -2,8 +2,8 @@ use crate::travel_rule::models::*;
 use anyhow::{anyhow, Result};
 use chrono::{Duration, Utc};
 use sqlx::PgPool;
-use uuid::Uuid;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 /// Jurisdictional threshold above which Travel Rule applies (USD equivalent)
 const TRAVEL_RULE_THRESHOLD_USD: f64 = 1000.0;
@@ -21,7 +21,10 @@ impl TravelRuleService {
 
     /// Initiate a Travel Rule exchange for an outbound transfer.
     /// The transaction remains in "pending-travel-rule" state until acknowledged.
-    pub async fn initiate_exchange(&self, req: InitiateTravelRuleRequest) -> Result<TravelRuleExchange> {
+    pub async fn initiate_exchange(
+        &self,
+        req: InitiateTravelRuleRequest,
+    ) -> Result<TravelRuleExchange> {
         // Look up counterparty VASP capabilities
         let vasp = self.lookup_vasp(&req.beneficiary_vasp_id).await?;
         let protocol = self.select_protocol(&vasp);
@@ -71,7 +74,10 @@ impl TravelRuleService {
 
     /// Acknowledge receipt of inbound Travel Rule data from another VASP.
     /// Verifies beneficiary identity before crediting.
-    pub async fn acknowledge_inbound(&self, data: InboundTravelRuleData) -> Result<TravelRuleExchange> {
+    pub async fn acknowledge_inbound(
+        &self,
+        data: InboundTravelRuleData,
+    ) -> Result<TravelRuleExchange> {
         // Verify beneficiary against internal profile (stub — real impl queries KYC)
         self.verify_beneficiary_identity(&data).await?;
 
@@ -139,7 +145,7 @@ impl TravelRuleService {
     /// Look up a VASP from the registry
     pub async fn lookup_vasp(&self, vasp_id: &str) -> Result<VaspRegistryEntry> {
         let vasp = sqlx::query_as::<_, VaspRegistryEntry>(
-            "SELECT * FROM vasp_registry WHERE vasp_id = $1"
+            "SELECT * FROM vasp_registry WHERE vasp_id = $1",
         )
         .bind(vasp_id)
         .fetch_optional(&self.pool)
@@ -172,19 +178,19 @@ impl TravelRuleService {
         // In production: query KYC service and compare name/DOB against received IVMS101 data
         // For now: accept if beneficiary data is present
         match &data.beneficiary {
-            Ivms101Person::Natural(p) if p.first_name.is_empty() || p.last_name.is_empty() => {
-                Err(anyhow!("Beneficiary identity verification failed: missing required fields"))
-            }
-            Ivms101Person::Legal(p) if p.legal_name.is_empty() => {
-                Err(anyhow!("Beneficiary identity verification failed: missing legal name"))
-            }
+            Ivms101Person::Natural(p) if p.first_name.is_empty() || p.last_name.is_empty() => Err(
+                anyhow!("Beneficiary identity verification failed: missing required fields"),
+            ),
+            Ivms101Person::Legal(p) if p.legal_name.is_empty() => Err(anyhow!(
+                "Beneficiary identity verification failed: missing legal name"
+            )),
             _ => Ok(()),
         }
     }
 
     pub async fn get_exchange(&self, exchange_id: Uuid) -> Result<TravelRuleExchange> {
         let exchange = sqlx::query_as::<_, TravelRuleExchange>(
-            "SELECT * FROM travel_rule_exchanges WHERE exchange_id = $1"
+            "SELECT * FROM travel_rule_exchanges WHERE exchange_id = $1",
         )
         .bind(exchange_id)
         .fetch_one(&self.pool)

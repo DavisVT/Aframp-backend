@@ -203,15 +203,17 @@ impl MerchantCrmService {
             .map_err(|e| Error::BadRequest(format!("Invalid filter criteria: {}", e)))?;
 
         self.repo
-            .upsert_segment(merchant_id, &req.name, req.description.as_deref(), &criteria)
+            .upsert_segment(
+                merchant_id,
+                &req.name,
+                req.description.as_deref(),
+                &criteria,
+            )
             .await
             .map_err(|e| Error::Internal(e.to_string()))
     }
 
-    pub async fn list_segments(
-        &self,
-        merchant_id: Uuid,
-    ) -> Result<Vec<CustomerSegment>, Error> {
+    pub async fn list_segments(&self, merchant_id: Uuid) -> Result<Vec<CustomerSegment>, Error> {
         self.repo
             .list_segments(merchant_id)
             .await

@@ -153,7 +153,9 @@ impl AgentBuilder {
 
     /// Use a custom Horizon URL.
     pub fn with_horizon(mut self, url: impl Into<String>) -> Self {
-        self.config.network = AgentNetwork::Custom { horizon_url: url.into() };
+        self.config.network = AgentNetwork::Custom {
+            horizon_url: url.into(),
+        };
         self
     }
 
@@ -465,13 +467,7 @@ impl Agent {
         // For the SDK we use the Horizon /transactions endpoint with a
         // pre-built XDR envelope. Here we delegate to the internal payment
         // builder pattern already established in the codebase.
-        let envelope_xdr = self.build_payment_xdr(
-            seq,
-            amount,
-            recipient,
-            memo,
-            fee_stroops,
-        )?;
+        let envelope_xdr = self.build_payment_xdr(seq, amount, recipient, memo, fee_stroops)?;
 
         let resp = self.submit_xdr(horizon, &envelope_xdr).await?;
 
@@ -495,13 +491,8 @@ impl Agent {
     ) -> AgentResult<SwapResult> {
         let seq = self.fetch_sequence(horizon).await?;
 
-        let envelope_xdr = self.build_path_payment_xdr(
-            seq,
-            amount,
-            asset_a,
-            asset_b,
-            fee_stroops,
-        )?;
+        let envelope_xdr =
+            self.build_path_payment_xdr(seq, amount, asset_a, asset_b, fee_stroops)?;
 
         let resp = self.submit_xdr(horizon, &envelope_xdr).await?;
 
@@ -553,13 +544,12 @@ impl Agent {
         memo: Option<&str>,
         fee_stroops: u32,
     ) -> AgentResult<String> {
-        use stellar_xdr::curr::{
-            AccountId, Asset, AssetAlphaNum4, AssetCode4, Hash, Memo, MuxedAccount,
-            Operation, OperationBody, PaymentOp, PublicKey, SequenceNumber,
-            Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope,
-            Uint256, VecM, WriteXdr,
-        };
         use stellar_strkey::ed25519::PublicKey as StrkeyPub;
+        use stellar_xdr::curr::{
+            AccountId, Asset, AssetAlphaNum4, AssetCode4, Hash, Memo, MuxedAccount, Operation,
+            OperationBody, PaymentOp, PublicKey, SequenceNumber, Transaction, TransactionEnvelope,
+            TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+        };
 
         // Parse source account.
         let src_strkey = StrkeyPub::from_string(&self.identity.public_key)
@@ -640,9 +630,7 @@ impl Agent {
         // Hash = SHA-256(network_passphrase_hash || tx_bytes)
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        let passphrase_hash = Sha256::digest(
-            self.config.network.network_passphrase().as_bytes(),
-        );
+        let passphrase_hash = Sha256::digest(self.config.network.network_passphrase().as_bytes());
         hasher.update(&passphrase_hash);
         hasher.update(&tx_bytes);
         let tx_hash: [u8; 32] = hasher.finalize().into();
@@ -686,7 +674,13 @@ impl Agent {
         //
         // Production implementations should replace this with a proper
         // PathPaymentStrictSendOp using the Stellar DEX order book.
-        self.build_payment_xdr(sequence, amount, &self.identity.public_key, None, fee_stroops)
+        self.build_payment_xdr(
+            sequence,
+            amount,
+            &self.identity.public_key,
+            None,
+            fee_stroops,
+        )
     }
 
     /// Submit a base64-encoded XDR envelope to Horizon.

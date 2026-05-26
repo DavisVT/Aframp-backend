@@ -154,7 +154,10 @@ impl SagaCoordinator {
     // -----------------------------------------------------------------------
 
     async fn prepare(&self, p: &SagaParticipant) -> Result<(), String> {
-        let pool = self.router.pool_for_write(&p.shard_key).await
+        let pool = self
+            .router
+            .pool_for_write(&p.shard_key)
+            .await
             .map_err(|e| e.to_string())?;
         sqlx::query(&p.prepare_sql)
             .execute(&pool)
@@ -164,7 +167,10 @@ impl SagaCoordinator {
     }
 
     async fn commit(&self, p: &SagaParticipant) -> Result<(), String> {
-        let pool = self.router.pool_for_write(&p.shard_key).await
+        let pool = self
+            .router
+            .pool_for_write(&p.shard_key)
+            .await
             .map_err(|e| e.to_string())?;
         sqlx::query(&p.commit_sql)
             .execute(&pool)

@@ -113,7 +113,10 @@ impl PartnerRepository {
 
     // --- Partner CRUD ---
 
-    pub async fn find_by_api_key_hash(&self, hash: &str) -> Result<Option<PartnerRow>, DatabaseError> {
+    pub async fn find_by_api_key_hash(
+        &self,
+        hash: &str,
+    ) -> Result<Option<PartnerRow>, DatabaseError> {
         sqlx::query_as::<_, PartnerRow>(
             "SELECT id,slug,name,status,api_key_hash,webhook_url,webhook_secret,created_at,updated_at
              FROM remittance_partners WHERE api_key_hash=$1 AND status='active'",
@@ -166,14 +169,20 @@ impl PartnerRepository {
 
     pub async fn update_partner_status(&self, id: Uuid, status: &str) -> Result<(), DatabaseError> {
         sqlx::query("UPDATE remittance_partners SET status=$2,updated_at=now() WHERE id=$1")
-            .bind(id).bind(status)
-            .execute(&self.pool).await.map_err(DatabaseError::from_sqlx)?;
+            .bind(id)
+            .bind(status)
+            .execute(&self.pool)
+            .await
+            .map_err(DatabaseError::from_sqlx)?;
         Ok(())
     }
 
     // --- Branding ---
 
-    pub async fn get_branding(&self, partner_id: Uuid) -> Result<Option<PartnerBrandingRow>, DatabaseError> {
+    pub async fn get_branding(
+        &self,
+        partner_id: Uuid,
+    ) -> Result<Option<PartnerBrandingRow>, DatabaseError> {
         sqlx::query_as::<_, PartnerBrandingRow>(
             "SELECT partner_id,logo_url,primary_color,secondary_color,email_template,language_overrides,updated_at
              FROM partner_branding WHERE partner_id=$1",
@@ -209,12 +218,17 @@ impl PartnerRepository {
 
     // --- Fee structures ---
 
-    pub async fn get_fee(&self, partner_id: Uuid, corridor: &str) -> Result<Option<PartnerFeeRow>, DatabaseError> {
+    pub async fn get_fee(
+        &self,
+        partner_id: Uuid,
+        corridor: &str,
+    ) -> Result<Option<PartnerFeeRow>, DatabaseError> {
         sqlx::query_as::<_, PartnerFeeRow>(
             "SELECT id,partner_id,corridor,fee_type,fee_value,min_amount,max_amount,is_active
              FROM partner_fee_structures WHERE partner_id=$1 AND corridor=$2 AND is_active=true",
         )
-        .bind(partner_id).bind(corridor)
+        .bind(partner_id)
+        .bind(corridor)
         .fetch_optional(&self.pool)
         .await
         .map_err(DatabaseError::from_sqlx)
@@ -256,7 +270,10 @@ impl PartnerRepository {
 
     // --- Limits ---
 
-    pub async fn get_limits(&self, partner_id: Uuid) -> Result<Option<PartnerLimitsRow>, DatabaseError> {
+    pub async fn get_limits(
+        &self,
+        partner_id: Uuid,
+    ) -> Result<Option<PartnerLimitsRow>, DatabaseError> {
         sqlx::query_as::<_, PartnerLimitsRow>(
             "SELECT partner_id,daily_volume_limit,per_tx_min,per_tx_max,kyc_threshold
              FROM partner_limits WHERE partner_id=$1",
@@ -289,18 +306,26 @@ impl PartnerRepository {
 
     // --- Liquidity accounts ---
 
-    pub async fn get_liquidity(&self, partner_id: Uuid, currency: &str) -> Result<Option<LiquidityAccountRow>, DatabaseError> {
+    pub async fn get_liquidity(
+        &self,
+        partner_id: Uuid,
+        currency: &str,
+    ) -> Result<Option<LiquidityAccountRow>, DatabaseError> {
         sqlx::query_as::<_, LiquidityAccountRow>(
             "SELECT id,partner_id,currency,stellar_address,balance,reserved
              FROM partner_liquidity_accounts WHERE partner_id=$1 AND currency=$2",
         )
-        .bind(partner_id).bind(currency)
+        .bind(partner_id)
+        .bind(currency)
         .fetch_optional(&self.pool)
         .await
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn list_liquidity(&self, partner_id: Uuid) -> Result<Vec<LiquidityAccountRow>, DatabaseError> {
+    pub async fn list_liquidity(
+        &self,
+        partner_id: Uuid,
+    ) -> Result<Vec<LiquidityAccountRow>, DatabaseError> {
         sqlx::query_as::<_, LiquidityAccountRow>(
             "SELECT id,partner_id,currency,stellar_address,balance,reserved
              FROM partner_liquidity_accounts WHERE partner_id=$1",
@@ -357,7 +382,11 @@ impl PartnerRepository {
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn get_transfer(&self, id: Uuid, partner_id: Uuid) -> Result<Option<PartnerTransferRow>, DatabaseError> {
+    pub async fn get_transfer(
+        &self,
+        id: Uuid,
+        partner_id: Uuid,
+    ) -> Result<Option<PartnerTransferRow>, DatabaseError> {
         sqlx::query_as::<_, PartnerTransferRow>(
             r#"SELECT id,partner_id,partner_ref,from_currency,to_currency,from_amount,to_amount,
                  fee_amount,fx_rate,status,stellar_tx_hash,error_message,metadata,created_at,updated_at
@@ -397,15 +426,12 @@ impl PartnerRepository {
                WHERE partner_id=$1 AND status='completed'
                  AND DATE(created_at)=$2"#,
         )
-        .bind(partner_id).bind(date)
+        .bind(partner_id)
+        .bind(date)
         .fetch_one(&self.pool)
         .await
         .map_err(DatabaseError::from_sqlx)?;
-        Ok((
-            row.0.unwrap_or_default(),
-            row.1.unwrap_or_default(),
-            row.2,
-        ))
+        Ok((row.0.unwrap_or_default(), row.1.unwrap_or_default(), row.2))
     }
 
     // --- Settlements ---
@@ -429,27 +455,40 @@ impl PartnerRepository {
                RETURNING id,partner_id,settlement_date,total_volume,total_fees,net_payable,
                  tx_count,status,report_url,created_at"#,
         )
-        .bind(partner_id).bind(settlement_date).bind(total_volume).bind(total_fees)
-        .bind(net_payable).bind(tx_count as i32)
+        .bind(partner_id)
+        .bind(settlement_date)
+        .bind(total_volume)
+        .bind(total_fees)
+        .bind(net_payable)
+        .bind(tx_count as i32)
         .fetch_one(&self.pool)
         .await
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn list_settlements(&self, partner_id: Uuid, limit: i64) -> Result<Vec<PartnerSettlementRow>, DatabaseError> {
+    pub async fn list_settlements(
+        &self,
+        partner_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<PartnerSettlementRow>, DatabaseError> {
         sqlx::query_as::<_, PartnerSettlementRow>(
             r#"SELECT id,partner_id,settlement_date,total_volume,total_fees,net_payable,
                  tx_count,status,report_url,created_at
                FROM partner_settlements WHERE partner_id=$1
                ORDER BY settlement_date DESC LIMIT $2"#,
         )
-        .bind(partner_id).bind(limit)
+        .bind(partner_id)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn mark_settlement_sent(&self, id: Uuid, report_url: &str) -> Result<(), DatabaseError> {
+    pub async fn mark_settlement_sent(
+        &self,
+        id: Uuid,
+        report_url: &str,
+    ) -> Result<(), DatabaseError> {
         sqlx::query(
             "UPDATE partner_settlements SET status='sent',report_url=$2,updated_at=now() WHERE id=$1",
         )

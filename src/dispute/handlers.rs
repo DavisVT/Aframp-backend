@@ -1,9 +1,6 @@
 //! HTTP handlers for Merchant Dispute Resolution endpoints (Issue #337).
 
-use crate::dispute::{
-    models::*,
-    service::DisputeService,
-};
+use crate::dispute::{models::*, service::DisputeService};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -53,10 +50,7 @@ pub async fn open_dispute(
                 .into_response()
         }
     };
-    let transaction_amount: f64 = match body
-        .get("transaction_amount")
-        .and_then(|v| v.as_f64())
-    {
+    let transaction_amount: f64 = match body.get("transaction_amount").and_then(|v| v.as_f64()) {
         Some(a) => a,
         None => {
             return (
@@ -130,7 +124,10 @@ pub async fn submit_customer_evidence(
         }
     };
 
-    match svc.submit_customer_evidence(id, &customer_wallet, req).await {
+    match svc
+        .submit_customer_evidence(id, &customer_wallet, req)
+        .await
+    {
         Ok(ev) => (StatusCode::CREATED, Json(json!({ "data": ev }))).into_response(),
         Err(e) => e.into_response(),
     }

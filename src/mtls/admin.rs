@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::info;
 
-use crate::mtls::cert::{CertificateSummary, CertificateStore};
+use crate::mtls::cert::{CertificateStore, CertificateSummary};
 use crate::mtls::provisioner::CertificateProvisioner;
 use crate::mtls::revocation::RevocationService;
 
@@ -43,7 +43,10 @@ pub async fn list_certificates_handler(
     let summaries: Vec<CertificateSummary> = certs.iter().map(CertificateSummary::from).collect();
     let total = summaries.len();
     info!(total, "Admin: certificate inventory requested");
-    Json(CertificateInventoryResponse { certificates: summaries, total })
+    Json(CertificateInventoryResponse {
+        certificates: summaries,
+        total,
+    })
 }
 
 /// POST /api/admin/security/certificates/:service_name/rotate
@@ -104,6 +107,12 @@ pub fn mtls_admin_routes() -> axum::Router<Arc<MtlsAdminState>> {
     use axum::routing::{get, post};
     axum::Router::new()
         .route("/certificates", get(list_certificates_handler))
-        .route("/certificates/:service_name/rotate", post(rotate_certificate_handler))
-        .route("/certificates/:service_name/revoke", post(revoke_certificate_handler))
+        .route(
+            "/certificates/:service_name/rotate",
+            post(rotate_certificate_handler),
+        )
+        .route(
+            "/certificates/:service_name/revoke",
+            post(revoke_certificate_handler),
+        )
 }

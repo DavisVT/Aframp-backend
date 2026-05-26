@@ -2,9 +2,7 @@
 
 use crate::error::Error;
 use crate::merchant_invoicing::{
-    models::*,
-    repository::InvoicingRepository,
-    tax_engine::calculate_tax,
+    models::*, repository::InvoicingRepository, tax_engine::calculate_tax,
 };
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -57,7 +55,9 @@ impl MerchantInvoicingService {
         req: CreateInvoiceRequest,
     ) -> Result<Invoice, Error> {
         if req.line_items.is_empty() {
-            return Err(Error::BadRequest("At least one line item is required".into()));
+            return Err(Error::BadRequest(
+                "At least one line item is required".into(),
+            ));
         }
 
         // Fetch applicable tax rules
@@ -74,8 +74,8 @@ impl MerchantInvoicingService {
         let invoice_number = generate_invoice_number(merchant_id);
         let currency = req.currency.as_deref().unwrap_or("cNGN");
 
-        let line_items_json = serde_json::to_value(&req.line_items)
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let line_items_json =
+            serde_json::to_value(&req.line_items).map_err(|e| Error::Internal(e.to_string()))?;
         let tax_breakdown_json = serde_json::to_value(&tax_result.tax_breakdown)
             .map_err(|e| Error::Internal(e.to_string()))?;
 
@@ -130,11 +130,7 @@ impl MerchantInvoicingService {
         Ok(invoice)
     }
 
-    pub async fn get_invoice(
-        &self,
-        merchant_id: Uuid,
-        invoice_id: Uuid,
-    ) -> Result<Invoice, Error> {
+    pub async fn get_invoice(&self, merchant_id: Uuid, invoice_id: Uuid) -> Result<Invoice, Error> {
         self.repo
             .get_invoice(merchant_id, invoice_id)
             .await
@@ -243,8 +239,8 @@ fn sign_content(content_hash: &str) -> String {
     type HmacSha256 = Hmac<Sha256>;
 
     let key = std::env::var("ENCRYPTION_KEY").unwrap_or_else(|_| "default-key".into());
-    let mut mac = HmacSha256::new_from_slice(key.as_bytes())
-        .expect("HMAC can take key of any size");
+    let mut mac =
+        HmacSha256::new_from_slice(key.as_bytes()).expect("HMAC can take key of any size");
     mac.update(content_hash.as_bytes());
     hex::encode(mac.finalize().into_bytes())
 }

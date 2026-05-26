@@ -94,7 +94,10 @@ impl RewardEngine {
             let avg_volume = if snapshots.is_empty() {
                 0.0f64
             } else {
-                snapshots.iter().map(|s| s.volume_stroops as f64).sum::<f64>()
+                snapshots
+                    .iter()
+                    .map(|s| s.volume_stroops as f64)
+                    .sum::<f64>()
                     / snapshots.len() as f64
             };
 
@@ -104,9 +107,10 @@ impl RewardEngine {
             // ── Mining reward ─────────────────────────────────────────────────
             let mining_reward = self.calc_mining_reward(&snapshots, mining_rate, avg_volume);
 
-            for (reward_type, reward_stroops) in
-                [("fee_based", fee_reward), ("liquidity_mining", mining_reward)]
-            {
+            for (reward_type, reward_stroops) in [
+                ("fee_based", fee_reward),
+                ("liquidity_mining", mining_reward),
+            ] {
                 // wash_excluded: true only when ALL snapshots are wash trades
                 // (reward is zero because of wash trading, not for other reasons).
                 let all_wash = snapshots.iter().all(|s| is_wash_trade(s, avg_volume));
@@ -178,12 +182,7 @@ impl RewardEngine {
 
         let avg_share: f64 = valid
             .iter()
-            .map(|s| {
-                s.pro_rata_share
-                    .to_string()
-                    .parse::<f64>()
-                    .unwrap_or(0.0)
-            })
+            .map(|s| s.pro_rata_share.to_string().parse::<f64>().unwrap_or(0.0))
             .sum::<f64>()
             / valid.len() as f64;
 
@@ -209,8 +208,7 @@ impl RewardEngine {
 }
 
 fn is_wash_trade(snapshot: &LpPoolSnapshot, avg_volume: f64) -> bool {
-    avg_volume > 0.0
-        && snapshot.volume_stroops as f64 > avg_volume * WASH_TRADE_VOLUME_MULTIPLIER
+    avg_volume > 0.0 && snapshot.volume_stroops as f64 > avg_volume * WASH_TRADE_VOLUME_MULTIPLIER
 }
 
 // ── Epoch boundary helpers ────────────────────────────────────────────────────

@@ -26,11 +26,7 @@ pub struct SignalCollector {
 }
 
 impl SignalCollector {
-    pub fn new(
-        cache: Arc<RedisCache>,
-        db_pool: sqlx::PgPool,
-        window_size: usize,
-    ) -> Self {
+    pub fn new(cache: Arc<RedisCache>, db_pool: sqlx::PgPool, window_size: usize) -> Self {
         Self {
             cache,
             db_pool,
@@ -59,18 +55,14 @@ impl SignalCollector {
         rolling.push(snapshot.clone());
 
         // Update Prometheus gauges
-        crate::adaptive_rate_limit::metrics::signal_cpu()
-            .set(snapshot.cpu_utilisation);
-        crate::adaptive_rate_limit::metrics::signal_db_pool()
-            .set(snapshot.db_pool_utilisation);
+        crate::adaptive_rate_limit::metrics::signal_cpu().set(snapshot.cpu_utilisation);
+        crate::adaptive_rate_limit::metrics::signal_db_pool().set(snapshot.db_pool_utilisation);
         crate::adaptive_rate_limit::metrics::signal_redis_memory()
             .set(snapshot.redis_memory_pressure);
         crate::adaptive_rate_limit::metrics::signal_queue_depth()
             .set(snapshot.request_queue_depth as f64);
-        crate::adaptive_rate_limit::metrics::signal_error_rate()
-            .set(snapshot.error_rate);
-        crate::adaptive_rate_limit::metrics::signal_p99_ms()
-            .set(snapshot.p99_response_time_ms);
+        crate::adaptive_rate_limit::metrics::signal_error_rate().set(snapshot.error_rate);
+        crate::adaptive_rate_limit::metrics::signal_p99_ms().set(snapshot.p99_response_time_ms);
 
         // Rolling averages
         let avg_cpu = rolling.avg_cpu();

@@ -36,7 +36,11 @@ pub struct ApiError {
 }
 
 fn ok<T: Serialize>(data: T) -> Json<ApiResponse<T>> {
-    Json(ApiResponse { success: true, data, message: None })
+    Json(ApiResponse {
+        success: true,
+        data,
+        message: None,
+    })
 }
 
 fn err_response(
@@ -44,7 +48,14 @@ fn err_response(
     msg: String,
     code: &'static str,
 ) -> (StatusCode, Json<ApiError>) {
-    (status, Json(ApiError { success: false, error: msg, code }))
+    (
+        status,
+        Json(ApiError {
+            success: false,
+            error: msg,
+            code,
+        }),
+    )
 }
 
 fn map_corridor_error(e: KenyaCorridorError) -> (StatusCode, Json<ApiError>) {
@@ -52,21 +63,31 @@ fn map_corridor_error(e: KenyaCorridorError) -> (StatusCode, Json<ApiError>) {
         KenyaCorridorError::ComplianceDenied(_) => {
             err_response(StatusCode::FORBIDDEN, e.to_string(), "COMPLIANCE_DENIED")
         }
-        KenyaCorridorError::RecipientInvalid(_) => {
-            err_response(StatusCode::UNPROCESSABLE_ENTITY, e.to_string(), "RECIPIENT_INVALID")
-        }
-        KenyaCorridorError::LimitExceeded(_) => {
-            err_response(StatusCode::UNPROCESSABLE_ENTITY, e.to_string(), "LIMIT_EXCEEDED")
-        }
-        KenyaCorridorError::CbkRequirement(_) => {
-            err_response(StatusCode::UNPROCESSABLE_ENTITY, e.to_string(), "CBK_REQUIREMENT")
-        }
-        KenyaCorridorError::FxUnavailable(_) => {
-            err_response(StatusCode::SERVICE_UNAVAILABLE, e.to_string(), "FX_UNAVAILABLE")
-        }
-        KenyaCorridorError::DisbursementFailed(_) => {
-            err_response(StatusCode::BAD_GATEWAY, e.to_string(), "DISBURSEMENT_FAILED")
-        }
+        KenyaCorridorError::RecipientInvalid(_) => err_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            e.to_string(),
+            "RECIPIENT_INVALID",
+        ),
+        KenyaCorridorError::LimitExceeded(_) => err_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            e.to_string(),
+            "LIMIT_EXCEEDED",
+        ),
+        KenyaCorridorError::CbkRequirement(_) => err_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            e.to_string(),
+            "CBK_REQUIREMENT",
+        ),
+        KenyaCorridorError::FxUnavailable(_) => err_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            e.to_string(),
+            "FX_UNAVAILABLE",
+        ),
+        KenyaCorridorError::DisbursementFailed(_) => err_response(
+            StatusCode::BAD_GATEWAY,
+            e.to_string(),
+            "DISBURSEMENT_FAILED",
+        ),
         _ => err_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             e.to_string(),

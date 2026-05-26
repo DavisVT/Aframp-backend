@@ -69,9 +69,7 @@ pub fn cache_miss(endpoint: &str) {
 }
 
 pub fn snapshot_generated(wallet_id: &str, scope: &str) {
-    snapshots()
-        .with_label_values(&[wallet_id, scope])
-        .inc();
+    snapshots().with_label_values(&[wallet_id, scope]).inc();
 }
 
 pub fn anomaly_flagged_wallets(count: f64) {

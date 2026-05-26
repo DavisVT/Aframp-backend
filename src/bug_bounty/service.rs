@@ -16,8 +16,7 @@ use crate::bug_bounty::{
     },
     notifications::{disclosure_date_after_resolution, NotificationDispatcher},
     repository::BugBountyRepository,
-    rewards,
-    sla,
+    rewards, sla,
     transition::{self, ProgrammeStats},
 };
 
@@ -164,7 +163,8 @@ impl BugBountyService {
         );
 
         // 7. Update Prometheus metrics
-        self.metrics.record_report_received(is_duplicate, &report.severity);
+        self.metrics
+            .record_report_received(is_duplicate, &report.severity);
 
         Ok(report)
     }
@@ -227,8 +227,7 @@ impl BugBountyService {
                     resolved_at = Some(now);
                     // Compute disclosure date if not explicitly provided
                     if coordinated_disclosure_date.is_none() {
-                        coordinated_disclosure_date =
-                            Some(disclosure_date_after_resolution(now));
+                        coordinated_disclosure_date = Some(disclosure_date_after_resolution(now));
                     }
                 }
                 _ => {}
@@ -372,9 +371,8 @@ impl BugBountyService {
             let acked: Vec<f64> = all_reports
                 .iter()
                 .filter_map(|r| {
-                    r.acknowledged_at.map(|acked_at| {
-                        secs_to_hours((acked_at - r.created_at).num_seconds())
-                    })
+                    r.acknowledged_at
+                        .map(|acked_at| secs_to_hours((acked_at - r.created_at).num_seconds()))
                 })
                 .collect();
             if acked.is_empty() {
@@ -389,9 +387,8 @@ impl BugBountyService {
             let triaged: Vec<f64> = all_reports
                 .iter()
                 .filter_map(|r| {
-                    r.triaged_at.map(|triaged_at| {
-                        secs_to_hours((triaged_at - r.created_at).num_seconds())
-                    })
+                    r.triaged_at
+                        .map(|triaged_at| secs_to_hours((triaged_at - r.created_at).num_seconds()))
                 })
                 .collect();
             if triaged.is_empty() {
@@ -558,9 +555,13 @@ impl BugBountyService {
             ReportStatus::InRemediation,
             ReportStatus::Resolved,
         ];
-        let valid_findings_processed =
-            u32::try_from(all_reports.iter().filter(|r| valid_statuses.contains(&r.status)).count())
-                .unwrap_or(u32::MAX);
+        let valid_findings_processed = u32::try_from(
+            all_reports
+                .iter()
+                .filter(|r| valid_statuses.contains(&r.status))
+                .count(),
+        )
+        .unwrap_or(u32::MAX);
 
         let resolved_count = all_reports
             .iter()
@@ -594,11 +595,7 @@ impl BugBountyService {
         if result.success {
             let now = Utc::now();
             self.repo
-                .update_programme_phase(
-                    &ProgrammePhase::Public,
-                    Some(now),
-                    Some(admin_id),
-                )
+                .update_programme_phase(&ProgrammePhase::Public, Some(now), Some(admin_id))
                 .await?;
 
             tracing::info!(
@@ -642,23 +639,29 @@ impl BugBountyService {
             let acked: Vec<f64> = all_reports
                 .iter()
                 .filter_map(|r| {
-                    r.acknowledged_at.map(|t| {
-                        secs_to_hours((t - r.created_at).num_seconds())
-                    })
+                    r.acknowledged_at
+                        .map(|t| secs_to_hours((t - r.created_at).num_seconds()))
                 })
                 .collect();
-            if acked.is_empty() { 0.0 } else { acked.iter().sum::<f64>() / usize_to_f64(acked.len()) }
+            if acked.is_empty() {
+                0.0
+            } else {
+                acked.iter().sum::<f64>() / usize_to_f64(acked.len())
+            }
         };
         let triage_hours = {
             let triaged: Vec<f64> = all_reports
                 .iter()
                 .filter_map(|r| {
-                    r.triaged_at.map(|t| {
-                        secs_to_hours((t - r.created_at).num_seconds())
-                    })
+                    r.triaged_at
+                        .map(|t| secs_to_hours((t - r.created_at).num_seconds()))
                 })
                 .collect();
-            if triaged.is_empty() { 0.0 } else { triaged.iter().sum::<f64>() / usize_to_f64(triaged.len()) }
+            if triaged.is_empty() {
+                0.0
+            } else {
+                triaged.iter().sum::<f64>() / usize_to_f64(triaged.len())
+            }
         };
         self.metrics.update_mean_times(ack_hours, triage_hours);
 

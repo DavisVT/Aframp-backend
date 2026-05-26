@@ -584,7 +584,6 @@ impl AnalyticsRepository {
             LIMIT $1
             "#,
             limit
-
         )
         .fetch_all(&self.pool)
         .await
@@ -743,7 +742,6 @@ impl AnalyticsRepository {
         .await
         .map_err(DatabaseError::from_sqlx)?;
         Ok(())
-
     }
 }
 

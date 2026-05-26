@@ -22,11 +22,7 @@ use std::sync::Arc;
 use tracing::warn;
 
 use crate::cache::Cache;
-use crate::ddos::{
-    fingerprint::RequestFingerprint,
-    queue::PriorityTier,
-    state::DdosState,
-};
+use crate::ddos::{fingerprint::RequestFingerprint, queue::PriorityTier, state::DdosState};
 
 /// Determine the priority tier for a request.
 /// High: internal service header or in-flight transaction status check.
@@ -120,13 +116,10 @@ pub async fn ddos_middleware(
 
     // 3. Per-IP connection count (Redis INCR with TTL)
     let conn_key = format!("ddos:conn:{}", ip);
-    let conn_count = <crate::cache::RedisCache as Cache<String>>::increment(
-        &state.cache,
-        &conn_key,
-        1,
-    )
-    .await
-    .unwrap_or(0);
+    let conn_count =
+        <crate::cache::RedisCache as Cache<String>>::increment(&state.cache, &conn_key, 1)
+            .await
+            .unwrap_or(0);
 
     if conn_count == 1 {
         // Set TTL on first increment
@@ -142,9 +135,8 @@ pub async fn ddos_middleware(
         crate::ddos::metrics::dropped_requests()
             .with_label_values(&["conn_limit_ip"])
             .inc();
-        let _ = <crate::cache::RedisCache as Cache<String>>::increment(
-            &state.cache, &conn_key, -1,
-        ).await;
+        let _ = <crate::cache::RedisCache as Cache<String>>::increment(&state.cache, &conn_key, -1)
+            .await;
         return reject(
             StatusCode::TOO_MANY_REQUESTS,
             "CONN_LIMIT",
@@ -158,7 +150,10 @@ pub async fn ddos_middleware(
     let suspicion = fingerprint.suspicion_score();
 
     // Record request for attack detection
-    state.detector.record_request(&path, &ip, &fingerprint).await;
+    state
+        .detector
+        .record_request(&path, &ip, &fingerprint)
+        .await;
 
     // Update global RPS metric
     crate::ddos::metrics::request_rate()
@@ -183,9 +178,9 @@ pub async fn ddos_middleware(
             crate::ddos::metrics::dropped_requests()
                 .with_label_values(&["challenge_required"])
                 .inc();
-            let _ = <crate::cache::RedisCache as Cache<String>>::increment(
-                &state.cache, &conn_key, -1,
-            ).await;
+            let _ =
+                <crate::cache::RedisCache as Cache<String>>::increment(&state.cache, &conn_key, -1)
+                    .await;
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({
@@ -209,9 +204,9 @@ pub async fn ddos_middleware(
             crate::ddos::metrics::dropped_requests()
                 .with_label_values(&["wred"])
                 .inc();
-            let _ = <crate::cache::RedisCache as Cache<String>>::increment(
-                &state.cache, &conn_key, -1,
-            ).await;
+            let _ =
+                <crate::cache::RedisCache as Cache<String>>::increment(&state.cache, &conn_key, -1)
+                    .await;
             return reject(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "OVERLOAD",
@@ -225,9 +220,8 @@ pub async fn ddos_middleware(
         crate::ddos::metrics::dropped_requests()
             .with_label_values(&["queue_full"])
             .inc();
-        let _ = <crate::cache::RedisCache as Cache<String>>::increment(
-            &state.cache, &conn_key, -1,
-        ).await;
+        let _ = <crate::cache::RedisCache as Cache<String>>::increment(&state.cache, &conn_key, -1)
+            .await;
         return reject(
             StatusCode::SERVICE_UNAVAILABLE,
             "OVERLOAD",
@@ -241,9 +235,8 @@ pub async fn ddos_middleware(
 
     // Release slot and decrement connection count
     state.queue.release(tier);
-    let _ = <crate::cache::RedisCache as Cache<String>>::increment(
-        &state.cache, &conn_key, -1,
-    ).await;
+    let _ =
+        <crate::cache::RedisCache as Cache<String>>::increment(&state.cache, &conn_key, -1).await;
 
     response
 }

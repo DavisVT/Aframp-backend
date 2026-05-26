@@ -29,7 +29,8 @@ pub struct DefaultSlaMonitor;
 
 impl SlaMonitor for DefaultSlaMonitor {
     fn check_sla_breach(&self, metrics: &PartnerMetrics, threshold_ms: u64) -> bool {
-        metrics.average_latency.as_millis() as u64 > threshold_ms || metrics.error_rate_percent > 5.0
+        metrics.average_latency.as_millis() as u64 > threshold_ms
+            || metrics.error_rate_percent > 5.0
     }
 
     fn trigger_alert(&self, partner_id: &str, message: &str) -> Result<(), String> {

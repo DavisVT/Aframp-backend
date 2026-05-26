@@ -537,9 +537,7 @@ pub fn openapi_routes() -> Router {
         Router::new().merge(SwaggerUi::new("/docs").url("/docs/openapi.json", openapi))
     } else {
         // In production only serve the raw JSON at /docs/openapi.json
-        let spec_json = openapi
-            .to_json()
-            .unwrap_or_else(|_| "{}".to_string());
+        let spec_json = openapi.to_json().unwrap_or_else(|_| "{}".to_string());
         Router::new().route(
             "/docs/openapi.json",
             get(move || {

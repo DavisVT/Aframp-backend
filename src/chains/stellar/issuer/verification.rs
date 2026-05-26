@@ -209,8 +209,12 @@ fn emit_verification_metrics(report: &VerificationReport, issuer_id: &str) {
         1.0 // non-zero is the alert condition
     };
 
-    m::issuer_flags_ok().with_label_values(&[issuer_id]).set(flags_val);
-    m::issuer_master_weight().with_label_values(&[issuer_id]).set(master_val);
+    m::issuer_flags_ok()
+        .with_label_values(&[issuer_id])
+        .set(flags_val);
+    m::issuer_master_weight()
+        .with_label_values(&[issuer_id])
+        .set(master_val);
 
     if !report.check_flags_ok {
         error!(
@@ -231,9 +235,9 @@ pub async fn persist_verification_report(
     pool: &PgPool,
     report: &VerificationReport,
 ) -> Result<(), sqlx::Error> {
-    let issuer_id = report.issuer_id.ok_or_else(|| {
-        sqlx::Error::Protocol("issuer_id required to persist report".into())
-    })?;
+    let issuer_id = report
+        .issuer_id
+        .ok_or_else(|| sqlx::Error::Protocol("issuer_id required to persist report".into()))?;
 
     sqlx::query!(
         r#"

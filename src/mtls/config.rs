@@ -31,10 +31,9 @@ pub struct MtlsConfig {
 
 impl MtlsConfig {
     pub fn from_env() -> Result<Self, String> {
-        let service_name = std::env::var("SERVICE_NAME")
-            .unwrap_or_else(|_| "aframp-backend".to_string());
-        let environment = std::env::var("APP_ENV")
-            .unwrap_or_else(|_| "development".to_string());
+        let service_name =
+            std::env::var("SERVICE_NAME").unwrap_or_else(|_| "aframp-backend".to_string());
+        let environment = std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string());
         let leaf_days: u64 = std::env::var("MTLS_LEAF_CERT_VALIDITY_DAYS")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -51,12 +50,11 @@ impl MtlsConfig {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(7);
-        let intermediate_ca_cert_pem = std::env::var("MTLS_INTERMEDIATE_CA_CERT_PEM")
-            .unwrap_or_default();
-        let intermediate_ca_key_pem = std::env::var("MTLS_INTERMEDIATE_CA_KEY_PEM")
-            .unwrap_or_default();
-        let root_ca_cert_pem = std::env::var("MTLS_ROOT_CA_CERT_PEM")
-            .unwrap_or_default();
+        let intermediate_ca_cert_pem =
+            std::env::var("MTLS_INTERMEDIATE_CA_CERT_PEM").unwrap_or_default();
+        let intermediate_ca_key_pem =
+            std::env::var("MTLS_INTERMEDIATE_CA_KEY_PEM").unwrap_or_default();
+        let root_ca_cert_pem = std::env::var("MTLS_ROOT_CA_CERT_PEM").unwrap_or_default();
         let ca_distribution_url = std::env::var("MTLS_CA_DISTRIBUTION_URL")
             .unwrap_or_else(|_| "http://internal-ca.aframp.internal".to_string());
         let enforce_mtls = std::env::var("MTLS_ENFORCE")

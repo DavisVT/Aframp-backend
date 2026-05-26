@@ -32,7 +32,11 @@ async fn handle_websocket(socket: WebSocket, payment_id: Uuid, state: PosState) 
     let (mut sender, mut receiver) = socket.split();
 
     // Fetch payment intent to get memo
-    let payment = match state.payment_intent_service.get_payment_intent(payment_id).await {
+    let payment = match state
+        .payment_intent_service
+        .get_payment_intent(payment_id)
+        .await
+    {
         Ok(p) => p,
         Err(e) => {
             error!(payment_id = %payment_id, error = %e, "Failed to fetch payment intent");
@@ -49,7 +53,8 @@ async fn handle_websocket(socket: WebSocket, payment_id: Uuid, state: PosState) 
     };
 
     // Subscribe to payment notifications
-    let mut notification_rx = match state.lobby_service
+    let mut notification_rx = match state
+        .lobby_service
         .register_payment(payment_id, payment.memo.clone())
         .await
     {
@@ -92,7 +97,7 @@ async fn handle_websocket(socket: WebSocket, payment_id: Uuid, state: PosState) 
                 match msg {
                     Some(Ok(Message::Text(text))) => {
                         info!(payment_id = %payment_id, message = %text, "Received WebSocket message");
-                        
+
                         // Handle ping/pong
                         if text == "ping" {
                             if let Err(e) = sender.send(Message::Text("pong".to_string())).await {

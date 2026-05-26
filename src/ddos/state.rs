@@ -5,12 +5,8 @@ use tokio::sync::RwLock;
 
 use crate::cache::RedisCache;
 use crate::ddos::{
-    cdn::CdnClient,
-    challenge::ChallengeService,
-    config::DdosConfig,
-    detector::AttackDetector,
-    lockdown::LockdownManager,
-    queue::FairQueue,
+    cdn::CdnClient, challenge::ChallengeService, config::DdosConfig, detector::AttackDetector,
+    lockdown::LockdownManager, queue::FairQueue,
 };
 
 /// Blocked IP entry stored in Redis and synced to CDN.
@@ -82,7 +78,9 @@ impl DdosState {
 
     pub async fn is_blocked(&self, ip: &str) -> bool {
         let blocked = self.blocked_ips.read().await;
-        blocked.iter().any(|e| e.target == ip || ip.starts_with(&e.target))
+        blocked
+            .iter()
+            .any(|e| e.target == ip || ip.starts_with(&e.target))
     }
 
     /// Load blocked IPs from Redis on startup.

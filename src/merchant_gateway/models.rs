@@ -50,30 +50,30 @@ pub struct MerchantPaymentIntent {
     pub merchant_reference: String,
     pub amount_cngn: Decimal,
     pub currency: String,
-    
+
     // Customer details
     pub customer_email: Option<String>,
     pub customer_phone: Option<String>,
     pub customer_address: Option<String>,
-    
+
     // Blockchain details
     pub destination_address: String,
     pub memo: String,
     pub stellar_tx_hash: Option<String>,
     pub actual_amount_received: Option<Decimal>,
-    
+
     // Status
     pub status: PaymentIntentStatus,
-    
+
     // Timing
     pub expires_at: DateTime<Utc>,
     pub paid_at: Option<DateTime<Utc>>,
     pub confirmed_at: Option<DateTime<Utc>>,
-    
+
     // Metadata
     pub metadata: serde_json::Value,
     pub callback_url: Option<String>,
-    
+
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -126,7 +126,7 @@ pub struct PaymentIntentResponse {
     pub memo: String,
     pub status: PaymentIntentStatus,
     pub expires_at: DateTime<Utc>,
-    pub payment_url: String, // Deep link for mobile wallets
+    pub payment_url: String,          // Deep link for mobile wallets
     pub qr_code_data: Option<String>, // Base64 encoded QR code
     pub created_at: DateTime<Utc>,
 }
@@ -297,15 +297,24 @@ impl MerchantApiKeyScope {
     }
 
     pub fn can_create_payment(&self) -> bool {
-        matches!(self, MerchantApiKeyScope::Full | MerchantApiKeyScope::WriteOnly)
+        matches!(
+            self,
+            MerchantApiKeyScope::Full | MerchantApiKeyScope::WriteOnly
+        )
     }
 
     pub fn can_read_payment(&self) -> bool {
-        matches!(self, MerchantApiKeyScope::Full | MerchantApiKeyScope::ReadOnly)
+        matches!(
+            self,
+            MerchantApiKeyScope::Full | MerchantApiKeyScope::ReadOnly
+        )
     }
 
     pub fn can_refund(&self) -> bool {
-        matches!(self, MerchantApiKeyScope::Full | MerchantApiKeyScope::RefundOnly)
+        matches!(
+            self,
+            MerchantApiKeyScope::Full | MerchantApiKeyScope::RefundOnly
+        )
     }
 }
 

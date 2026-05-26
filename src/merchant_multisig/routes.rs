@@ -24,21 +24,39 @@ use axum::{
 
 pub fn merchant_multisig_routes(state: MultisigState) -> Router {
     Router::new()
-        .route("/merchants/:merchant_id/multisig/freeze",
-            post(freeze_account).delete(unfreeze_account).get(get_freeze_status))
-        .route("/merchants/:merchant_id/multisig/policies",
-            post(create_policy).get(list_policies))
-        .route("/merchants/:merchant_id/multisig/groups",
-            post(create_group))
-        .route("/merchants/:merchant_id/multisig/groups/:group_id/members",
-            post(add_group_member))
-        .route("/merchants/:merchant_id/multisig/proposals",
-            post(create_proposal).get(list_proposals))
-        .route("/merchants/:merchant_id/multisig/proposals/:proposal_id",
-            get(get_proposal))
-        .route("/merchants/:merchant_id/multisig/proposals/:proposal_id/sign",
-            post(sign_proposal))
-        .route("/merchants/:merchant_id/multisig/proposals/:proposal_id/execute",
-            post(execute_proposal))
+        .route(
+            "/merchants/:merchant_id/multisig/freeze",
+            post(freeze_account)
+                .delete(unfreeze_account)
+                .get(get_freeze_status),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/policies",
+            post(create_policy).get(list_policies),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/groups",
+            post(create_group),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/groups/:group_id/members",
+            post(add_group_member),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/proposals",
+            post(create_proposal).get(list_proposals),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/proposals/:proposal_id",
+            get(get_proposal),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/proposals/:proposal_id/sign",
+            post(sign_proposal),
+        )
+        .route(
+            "/merchants/:merchant_id/multisig/proposals/:proposal_id/execute",
+            post(execute_proposal),
+        )
         .with_state(state)
 }

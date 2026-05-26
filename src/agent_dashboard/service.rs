@@ -1,3 +1,4 @@
+use crate::agent_cfo::types::AgentKeyState;
 use crate::agent_dashboard::{
     repository::AgentDashboardRepository,
     types::{
@@ -5,7 +6,6 @@ use crate::agent_dashboard::{
         DeployTemplateRequest, InterventionLog,
     },
 };
-use crate::agent_cfo::types::AgentKeyState;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{info, warn};
@@ -174,7 +174,10 @@ impl AgentDashboardService {
         if !matches!(decision, "approved" | "rejected") {
             return Err("decision must be 'approved' or 'rejected'".to_string());
         }
-        let item = self.repo.decide_approval(item_id, decision, decided_by).await?;
+        let item = self
+            .repo
+            .decide_approval(item_id, decision, decided_by)
+            .await?;
 
         // If approved, unblock the task
         if decision == "approved" {
@@ -217,7 +220,9 @@ impl AgentDashboardService {
         instructions: &str,
         created_by: &str,
     ) -> Result<AgentTemplate, String> {
-        self.repo.create_template(name, instructions, created_by).await
+        self.repo
+            .create_template(name, instructions, created_by)
+            .await
     }
 
     pub async fn list_templates(&self) -> Result<Vec<AgentTemplate>, String> {

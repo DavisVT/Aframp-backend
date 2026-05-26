@@ -1,8 +1,8 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::models::{ApiVersionDeprecation, Partner, PartnerCredential};
 use super::error::PartnerError;
+use super::models::{ApiVersionDeprecation, Partner, PartnerCredential};
 
 #[derive(Clone)]
 pub struct PartnerRepository {
@@ -22,9 +22,17 @@ impl PartnerRepository {
                 ip_whitelist, rate_limit_per_minute, api_version, created_at, updated_at)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
                RETURNING *"#,
-            p.id, p.name, p.organisation, p.partner_type, p.status,
-            p.contact_email, &p.ip_whitelist, p.rate_limit_per_minute,
-            p.api_version, p.created_at, p.updated_at
+            p.id,
+            p.name,
+            p.organisation,
+            p.partner_type,
+            p.status,
+            p.contact_email,
+            &p.ip_whitelist,
+            p.rate_limit_per_minute,
+            p.api_version,
+            p.created_at,
+            p.updated_at
         )
         .fetch_one(&self.pool)
         .await?;
@@ -32,24 +40,31 @@ impl PartnerRepository {
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> Result<Partner, PartnerError> {
-        sqlx::query_as!(Partner, "SELECT * FROM integration_partners WHERE id = $1", id)
-            .fetch_optional(&self.pool)
-            .await?
-            .ok_or(PartnerError::NotFound)
+        sqlx::query_as!(
+            Partner,
+            "SELECT * FROM integration_partners WHERE id = $1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(PartnerError::NotFound)
     }
 
     pub async fn find_by_organisation(&self, org: &str) -> Result<Option<Partner>, PartnerError> {
-        Ok(
-            sqlx::query_as!(Partner, "SELECT * FROM integration_partners WHERE organisation = $1", org)
-                .fetch_optional(&self.pool)
-                .await?,
+        Ok(sqlx::query_as!(
+            Partner,
+            "SELECT * FROM integration_partners WHERE organisation = $1",
+            org
         )
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     pub async fn update_status(&self, id: Uuid, status: &str) -> Result<(), PartnerError> {
         sqlx::query!(
             "UPDATE integration_partners SET status = $1, updated_at = now() WHERE id = $2",
-            status, id
+            status,
+            id
         )
         .execute(&self.pool)
         .await?;
@@ -58,7 +73,10 @@ impl PartnerRepository {
 
     // ── Credentials ───────────────────────────────────────────────────────────
 
-    pub async fn create_credential(&self, c: &PartnerCredential) -> Result<PartnerCredential, PartnerError> {
+    pub async fn create_credential(
+        &self,
+        c: &PartnerCredential,
+    ) -> Result<PartnerCredential, PartnerError> {
         let row = sqlx::query_as!(
             PartnerCredential,
             r#"INSERT INTO partner_credentials
@@ -67,10 +85,19 @@ impl PartnerRepository {
                 environment, expires_at, revoked_at, created_at)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
                RETURNING *"#,
-            c.id, c.partner_id, c.credential_type, c.client_id,
-            c.client_secret_hash, c.certificate_fingerprint, c.api_key_hash,
-            c.api_key_prefix, &c.scopes, c.environment, c.expires_at,
-            c.revoked_at, c.created_at
+            c.id,
+            c.partner_id,
+            c.credential_type,
+            c.client_id,
+            c.client_secret_hash,
+            c.certificate_fingerprint,
+            c.api_key_hash,
+            c.api_key_prefix,
+            &c.scopes,
+            c.environment,
+            c.expires_at,
+            c.revoked_at,
+            c.created_at
         )
         .fetch_one(&self.pool)
         .await?;
@@ -99,7 +126,10 @@ impl PartnerRepository {
         Ok(row.exists.unwrap_or(false))
     }
 
-    pub async fn find_credential_by_client_id(&self, client_id: &str) -> Result<Option<PartnerCredential>, PartnerError> {
+    pub async fn find_credential_by_client_id(
+        &self,
+        client_id: &str,
+    ) -> Result<Option<PartnerCredential>, PartnerError> {
         Ok(sqlx::query_as!(
             PartnerCredential,
             "SELECT * FROM partner_credentials WHERE client_id = $1 AND revoked_at IS NULL",
@@ -109,7 +139,10 @@ impl PartnerRepository {
         .await?)
     }
 
-    pub async fn find_credential_by_api_key_prefix(&self, prefix: &str) -> Result<Option<PartnerCredential>, PartnerError> {
+    pub async fn find_credential_by_api_key_prefix(
+        &self,
+        prefix: &str,
+    ) -> Result<Option<PartnerCredential>, PartnerError> {
         Ok(sqlx::query_as!(
             PartnerCredential,
             "SELECT * FROM partner_credentials WHERE api_key_prefix = $1 AND revoked_at IS NULL",
@@ -119,7 +152,10 @@ impl PartnerRepository {
         .await?)
     }
 
-    pub async fn find_credential_by_cert_fingerprint(&self, fp: &str) -> Result<Option<PartnerCredential>, PartnerError> {
+    pub async fn find_credential_by_cert_fingerprint(
+        &self,
+        fp: &str,
+    ) -> Result<Option<PartnerCredential>, PartnerError> {
         Ok(sqlx::query_as!(
             PartnerCredential,
             "SELECT * FROM partner_credentials WHERE certificate_fingerprint = $1 AND revoked_at IS NULL",
@@ -167,7 +203,10 @@ impl PartnerRepository {
         .await?)
     }
 
-    pub async fn deprecation_for_version(&self, version: &str) -> Result<Option<ApiVersionDeprecation>, PartnerError> {
+    pub async fn deprecation_for_version(
+        &self,
+        version: &str,
+    ) -> Result<Option<ApiVersionDeprecation>, PartnerError> {
         Ok(sqlx::query_as!(
             ApiVersionDeprecation,
             "SELECT * FROM api_version_deprecations WHERE api_version = $1",

@@ -80,9 +80,10 @@ impl PaymentValidator {
         }
 
         // Check for valid base32 characters
-        if !address.chars().all(|c| {
-            c.is_ascii_uppercase() || c.is_ascii_digit()
-        }) {
+        if !address
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+        {
             return Err(AppError::BadRequest(
                 "Invalid Stellar address format (must be uppercase alphanumeric)".to_string(),
             ));
@@ -130,7 +131,9 @@ mod tests {
         assert!(PaymentValidator::validate_amount(Decimal::from_str("0.50").unwrap()).is_err());
 
         // Too large
-        assert!(PaymentValidator::validate_amount(Decimal::from_str("100000000.00").unwrap()).is_err());
+        assert!(
+            PaymentValidator::validate_amount(Decimal::from_str("100000000.00").unwrap()).is_err()
+        );
     }
 
     #[test]
@@ -153,14 +156,20 @@ mod tests {
 
         // Invalid addresses
         assert!(PaymentValidator::validate_stellar_address("GSHORT").is_err());
-        assert!(PaymentValidator::validate_stellar_address("AXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX").is_err());
-        assert!(PaymentValidator::validate_stellar_address("gxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx").is_err());
+        assert!(PaymentValidator::validate_stellar_address(
+            "AXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        )
+        .is_err());
+        assert!(PaymentValidator::validate_stellar_address(
+            "gxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        )
+        .is_err());
     }
 
     #[test]
     fn test_calculate_discrepancy() {
         let expected = Decimal::from_str("100.00").unwrap();
-        
+
         // Overpayment
         let received = Decimal::from_str("105.00").unwrap();
         let (diff, disc_type) = PaymentValidator::calculate_discrepancy(expected, received);
@@ -177,7 +186,7 @@ mod tests {
     #[test]
     fn test_is_within_tolerance() {
         let expected = Decimal::from_str("100.00").unwrap();
-        
+
         // Within tolerance
         assert!(PaymentValidator::is_within_tolerance(
             expected,

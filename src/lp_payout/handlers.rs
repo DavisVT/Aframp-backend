@@ -24,9 +24,7 @@ pub async fn get_accrued_vs_paid(
 }
 
 /// GET /api/lp/epochs — list all epochs with payout records
-pub async fn list_epochs(
-    State(repo): State<LpPayoutState>,
-) -> Result<Json<Value>, StatusCode> {
+pub async fn list_epochs(State(repo): State<LpPayoutState>) -> Result<Json<Value>, StatusCode> {
     let epochs = repo
         .get_unfinalized_epochs()
         .await

@@ -33,7 +33,12 @@ impl PartnerService {
         if !VALID_PARTNER_TYPES.contains(&req.partner_type.as_str()) {
             return Err(PartnerError::InvalidPartnerType(req.partner_type));
         }
-        if self.repo.find_by_organisation(&req.organisation).await?.is_some() {
+        if self
+            .repo
+            .find_by_organisation(&req.organisation)
+            .await?
+            .is_some()
+        {
             return Err(PartnerError::AlreadyExists);
         }
         let now = Utc::now();
@@ -46,7 +51,9 @@ impl PartnerService {
             contact_email: req.contact_email,
             ip_whitelist: req.ip_whitelist.unwrap_or_default(),
             rate_limit_per_minute: req.rate_limit_per_minute.unwrap_or(DEFAULT_RATE_LIMIT),
-            api_version: req.api_version.unwrap_or_else(|| DEFAULT_API_VERSION.to_string()),
+            api_version: req
+                .api_version
+                .unwrap_or_else(|| DEFAULT_API_VERSION.to_string()),
             created_at: now,
             updated_at: now,
         };
@@ -72,7 +79,9 @@ impl PartnerService {
             return Err(PartnerError::Suspended);
         }
 
-        let scopes = req.scopes.unwrap_or_else(|| vec!["partner:read".to_string()]);
+        let scopes = req
+            .scopes
+            .unwrap_or_else(|| vec!["partner:read".to_string()]);
         let now = Utc::now();
         let cred_id = Uuid::new_v4();
 
@@ -162,7 +171,10 @@ impl PartnerService {
 
     /// Run the automated certification test suite against a partner's sandbox
     /// credentials. Returns per-test results; all must pass for production access.
-    pub async fn run_validation(&self, partner_id: Uuid) -> Result<Vec<ValidationResult>, PartnerError> {
+    pub async fn run_validation(
+        &self,
+        partner_id: Uuid,
+    ) -> Result<Vec<ValidationResult>, PartnerError> {
         let partner = self.repo.find_by_id(partner_id).await?;
         let now = Utc::now();
         let mut results = Vec::new();

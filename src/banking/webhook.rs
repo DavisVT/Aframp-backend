@@ -21,11 +21,7 @@ impl BankWebhookProcessor {
 
     /// Process a raw inbound webhook payload.
     /// Always stores the raw event first (idempotent), then processes it.
-    pub async fn process(
-        &self,
-        provider: &str,
-        payload: &serde_json::Value,
-    ) -> anyhow::Result<()> {
+    pub async fn process(&self, provider: &str, payload: &serde_json::Value) -> anyhow::Result<()> {
         let event_type = payload
             .get("event")
             .and_then(|v| v.as_str())
@@ -79,9 +75,7 @@ impl BankWebhookProcessor {
         payload: &serde_json::Value,
     ) -> anyhow::Result<()> {
         match event_type {
-            "charge.success" | "transfer.success" => {
-                self.handle_success(event_id, payload).await
-            }
+            "charge.success" | "transfer.success" => self.handle_success(event_id, payload).await,
             "charge.failed" | "transfer.failed" | "transfer.reversed" => {
                 self.handle_failure(event_id, payload).await
             }
@@ -109,20 +103,11 @@ impl BankWebhookProcessor {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing reference in webhook payload"))?;
 
-        let transfer = self
-            .repo
-            .get_transfer_by_idempotency_key(reference)
-            .await?;
+        let transfer = self.repo.get_transfer_by_idempotency_key(reference).await?;
 
         if let Some(t) = transfer {
             self.repo
-                .update_transfer_status(
-                    t.id,
-                    "success",
-                    Some(reference),
-                    Some(payload),
-                    None,
-                )
+                .update_transfer_status(t.id, "success", Some(reference), Some(payload), None)
                 .await?;
             self.repo
                 .mark_webhook_processed(event_id, Some(t.linked_account_id), Some(t.id))
@@ -150,14 +135,17 @@ impl BankWebhookProcessor {
             .and_then(|v| v.as_str())
             .unwrap_or("Provider declined");
 
-        let transfer = self
-            .repo
-            .get_transfer_by_idempotency_key(reference)
-            .await?;
+        let transfer = self.repo.get_transfer_by_idempotency_key(reference).await?;
 
         if let Some(t) = transfer {
             self.repo
-                .update_transfer_status(t.id, "failed", Some(reference), Some(payload), Some(reason))
+                .update_transfer_status(
+                    t.id,
+                    "failed",
+                    Some(reference),
+                    Some(payload),
+                    Some(reason),
+                )
                 .await?;
             self.repo
                 .mark_webhook_processed(event_id, Some(t.linked_account_id), Some(t.id))

@@ -192,7 +192,10 @@ impl FranchiseService {
         org_id: Uuid,
         actor_user_id: Uuid,
     ) -> Result<Vec<OrganizationBranch>, Error> {
-        let member = self.repo.get_member(org_id, actor_user_id).await
+        let member = self
+            .repo
+            .get_member(org_id, actor_user_id)
+            .await
             .map_err(|e| Error::Internal(e.to_string()))?;
 
         let branches = self
@@ -323,27 +326,32 @@ impl FranchiseService {
 
         let rows = self
             .repo
-            .get_cross_store_revenue(org_id, query.period_start, query.period_end, query.branch_id)
+            .get_cross_store_revenue(
+                org_id,
+                query.period_start,
+                query.period_end,
+                query.branch_id,
+            )
             .await
             .map_err(|e| Error::Internal(e.to_string()))?;
 
         let total_revenue: f64 = rows
             .iter()
-            .map(|(_, _, rev, _)| {
-                rev.to_string().parse::<f64>().unwrap_or(0.0)
-            })
+            .map(|(_, _, rev, _)| rev.to_string().parse::<f64>().unwrap_or(0.0))
             .sum();
 
         let total_transactions: i64 = rows.iter().map(|(_, _, _, cnt)| cnt).sum();
 
         let branches = rows
             .into_iter()
-            .map(|(branch_id, branch_name, revenue, count)| BranchRevenueSummary {
-                branch_id,
-                branch_name,
-                total_revenue: revenue.to_string(),
-                transaction_count: count,
-            })
+            .map(
+                |(branch_id, branch_name, revenue, count)| BranchRevenueSummary {
+                    branch_id,
+                    branch_name,
+                    total_revenue: revenue.to_string(),
+                    transaction_count: count,
+                },
+            )
             .collect();
 
         Ok(CrossStoreRevenueReport {

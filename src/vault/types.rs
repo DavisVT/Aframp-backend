@@ -12,7 +12,9 @@ use uuid::Uuid;
 pub enum VaultError {
     #[error("custodian API error: {0}")]
     CustodianApi(String),
-    #[error("outbound transfer blocked: requires {required} of {total} signatures, have {provided}")]
+    #[error(
+        "outbound transfer blocked: requires {required} of {total} signatures, have {provided}"
+    )]
     InsufficientSignatures {
         required: usize,
         total: usize,

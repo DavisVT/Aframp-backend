@@ -74,10 +74,7 @@ impl InvoicingRepository {
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn list_tax_rules(
-        &self,
-        merchant_id: Uuid,
-    ) -> Result<Vec<TaxRule>, DatabaseError> {
+    pub async fn list_tax_rules(&self, merchant_id: Uuid) -> Result<Vec<TaxRule>, DatabaseError> {
         sqlx::query_as::<_, TaxRule>(
             "SELECT * FROM merchant_tax_rules WHERE merchant_id = $1 ORDER BY region, tax_type",
         )

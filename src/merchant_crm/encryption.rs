@@ -7,16 +7,14 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Key, Nonce,
 };
-use rand::RngCore;
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
+use rand::RngCore;
 
 const NONCE_LEN: usize = 12;
 
 fn load_key() -> Result<Key<Aes256Gcm>, String> {
-    let hex = std::env::var("ENCRYPTION_KEY")
-        .map_err(|_| "ENCRYPTION_KEY not set".to_string())?;
-    let bytes = hex::decode(&hex)
-        .map_err(|e| format!("ENCRYPTION_KEY is not valid hex: {}", e))?;
+    let hex = std::env::var("ENCRYPTION_KEY").map_err(|_| "ENCRYPTION_KEY not set".to_string())?;
+    let bytes = hex::decode(&hex).map_err(|e| format!("ENCRYPTION_KEY is not valid hex: {}", e))?;
     if bytes.len() != 32 {
         return Err(format!(
             "ENCRYPTION_KEY must be 32 bytes, got {}",
@@ -39,7 +37,11 @@ pub fn encrypt_pii(plaintext: &str) -> Result<String, String> {
         .encrypt(nonce, plaintext.as_bytes())
         .map_err(|e| format!("Encryption failed: {}", e))?;
 
-    Ok(format!("{}.{}", B64.encode(nonce_bytes), B64.encode(ciphertext)))
+    Ok(format!(
+        "{}.{}",
+        B64.encode(nonce_bytes),
+        B64.encode(ciphertext)
+    ))
 }
 
 /// Decrypt a value produced by `encrypt_pii`.

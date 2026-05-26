@@ -66,9 +66,7 @@ impl MerchantGatewayService {
         }
 
         if merchant.kyb_status != "approved" {
-            return Err(Error::BadRequest(
-                "Merchant KYB not approved".to_string(),
-            ));
+            return Err(Error::BadRequest("Merchant KYB not approved".to_string()));
         }
 
         // Idempotency check
@@ -242,9 +240,7 @@ impl MerchantGatewayService {
                 memo = %memo,
                 "Payment received for expired intent"
             );
-            return Err(Error::BadRequest(
-                "Payment intent has expired".to_string(),
-            ));
+            return Err(Error::BadRequest("Payment intent has expired".to_string()));
         }
 
         // Validate amount (allow slight overpayment)
@@ -255,9 +251,7 @@ impl MerchantGatewayService {
                 received = %amount,
                 "Underpayment detected"
             );
-            return Err(Error::BadRequest(
-                "Insufficient payment amount".to_string(),
-            ));
+            return Err(Error::BadRequest("Insufficient payment amount".to_string()));
         }
 
         // Update payment intent to paid

@@ -101,8 +101,8 @@ impl Default for AbuseDetectionConfig {
             structuring_threshold: 5,
             structuring_window_secs: 3600,
             structuring_amount_threshold: Decimal::new(10000, 2), // 100.00
-            structuring_proximity_percent: Decimal::new(5, 2), // 0.05 (5%)
-            velocity_multiplier_threshold: Decimal::new(50, 1), // 5.0x
+            structuring_proximity_percent: Decimal::new(5, 2),    // 0.05 (5%)
+            velocity_multiplier_threshold: Decimal::new(50, 1),   // 5.0x
             velocity_window_secs: 3600,
             round_trip_window_secs: 3600,
             round_trip_amount_similarity_percent: Decimal::new(95, 2), // 0.95 (95%)

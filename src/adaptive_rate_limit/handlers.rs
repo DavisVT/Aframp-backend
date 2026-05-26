@@ -30,9 +30,7 @@ pub struct AdaptiveRateLimitAdminState {
 // GET /api/admin/adaptive-rate-limit/status
 // ---------------------------------------------------------------------------
 
-pub async fn get_status(
-    State(state): State<AdaptiveRateLimitAdminState>,
-) -> impl IntoResponse {
+pub async fn get_status(State(state): State<AdaptiveRateLimitAdminState>) -> impl IntoResponse {
     let status = state.engine.status().await;
     (StatusCode::OK, Json(status))
 }
@@ -119,9 +117,7 @@ pub async fn set_override(
 // DELETE /api/admin/adaptive-rate-limit/override
 // ---------------------------------------------------------------------------
 
-pub async fn clear_override(
-    State(state): State<AdaptiveRateLimitAdminState>,
-) -> impl IntoResponse {
+pub async fn clear_override(State(state): State<AdaptiveRateLimitAdminState>) -> impl IntoResponse {
     state.engine.clear_admin_override().await;
 
     info!("admin override cleared");

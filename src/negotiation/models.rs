@@ -55,7 +55,7 @@ pub struct NegotiationRound {
 pub struct AgentConstraints {
     pub agent_id: String,
     pub max_price: i64,
-    pub min_sla_score: u8, // 0-100
+    pub min_sla_score: u8,      // 0-100
     pub reputation_weight: f64, // multiplier applied to price based on counterparty score
 }
 

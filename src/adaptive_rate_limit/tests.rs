@@ -12,7 +12,14 @@ mod unit {
 
     // ── Rolling average ───────────────────────────────────────────────────────
 
-    fn make_snapshot(cpu: f64, db: f64, redis: f64, queue: u64, err: f64, p99: f64) -> SignalSnapshot {
+    fn make_snapshot(
+        cpu: f64,
+        db: f64,
+        redis: f64,
+        queue: u64,
+        err: f64,
+        p99: f64,
+    ) -> SignalSnapshot {
         SignalSnapshot {
             captured_at: chrono::Utc::now(),
             cpu_utilisation: cpu,
@@ -59,7 +66,7 @@ mod unit {
         avg.push(make_snapshot(0.3, 0.0, 0.0, 0, 0.0, 0.0));
         avg.push(make_snapshot(0.3, 0.0, 0.0, 0, 0.0, 0.0));
         avg.push(make_snapshot(0.3, 0.0, 0.0, 0, 0.0, 0.0)); // evicts 1.0
-        // Average of 0.3, 0.3, 0.3 = 0.3
+                                                             // Average of 0.3, 0.3, 0.3 = 0.3
         assert!((avg.avg_cpu() - 0.3).abs() < 1e-9);
     }
 
@@ -189,12 +196,18 @@ mod unit {
         match (mode, tier) {
             (AdaptationMode::Normal, _) => 1.0,
             (AdaptationMode::Elevated, ConsumerPriorityTier::High) => 1.0,
-            (AdaptationMode::Elevated, ConsumerPriorityTier::Standard) => cfg.elevated_standard_multiplier,
+            (AdaptationMode::Elevated, ConsumerPriorityTier::Standard) => {
+                cfg.elevated_standard_multiplier
+            }
             (AdaptationMode::Elevated, ConsumerPriorityTier::Low) => cfg.elevated_low_multiplier,
             (AdaptationMode::Critical, ConsumerPriorityTier::High) => 1.0,
-            (AdaptationMode::Critical, ConsumerPriorityTier::Standard) => cfg.critical_standard_multiplier,
+            (AdaptationMode::Critical, ConsumerPriorityTier::Standard) => {
+                cfg.critical_standard_multiplier
+            }
             (AdaptationMode::Critical, ConsumerPriorityTier::Low) => cfg.critical_low_multiplier,
-            (AdaptationMode::Emergency, ConsumerPriorityTier::High) => cfg.emergency_high_multiplier,
+            (AdaptationMode::Emergency, ConsumerPriorityTier::High) => {
+                cfg.emergency_high_multiplier
+            }
             (AdaptationMode::Emergency, _) => 0.05,
         }
     }
@@ -202,21 +215,37 @@ mod unit {
     #[test]
     fn normal_mode_all_tiers_get_full_limit() {
         let cfg = default_cfg();
-        assert_eq!(base_multiplier(&cfg, AdaptationMode::Normal, ConsumerPriorityTier::High), 1.0);
-        assert_eq!(base_multiplier(&cfg, AdaptationMode::Normal, ConsumerPriorityTier::Standard), 1.0);
-        assert_eq!(base_multiplier(&cfg, AdaptationMode::Normal, ConsumerPriorityTier::Low), 1.0);
+        assert_eq!(
+            base_multiplier(&cfg, AdaptationMode::Normal, ConsumerPriorityTier::High),
+            1.0
+        );
+        assert_eq!(
+            base_multiplier(&cfg, AdaptationMode::Normal, ConsumerPriorityTier::Standard),
+            1.0
+        );
+        assert_eq!(
+            base_multiplier(&cfg, AdaptationMode::Normal, ConsumerPriorityTier::Low),
+            1.0
+        );
     }
 
     #[test]
     fn elevated_mode_high_priority_protected() {
         let cfg = default_cfg();
-        assert_eq!(base_multiplier(&cfg, AdaptationMode::Elevated, ConsumerPriorityTier::High), 1.0);
+        assert_eq!(
+            base_multiplier(&cfg, AdaptationMode::Elevated, ConsumerPriorityTier::High),
+            1.0
+        );
     }
 
     #[test]
     fn elevated_mode_standard_gets_tightened() {
         let cfg = default_cfg();
-        let m = base_multiplier(&cfg, AdaptationMode::Elevated, ConsumerPriorityTier::Standard);
+        let m = base_multiplier(
+            &cfg,
+            AdaptationMode::Elevated,
+            ConsumerPriorityTier::Standard,
+        );
         assert!(m < 1.0);
         assert!((m - cfg.elevated_standard_multiplier).abs() < 1e-9);
     }
@@ -224,14 +253,25 @@ mod unit {
     #[test]
     fn critical_mode_high_priority_protected() {
         let cfg = default_cfg();
-        assert_eq!(base_multiplier(&cfg, AdaptationMode::Critical, ConsumerPriorityTier::High), 1.0);
+        assert_eq!(
+            base_multiplier(&cfg, AdaptationMode::Critical, ConsumerPriorityTier::High),
+            1.0
+        );
     }
 
     #[test]
     fn critical_mode_standard_more_aggressive_than_elevated() {
         let cfg = default_cfg();
-        let elevated = base_multiplier(&cfg, AdaptationMode::Elevated, ConsumerPriorityTier::Standard);
-        let critical = base_multiplier(&cfg, AdaptationMode::Critical, ConsumerPriorityTier::Standard);
+        let elevated = base_multiplier(
+            &cfg,
+            AdaptationMode::Elevated,
+            ConsumerPriorityTier::Standard,
+        );
+        let critical = base_multiplier(
+            &cfg,
+            AdaptationMode::Critical,
+            ConsumerPriorityTier::Standard,
+        );
         assert!(critical < elevated);
     }
 
@@ -246,7 +286,11 @@ mod unit {
     #[test]
     fn emergency_mode_standard_gets_minimal() {
         let cfg = default_cfg();
-        let m = base_multiplier(&cfg, AdaptationMode::Emergency, ConsumerPriorityTier::Standard);
+        let m = base_multiplier(
+            &cfg,
+            AdaptationMode::Emergency,
+            ConsumerPriorityTier::Standard,
+        );
         assert!(m > 0.0);
         assert!(m <= 0.1);
     }
@@ -300,17 +344,35 @@ mod unit {
     #[test]
     fn endpoint_category_essential_classification() {
         use crate::adaptive_rate_limit::models::EndpointCategory;
-        assert_eq!(EndpointCategory::classify("/api/onramp/initiate"), EndpointCategory::Essential);
-        assert_eq!(EndpointCategory::classify("/api/offramp/initiate"), EndpointCategory::Essential);
-        assert_eq!(EndpointCategory::classify("/api/bills/pay"), EndpointCategory::Essential);
+        assert_eq!(
+            EndpointCategory::classify("/api/onramp/initiate"),
+            EndpointCategory::Essential
+        );
+        assert_eq!(
+            EndpointCategory::classify("/api/offramp/initiate"),
+            EndpointCategory::Essential
+        );
+        assert_eq!(
+            EndpointCategory::classify("/api/bills/pay"),
+            EndpointCategory::Essential
+        );
     }
 
     #[test]
     fn endpoint_category_non_essential_classification() {
         use crate::adaptive_rate_limit::models::EndpointCategory;
-        assert_eq!(EndpointCategory::classify("/api/rates"), EndpointCategory::NonEssential);
-        assert_eq!(EndpointCategory::classify("/api/onramp/quote"), EndpointCategory::NonEssential);
-        assert_eq!(EndpointCategory::classify("/api/wallet/balance"), EndpointCategory::NonEssential);
+        assert_eq!(
+            EndpointCategory::classify("/api/rates"),
+            EndpointCategory::NonEssential
+        );
+        assert_eq!(
+            EndpointCategory::classify("/api/onramp/quote"),
+            EndpointCategory::NonEssential
+        );
+        assert_eq!(
+            EndpointCategory::classify("/api/wallet/balance"),
+            EndpointCategory::NonEssential
+        );
     }
 
     // ── Consumer priority tier mapping ────────────────────────────────────────

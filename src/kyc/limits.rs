@@ -1,14 +1,16 @@
-use chrono::{DateTime, Utc, NaiveDate};
-use std::collections::HashMap;
-use uuid::Uuid;
 use bigdecimal::BigDecimal;
-use tracing::{info, warn, error};
+use chrono::{DateTime, NaiveDate, Utc};
 use redis::AsyncCommands;
+use std::collections::HashMap;
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
-use crate::database::kyc_repository::{KycRepository, KycTier, KycLimits};
-use crate::database::error::DatabaseError;
-use crate::kyc::tier_requirements::{KycTierRequirements, TransactionLimitEnforcer, LimitViolation};
 use crate::cache::RedisManager;
+use crate::database::error::DatabaseError;
+use crate::database::kyc_repository::{KycLimits, KycRepository, KycTier};
+use crate::kyc::tier_requirements::{
+    KycTierRequirements, LimitViolation, TransactionLimitEnforcer,
+};
 
 #[derive(Clone)]
 pub struct KycLimitsEnforcer {
@@ -27,21 +29,28 @@ impl KycLimitsEnforcer {
         consumer_id: Uuid,
         transaction_amount: BigDecimal,
     ) -> Result<TransactionLimitCheckResult, KycLimitsError> {
-        info!("Checking transaction limits for consumer {} amount {}", consumer_id, transaction_amount);
+        info!(
+            "Checking transaction limits for consumer {} amount {}",
+            consumer_id, transaction_amount
+        );
 
         // Get current KYC record
-        let kyc_record = self.repository.get_kyc_record_by_consumer(consumer_id)
+        let kyc_record = self
+            .repository
+            .get_kyc_record_by_consumer(consumer_id)
             .await?
             .ok_or(KycLimitsError::KycRecordNotFound)?;
 
         // Get current limits
-        let current_limits = self.repository.get_current_limits(consumer_id)
+        let current_limits = self
+            .repository
+            .get_current_limits(consumer_id)
             .await?
             .ok_or(KycLimitsError::LimitsNotFound)?;
 
         // Use effective tier (might be reduced during EDD)
         let enforcer = TransactionLimitEnforcer::new(kyc_record.effective_tier);
-        
+
         let limit_result = enforcer.check_transaction_limits(
             transaction_amount.clone(),
             current_limits.daily_volume_used.clone(),
@@ -50,10 +59,16 @@ impl KycLimitsEnforcer {
 
         // Update volume trackers if transaction is allowed
         let updated_limits = if limit_result.is_allowed {
-            match self.update_volume_trackers(consumer_id, transaction_amount.clone()).await {
+            match self
+                .update_volume_trackers(consumer_id, transaction_amount.clone())
+                .await
+            {
                 Ok(updated) => Some(updated),
                 Err(e) => {
-                    error!("Failed to update volume trackers for consumer {}: {}", consumer_id, e);
+                    error!(
+                        "Failed to update volume trackers for consumer {}: {}",
+                        consumer_id, e
+                    );
                     None
                 }
             }
@@ -77,11 +92,16 @@ impl KycLimitsEnforcer {
     }
 
     /// Get current transaction limits for a consumer
-    pub async fn get_current_limits(&self, consumer_id: Uuid) -> Result<KycLimitsInfo, KycLimitsError> {
+    pub async fn get_current_limits(
+        &self,
+        consumer_id: Uuid,
+    ) -> Result<KycLimitsInfo, KycLimitsError> {
         info!("Getting current limits for consumer {}", consumer_id);
 
         // Get current KYC record
-        let kyc_record = self.repository.get_kyc_record_by_consumer(consumer_id)
+        let kyc_record = self
+            .repository
+            .get_kyc_record_by_consumer(consumer_id)
             .await?
             .ok_or(KycLimitsError::KycRecordNotFound)?;
 
@@ -114,9 +134,14 @@ impl KycLimitsEnforcer {
         reduced_tier: KycTier,
         reason: String,
     ) -> Result<(), KycLimitsError> {
-        info!("Reducing effective tier for consumer {} to {:?}: {}", consumer_id, reduced_tier, reason);
+        info!(
+            "Reducing effective tier for consumer {} to {:?}: {}",
+            consumer_id, reduced_tier, reason
+        );
 
-        let kyc_record = self.repository.get_kyc_record_by_consumer(consumer_id)
+        let kyc_record = self
+            .repository
+            .get_kyc_record_by_consumer(consumer_id)
             .await?
             .ok_or(KycLimitsError::KycRecordNotFound)?;
 
@@ -136,18 +161,24 @@ impl KycLimitsEnforcer {
         .map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
 
         // Log the change
-        self.repository.create_event(
-            consumer_id,
-            Some(kyc_record.id),
-            crate::database::kyc_repository::KycEventType::LimitsUpdated,
-            Some(format!("Effective tier reduced to {:?}: {}", reduced_tier, reason)),
-            None,
-            Some(serde_json::json!({
-                "previous_tier": format!("{:?}", kyc_record.effective_tier),
-                "new_tier": format!("{:?}", reduced_tier),
-                "reason": reason
-            }))
-        ).await.map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
+        self.repository
+            .create_event(
+                consumer_id,
+                Some(kyc_record.id),
+                crate::database::kyc_repository::KycEventType::LimitsUpdated,
+                Some(format!(
+                    "Effective tier reduced to {:?}: {}",
+                    reduced_tier, reason
+                )),
+                None,
+                Some(serde_json::json!({
+                    "previous_tier": format!("{:?}", kyc_record.effective_tier),
+                    "new_tier": format!("{:?}", reduced_tier),
+                    "reason": reason
+                })),
+            )
+            .await
+            .map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
 
         // Clear cache
         self.clear_limits_cache(consumer_id).await?;
@@ -161,9 +192,14 @@ impl KycLimitsEnforcer {
         consumer_id: Uuid,
         reason: String,
     ) -> Result<(), KycLimitsError> {
-        info!("Restoring effective tier for consumer {}: {}", consumer_id, reason);
+        info!(
+            "Restoring effective tier for consumer {}: {}",
+            consumer_id, reason
+        );
 
-        let kyc_record = self.repository.get_kyc_record_by_consumer(consumer_id)
+        let kyc_record = self
+            .repository
+            .get_kyc_record_by_consumer(consumer_id)
             .await?
             .ok_or(KycLimitsError::KycRecordNotFound)?;
 
@@ -182,17 +218,20 @@ impl KycLimitsEnforcer {
         .map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
 
         // Log the change
-        self.repository.create_event(
-            consumer_id,
-            Some(kyc_record.id),
-            crate::database::kyc_repository::KycEventType::LimitsUpdated,
-            Some(format!("Effective tier restored: {}", reason)),
-            None,
-            Some(serde_json::json!({
-                "restored_tier": format!("{:?}", kyc_record.tier),
-                "reason": reason
-            }))
-        ).await.map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
+        self.repository
+            .create_event(
+                consumer_id,
+                Some(kyc_record.id),
+                crate::database::kyc_repository::KycEventType::LimitsUpdated,
+                Some(format!("Effective tier restored: {}", reason)),
+                None,
+                Some(serde_json::json!({
+                    "restored_tier": format!("{:?}", kyc_record.tier),
+                    "reason": reason
+                })),
+            )
+            .await
+            .map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
 
         // Clear cache
         self.clear_limits_cache(consumer_id).await?;
@@ -205,7 +244,7 @@ impl KycLimitsEnforcer {
         info!("Resetting daily volume counters");
 
         let today = Utc::now().date_naive();
-        
+
         let result = sqlx::query!(
             r#"
             UPDATE kyc_volume_trackers 
@@ -233,7 +272,7 @@ impl KycLimitsEnforcer {
         info!("Resetting monthly volume counters");
 
         let today = Utc::now().date_naive();
-        
+
         let result = sqlx::query!(
             r#"
             UPDATE kyc_volume_trackers 
@@ -259,14 +298,14 @@ impl KycLimitsEnforcer {
     /// Get consumers approaching their limits (for monitoring)
     pub async fn get_consumers_approaching_limits(
         &self,
-        daily_threshold: f64,  // e.g., 0.8 for 80%
+        daily_threshold: f64,   // e.g., 0.8 for 80%
         monthly_threshold: f64, // e.g., 0.8 for 80%
         limit: Option<i64>,
     ) -> Result<Vec<ConsumerLimitWarning>, KycLimitsError> {
         info!("Getting consumers approaching limits");
 
         let limit = limit.unwrap_or(100);
-        
+
         let records = sqlx::query!(
             r#"
             SELECT 
@@ -296,22 +335,27 @@ impl KycLimitsEnforcer {
         .await
         .map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
 
-        let warnings: Vec<ConsumerLimitWarning> = records.into_iter().map(|record| {
-            let daily_usage_ratio = record.daily_volume.clone() / record.daily_volume_limit.clone();
-            let monthly_usage_ratio = record.monthly_volume.clone() / record.monthly_volume_limit.clone();
+        let warnings: Vec<ConsumerLimitWarning> = records
+            .into_iter()
+            .map(|record| {
+                let daily_usage_ratio =
+                    record.daily_volume.clone() / record.daily_volume_limit.clone();
+                let monthly_usage_ratio =
+                    record.monthly_volume.clone() / record.monthly_volume_limit.clone();
 
-            ConsumerLimitWarning {
-                consumer_id: record.consumer_id,
-                tier: record.tier,
-                effective_tier: record.effective_tier,
-                daily_usage_ratio: daily_usage_ratio.to_f64().unwrap_or(0.0),
-                monthly_usage_ratio: monthly_usage_ratio.to_f64().unwrap_or(0.0),
-                daily_volume_used: record.daily_volume,
-                monthly_volume_used: record.monthly_volume,
-                daily_volume_limit: record.daily_volume_limit,
-                monthly_volume_limit: record.monthly_volume_limit,
-            }
-        }).collect();
+                ConsumerLimitWarning {
+                    consumer_id: record.consumer_id,
+                    tier: record.tier,
+                    effective_tier: record.effective_tier,
+                    daily_usage_ratio: daily_usage_ratio.to_f64().unwrap_or(0.0),
+                    monthly_usage_ratio: monthly_usage_ratio.to_f64().unwrap_or(0.0),
+                    daily_volume_used: record.daily_volume,
+                    monthly_volume_used: record.monthly_volume,
+                    daily_volume_limit: record.daily_volume_limit,
+                    monthly_volume_limit: record.monthly_volume_limit,
+                }
+            })
+            .collect();
 
         Ok(warnings)
     }
@@ -321,12 +365,16 @@ impl KycLimitsEnforcer {
         consumer_id: Uuid,
         transaction_amount: BigDecimal,
     ) -> Result<KycLimits, KycLimitsError> {
-        let updated_tracker = self.repository.update_volume_tracker(consumer_id, transaction_amount.clone())
+        let updated_tracker = self
+            .repository
+            .update_volume_tracker(consumer_id, transaction_amount.clone())
             .await
             .map_err(|e| KycLimitsError::DatabaseError(e.to_string()))?;
 
         // Get updated limits
-        let limits = self.repository.get_current_limits(consumer_id)
+        let limits = self
+            .repository
+            .get_current_limits(consumer_id)
             .await?
             .ok_or(KycLimitsError::LimitsNotFound)?;
 
@@ -336,21 +384,26 @@ impl KycLimitsEnforcer {
         Ok(limits)
     }
 
-    async fn get_current_volumes(&self, consumer_id: Uuid) -> Result<(BigDecimal, BigDecimal), KycLimitsError> {
+    async fn get_current_volumes(
+        &self,
+        consumer_id: Uuid,
+    ) -> Result<(BigDecimal, BigDecimal), KycLimitsError> {
         let cache_key = format!("kyc_volumes:{}", consumer_id);
-        
+
         // Try cache first
         if let Ok(cached_data) = self.redis.get(&cache_key).await {
             if let Ok(volumes) = serde_json::from_str::<serde_json::Value>(&cached_data) {
-                let daily = BigDecimal::from_str(volumes["daily"].as_str().unwrap_or("0")).unwrap_or_default();
-                let monthly = BigDecimal::from_str(volumes["monthly"].as_str().unwrap_or("0")).unwrap_or_default();
+                let daily = BigDecimal::from_str(volumes["daily"].as_str().unwrap_or("0"))
+                    .unwrap_or_default();
+                let monthly = BigDecimal::from_str(volumes["monthly"].as_str().unwrap_or("0"))
+                    .unwrap_or_default();
                 return Ok((daily, monthly));
             }
         }
 
         // Fallback to database
         let today = Utc::now().date_naive();
-        
+
         let result = sqlx::query!(
             r#"
             SELECT COALESCE(daily_volume, '0'::BigDecimal) as daily_volume,
@@ -376,15 +429,26 @@ impl KycLimitsEnforcer {
             "monthly": monthly.to_string(),
             "updated": Utc::now().to_rfc3339()
         });
-        
-        if let Err(e) = self.redis.setex(&cache_key, &volumes_data.to_string(), 300).await {
-            warn!("Failed to cache volumes for consumer {}: {}", consumer_id, e);
+
+        if let Err(e) = self
+            .redis
+            .setex(&cache_key, &volumes_data.to_string(), 300)
+            .await
+        {
+            warn!(
+                "Failed to cache volumes for consumer {}: {}",
+                consumer_id, e
+            );
         }
 
         Ok((daily, monthly))
     }
 
-    async fn update_limits_cache(&self, consumer_id: Uuid, limits: &KycLimits) -> Result<(), KycLimitsError> {
+    async fn update_limits_cache(
+        &self,
+        consumer_id: Uuid,
+        limits: &KycLimits,
+    ) -> Result<(), KycLimitsError> {
         let cache_key = format!("kyc_limits:{}", consumer_id);
         let limits_data = serde_json::json!({
             "tier": format!("{:?}", limits.tier),
@@ -396,7 +460,11 @@ impl KycLimitsEnforcer {
             "updated": Utc::now().to_rfc3339()
         });
 
-        if let Err(e) = self.redis.setex(&cache_key, &limits_data.to_string(), 300).await {
+        if let Err(e) = self
+            .redis
+            .setex(&cache_key, &limits_data.to_string(), 300)
+            .await
+        {
             warn!("Failed to cache limits for consumer {}: {}", consumer_id, e);
         }
 
@@ -407,9 +475,15 @@ impl KycLimitsEnforcer {
         let cache_key = format!("kyc_limits:{}", consumer_id);
         let volumes_key = format!("kyc_volumes:{}", consumer_id);
 
-        let _: () = self.redis.del(&cache_key).await
+        let _: () = self
+            .redis
+            .del(&cache_key)
+            .await
             .map_err(|e| KycLimitsError::RedisError(e.to_string()))?;
-        let _: () = self.redis.del(&volumes_key).await
+        let _: () = self
+            .redis
+            .del(&volumes_key)
+            .await
             .map_err(|e| KycLimitsError::RedisError(e.to_string()))?;
 
         Ok(())
@@ -419,13 +493,19 @@ impl KycLimitsEnforcer {
         // This is a simple implementation - in production you might want to use
         // Redis SCAN or pattern-based deletion for better performance
         let patterns = vec!["kyc_limits:*", "kyc_volumes:*"];
-        
+
         for pattern in patterns {
-            let keys: Vec<String> = self.redis.keys(pattern).await
+            let keys: Vec<String> = self
+                .redis
+                .keys(pattern)
+                .await
                 .map_err(|e| KycLimitsError::RedisError(e.to_string()))?;
-            
+
             if !keys.is_empty() {
-                let _: () = self.redis.del(&keys).await
+                let _: () = self
+                    .redis
+                    .del(&keys)
+                    .await
                     .map_err(|e| KycLimitsError::RedisError(e.to_string()))?;
             }
         }
@@ -478,16 +558,16 @@ pub struct ConsumerLimitWarning {
 pub enum KycLimitsError {
     #[error("Database error: {0}")]
     DatabaseError(String),
-    
+
     #[error("Redis error: {0}")]
     RedisError(String),
-    
+
     #[error("KYC record not found")]
     KycRecordNotFound,
-    
+
     #[error("Limits not found")]
     LimitsNotFound,
-    
+
     #[error("Invalid amount")]
     InvalidAmount,
 }

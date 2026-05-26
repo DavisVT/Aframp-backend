@@ -79,11 +79,7 @@ fn gf_div(a: u8, b: u8) -> u8 {
 // ---------------------------------------------------------------------------
 
 /// Split `secret` into `total` shares where any `threshold` shares reconstruct it.
-pub fn split(
-    secret: &[u8],
-    threshold: u8,
-    total: u8,
-) -> Result<Vec<Share>, EscrowError> {
+pub fn split(secret: &[u8], threshold: u8, total: u8) -> Result<Vec<Share>, EscrowError> {
     if secret.is_empty() {
         return Err(EscrowError::EmptySecret);
     }
@@ -92,7 +88,12 @@ pub fn split(
     }
 
     let mut rng = rand::thread_rng();
-    let mut shares: Vec<Share> = (1..=total).map(|x| Share { x, y: vec![0u8; secret.len()] }).collect();
+    let mut shares: Vec<Share> = (1..=total)
+        .map(|x| Share {
+            x,
+            y: vec![0u8; secret.len()],
+        })
+        .collect();
 
     for (byte_idx, &secret_byte) in secret.iter().enumerate() {
         // Build a random polynomial of degree (threshold-1) with f(0) = secret_byte
@@ -182,7 +183,10 @@ mod tests {
         let secret = b"test-secret";
         let shares = split(secret, 3, 5).unwrap();
         let result = reconstruct(&shares[..2], 3);
-        assert!(matches!(result, Err(EscrowError::InsufficientShares { .. })));
+        assert!(matches!(
+            result,
+            Err(EscrowError::InsufficientShares { .. })
+        ));
     }
 
     #[test]
@@ -204,8 +208,16 @@ mod tests {
         let secret = b"consistent-reconstruction";
         let shares = split(secret, 3, 5).unwrap();
 
-        let r1 = reconstruct(&[shares[0].clone(), shares[1].clone(), shares[2].clone()], 3).unwrap();
-        let r2 = reconstruct(&[shares[1].clone(), shares[3].clone(), shares[4].clone()], 3).unwrap();
+        let r1 = reconstruct(
+            &[shares[0].clone(), shares[1].clone(), shares[2].clone()],
+            3,
+        )
+        .unwrap();
+        let r2 = reconstruct(
+            &[shares[1].clone(), shares[3].clone(), shares[4].clone()],
+            3,
+        )
+        .unwrap();
         assert_eq!(r1.as_slice(), secret);
         assert_eq!(r2.as_slice(), secret);
     }

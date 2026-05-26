@@ -1,10 +1,10 @@
 use crate::collateral_lending::models::*;
 use anyhow::Result;
-use sqlx::PgPool;
-use uuid::Uuid;
 use chrono::Utc;
 use sqlx::types::BigDecimal;
+use sqlx::PgPool;
 use std::str::FromStr;
+use uuid::Uuid;
 
 pub struct CollateralLendingService {
     pool: PgPool,
@@ -98,24 +98,31 @@ impl CollateralLendingService {
 
         // Update position status if fully repaid
         if remaining_balance == BigDecimal::from(0) {
-            sqlx::query("UPDATE lending_positions SET status = $1, updated_at = $2 WHERE position_id = $3")
-                .bind(LendingPositionStatus::Repaid)
-                .bind(Utc::now())
-                .bind(req.position_id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                "UPDATE lending_positions SET status = $1, updated_at = $2 WHERE position_id = $3",
+            )
+            .bind(LendingPositionStatus::Repaid)
+            .bind(Utc::now())
+            .bind(req.position_id)
+            .execute(&self.pool)
+            .await?;
         }
 
         Ok(repayment)
     }
 
-    pub async fn adjust_collateral(&self, req: AdjustCollateralRequest) -> Result<CollateralAdjustment> {
+    pub async fn adjust_collateral(
+        &self,
+        req: AdjustCollateralRequest,
+    ) -> Result<CollateralAdjustment> {
         let position = self.get_position(req.position_id).await?;
         let pre_collateral = position.collateral_amount.clone();
         let pre_health = position.health_factor.clone();
 
         let post_collateral = match req.adjustment_type {
-            CollateralAdjustmentType::Deposit => pre_collateral.clone() + req.adjustment_amount.clone(),
+            CollateralAdjustmentType::Deposit => {
+                pre_collateral.clone() + req.adjustment_amount.clone()
+            }
             CollateralAdjustmentType::Withdrawal => {
                 if pre_collateral > req.adjustment_amount {
                     pre_collateral.clone() - req.adjustment_amount.clone()
@@ -125,7 +132,9 @@ impl CollateralLendingService {
             }
         };
 
-        let post_health = if position.liquidation_threshold_ratio > BigDecimal::from(0) && position.borrowed_amount > BigDecimal::from(0) {
+        let post_health = if position.liquidation_threshold_ratio > BigDecimal::from(0)
+            && position.borrowed_amount > BigDecimal::from(0)
+        {
             let new_ratio = post_collateral.clone() / position.borrowed_amount.clone();
             new_ratio / position.liquidation_threshold_ratio.clone()
         } else {
@@ -170,7 +179,7 @@ impl CollateralLendingService {
 
     pub async fn get_position(&self, position_id: Uuid) -> Result<LendingPosition> {
         let position = sqlx::query_as::<_, LendingPosition>(
-            "SELECT * FROM lending_positions WHERE position_id = $1"
+            "SELECT * FROM lending_positions WHERE position_id = $1",
         )
         .bind(position_id)
         .fetch_one(&self.pool)
@@ -180,7 +189,7 @@ impl CollateralLendingService {
 
     pub async fn list_positions_by_wallet(&self, wallet_id: Uuid) -> Result<Vec<LendingPosition>> {
         let positions = sqlx::query_as::<_, LendingPosition>(
-            "SELECT * FROM lending_positions WHERE wallet_id = $1 ORDER BY created_at DESC"
+            "SELECT * FROM lending_positions WHERE wallet_id = $1 ORDER BY created_at DESC",
         )
         .bind(wallet_id)
         .fetch_all(&self.pool)
@@ -228,12 +237,14 @@ impl CollateralLendingService {
         .fetch_one(&self.pool)
         .await?;
 
-        sqlx::query("UPDATE lending_positions SET status = $1, updated_at = $2 WHERE position_id = $3")
-            .bind(LendingPositionStatus::Liquidated)
-            .bind(Utc::now())
-            .bind(event.position_id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "UPDATE lending_positions SET status = $1, updated_at = $2 WHERE position_id = $3",
+        )
+        .bind(LendingPositionStatus::Liquidated)
+        .bind(Utc::now())
+        .bind(event.position_id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(record)
     }

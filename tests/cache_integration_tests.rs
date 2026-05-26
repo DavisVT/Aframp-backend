@@ -7,8 +7,7 @@
 //! - Performance optimization
 
 use aframp_backend::cache::{
-    AdvancedRedisCache, AdvancedCacheConfig, CDNManager, CDNConfig, 
-    CacheError, CacheResult
+    AdvancedCacheConfig, AdvancedRedisCache, CDNConfig, CDNManager, CacheError, CacheResult,
 };
 use redis::Client;
 use serde::{Deserialize, Serialize};
@@ -30,7 +29,7 @@ async fn test_advanced_redis_cache_basic_operations() -> Result<(), anyhow::Erro
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -45,8 +44,10 @@ async fn test_advanced_redis_cache_basic_operations() -> Result<(), anyhow::Erro
     let key = format!("test:{}", test_data.id);
 
     // Test set and get
-    cache.set(&key, &test_data, Some(Duration::from_secs(60))).await?;
-    
+    cache
+        .set(&key, &test_data, Some(Duration::from_secs(60)))
+        .await?;
+
     let retrieved: Option<TestData> = cache.get(&key).await?;
     assert!(retrieved.is_some());
     assert_eq!(retrieved.unwrap().id, test_data.id);
@@ -67,7 +68,7 @@ async fn test_cache_aside_pattern() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -80,10 +81,16 @@ async fn test_cache_aside_pattern() -> Result<(), anyhow::Error> {
     };
 
     // First call should fetch from source (cache miss)
-    let result = cache.get_or_set(&key, || async move {
-        sleep(Duration::from_millis(100)).await; // Simulate slow operation
-        Ok(expected_data.clone())
-    }, Some(Duration::from_secs(300))).await?;
+    let result = cache
+        .get_or_set(
+            &key,
+            || async move {
+                sleep(Duration::from_millis(100)).await; // Simulate slow operation
+                Ok(expected_data.clone())
+            },
+            Some(Duration::from_secs(300)),
+        )
+        .await?;
 
     assert_eq!(result.id, expected_data.id);
 
@@ -94,10 +101,16 @@ async fn test_cache_aside_pattern() -> Result<(), anyhow::Error> {
 
     // Second call should hit cache (should be faster)
     let start = std::time::Instant::now();
-    let result2 = cache.get_or_set(&key, || async move {
-        unreachable!("Should not be called due to cache hit");
-    }, Some(Duration::from_secs(300))).await?;
-    
+    let result2 = cache
+        .get_or_set(
+            &key,
+            || async move {
+                unreachable!("Should not be called due to cache hit");
+            },
+            Some(Duration::from_secs(300)),
+        )
+        .await?;
+
     let elapsed = start.elapsed();
     assert!(elapsed < Duration::from_millis(50)); // Should be much faster
     assert_eq!(result2.id, expected_data.id);
@@ -110,7 +123,7 @@ async fn test_distributed_locking() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -143,7 +156,7 @@ async fn test_batch_operations() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -189,7 +202,7 @@ async fn test_pattern_invalidation() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -204,7 +217,9 @@ async fn test_pattern_invalidation() -> Result<(), anyhow::Error> {
             timestamp: chrono::Utc::now(),
         };
 
-        cache.set(&key, &data, Some(Duration::from_secs(300))).await?;
+        cache
+            .set(&key, &data, Some(Duration::from_secs(300)))
+            .await?;
         keys.push(key);
     }
 
@@ -230,7 +245,7 @@ async fn test_cache_performance_metrics() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -244,13 +259,15 @@ async fn test_cache_performance_metrics() -> Result<(), anyhow::Error> {
             timestamp: chrono::Utc::now(),
         };
 
-        cache.set(&key, &data, Some(Duration::from_secs(60))).await?;
+        cache
+            .set(&key, &data, Some(Duration::from_secs(60)))
+            .await?;
         cache.get::<TestData>(&key).await?;
     }
 
     // Get performance metrics
     let metrics = cache.get_performance_metrics().await?;
-    
+
     // Verify metrics are populated
     assert!(metrics.connected_clients > 0);
     assert!(metrics.memory_usage_bytes > 0);
@@ -263,13 +280,13 @@ async fn test_cache_health_check() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
     // Perform health check
     let health_result = cache.health_check().await?;
-    
+
     assert!(health_result.healthy);
     assert!(health_result.latency < Duration::from_secs(5));
     assert!(health_result.connected_clients > 0);
@@ -284,12 +301,15 @@ async fn test_cdn_manager_configuration() -> Result<(), anyhow::Error> {
 
     // Test CDN header generation
     let mut headers = axum::http::HeaderMap::new();
-    cdn_manager.add_cdn_headers(&mut headers, aframp_backend::cache::cdn_integration::ResourceType::APIResponse);
+    cdn_manager.add_cdn_headers(
+        &mut headers,
+        aframp_backend::cache::cdn_integration::ResourceType::APIResponse,
+    );
 
     // Verify Cache-Control header
     let cache_control = headers.get("cache-control");
     assert!(cache_control.is_some());
-    
+
     let cache_control_str = cache_control.unwrap().to_str()?;
     assert!(cache_control_str.contains("max-age="));
     assert!(cache_control_str.contains("public"));
@@ -337,12 +357,14 @@ async fn test_cdn_cache_warming() -> Result<(), anyhow::Error> {
     // Prepare warmup resources
     let mut resources = Vec::new();
     for i in 0..5 {
-        resources.push(aframp_backend::cache::cdn_integration::CacheWarmupResource {
-            path: format!("/static/test_{}.js", i),
-            resource_type: aframp_backend::cache::cdn_integration::ResourceType::StaticAsset,
-            priority: aframp_backend::cache::cdn_integration::WarmupPriority::Medium,
-            headers: std::collections::HashMap::new(),
-        });
+        resources.push(
+            aframp_backend::cache::cdn_integration::CacheWarmupResource {
+                path: format!("/static/test_{}.js", i),
+                resource_type: aframp_backend::cache::cdn_integration::ResourceType::StaticAsset,
+                priority: aframp_backend::cache::cdn_integration::WarmupPriority::Medium,
+                headers: std::collections::HashMap::new(),
+            },
+        );
     }
 
     // Warm cache
@@ -378,7 +400,7 @@ async fn test_cache_ttl_expiration() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -411,7 +433,7 @@ async fn test_concurrent_cache_operations() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(20).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = std::sync::Arc::new(AdvancedRedisCache::new_with_config(pool, config));
 
@@ -430,7 +452,9 @@ async fn test_concurrent_cache_operations() -> Result<(), anyhow::Error> {
             };
 
             // Set value
-            cache_clone.set(&key, &data, Some(Duration::from_secs(60))).await?;
+            cache_clone
+                .set(&key, &data, Some(Duration::from_secs(60)))
+                .await?;
 
             // Get value
             let retrieved: Option<TestData> = cache_clone.get(&key).await?;
@@ -458,7 +482,7 @@ async fn test_concurrent_cache_operations() -> Result<(), anyhow::Error> {
 async fn test_cache_error_handling() -> Result<(), anyhow::Error> {
     // Test with invalid Redis connection
     let client = Client::open("redis://invalid-host:6379")?;
-    
+
     // This should fail to create connection manager
     let result = client.get_connection_manager().await;
     assert!(result.is_err());
@@ -467,7 +491,7 @@ async fn test_cache_error_handling() -> Result<(), anyhow::Error> {
     let client = Client::open("redis://127.0.0.1:6379")?;
     let manager = client.get_connection_manager().await?;
     let pool = bb8::Pool::builder().max_size(10).build(manager).await?;
-    
+
     let config = AdvancedCacheConfig::default();
     let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -492,7 +516,7 @@ mod performance_tests {
         let client = Client::open("redis://127.0.0.1:6379")?;
         let manager = client.get_connection_manager().await?;
         let pool = bb8::Pool::builder().max_size(50).build(manager).await?;
-        
+
         let config = AdvancedCacheConfig::default();
         let cache = AdvancedRedisCache::new_with_config(pool, config);
 
@@ -503,7 +527,9 @@ mod performance_tests {
         for i in 0..NUM_OPERATIONS {
             let key = format!("benchmark_set:{}", i);
             let data = format!("value_{}", i);
-            cache.set(&key, &data, Some(Duration::from_secs(300))).await?;
+            cache
+                .set(&key, &data, Some(Duration::from_secs(300)))
+                .await?;
         }
         let set_duration = start.elapsed();
 
@@ -529,10 +555,18 @@ mod performance_tests {
 
         // Print performance results
         println!("Cache Performance Benchmark:");
-        println!("SET operations: {} ops in {:?} ({:.2} ops/sec)", 
-            NUM_OPERATIONS, set_duration, NUM_OPERATIONS as f64 / set_duration.as_secs_f64());
-        println!("GET operations: {} ops in {:?} ({:.2} ops/sec)", 
-            NUM_OPERATIONS, get_duration, NUM_OPERATIONS as f64 / get_duration.as_secs_f64());
+        println!(
+            "SET operations: {} ops in {:?} ({:.2} ops/sec)",
+            NUM_OPERATIONS,
+            set_duration,
+            NUM_OPERATIONS as f64 / set_duration.as_secs_f64()
+        );
+        println!(
+            "GET operations: {} ops in {:?} ({:.2} ops/sec)",
+            NUM_OPERATIONS,
+            get_duration,
+            NUM_OPERATIONS as f64 / get_duration.as_secs_f64()
+        );
         println!("Batch SET (100 items): {:?}", batch_set_duration);
 
         // Cleanup

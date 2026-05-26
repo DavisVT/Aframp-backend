@@ -1,7 +1,9 @@
 use chrono::Utc;
 use serde_json::json;
 
-use crate::bug_bounty::models::{BugBountyConfig, ProgrammePhase, ProgrammeState, TransitionResult, UnmetCriterion};
+use crate::bug_bounty::models::{
+    BugBountyConfig, ProgrammePhase, ProgrammeState, TransitionResult, UnmetCriterion,
+};
 
 /// Runtime statistics needed to evaluate transition criteria.
 #[derive(Debug, Clone)]

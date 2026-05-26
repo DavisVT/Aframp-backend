@@ -5,13 +5,13 @@
 //! Uses blockchain's immutable ledger for Proof of Delivery and supports
 //! mediated Clawback / Partial Refund processes.
 
+pub mod handlers;
 pub mod models;
 pub mod repository;
-pub mod service;
-pub mod handlers;
 pub mod routes;
+pub mod service;
 
 pub use models::*;
 pub use repository::DisputeRepository;
-pub use service::DisputeService;
 pub use routes::dispute_routes;
+pub use service::DisputeService;

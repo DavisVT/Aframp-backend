@@ -1,9 +1,6 @@
 //! Business logic for Merchant Dispute Resolution & Clawback Management (Issue #337).
 
-use crate::dispute::{
-    models::*,
-    repository::DisputeRepository,
-};
+use crate::dispute::{models::*, repository::DisputeRepository};
 use crate::error::Error;
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
@@ -54,10 +51,7 @@ impl DisputeService {
 
         // Provisional escrow: hold 100% of claimed amount for high-risk path.
         // In production this would check merchant risk tier; we default to active.
-        let escrow_hold_pct = Some(
-            BigDecimal::from_str("100")
-                .expect("static value"),
-        );
+        let escrow_hold_pct = Some(BigDecimal::from_str("100").expect("static value"));
 
         let dispute = self
             .repo
@@ -252,9 +246,9 @@ impl DisputeService {
                 DisputeStatus::ResolvedCustomer,
             ),
             DisputeDecision::PartialRefund => {
-                let amount = req
-                    .refund_amount
-                    .ok_or_else(|| Error::Validation("refund_amount required for partial refund".into()))?;
+                let amount = req.refund_amount.ok_or_else(|| {
+                    Error::Validation("refund_amount required for partial refund".into())
+                })?;
                 let bd = BigDecimal::from_str(&amount.to_string())
                     .map_err(|_| Error::Validation("Invalid refund amount".into()))?;
                 if bd > dispute.transaction_amount {
@@ -336,17 +330,11 @@ impl DisputeService {
             .await
     }
 
-    pub async fn list_evidence(
-        &self,
-        dispute_id: Uuid,
-    ) -> Result<Vec<DisputeEvidence>, Error> {
+    pub async fn list_evidence(&self, dispute_id: Uuid) -> Result<Vec<DisputeEvidence>, Error> {
         self.repo.list_evidence(dispute_id).await
     }
 
-    pub async fn get_audit_log(
-        &self,
-        dispute_id: Uuid,
-    ) -> Result<Vec<DisputeAuditLog>, Error> {
+    pub async fn get_audit_log(&self, dispute_id: Uuid) -> Result<Vec<DisputeAuditLog>, Error> {
         self.repo.get_audit_log(dispute_id).await
     }
 

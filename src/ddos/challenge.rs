@@ -36,8 +36,8 @@ impl ChallengeService {
     /// Issue a challenge scaled to the suspicion score (0.0–1.0).
     pub fn issue_challenge(&self, suspicion: f64) -> Challenge {
         let difficulty = self.config.pow_difficulty_low
-            + ((self.config.pow_difficulty_high - self.config.pow_difficulty_low) as f64 * suspicion)
-                as u32;
+            + ((self.config.pow_difficulty_high - self.config.pow_difficulty_low) as f64
+                * suspicion) as u32;
 
         let token = format!("{:x}", rand_token());
 
@@ -149,7 +149,11 @@ mod tests {
     fn test_verify_correct_nonce() {
         // Find a nonce that satisfies difficulty=4 (16 leading zero bits)
         let token = "testtoken123".to_string();
-        let challenge = Challenge { token: token.clone(), difficulty: 4, issued_at: 0 };
+        let challenge = Challenge {
+            token: token.clone(),
+            difficulty: 4,
+            issued_at: 0,
+        };
         let config = Arc::new(DdosConfig::default());
 
         // Brute-force a valid nonce for the test
@@ -157,7 +161,10 @@ mod tests {
             let input = format!("{}{}", token, nonce);
             let hash = Sha256::digest(input.as_bytes());
             if count_leading_zero_bits(&hash) >= 4 {
-                let resp = ChallengeResponse { token: token.clone(), nonce };
+                let resp = ChallengeResponse {
+                    token: token.clone(),
+                    nonce,
+                };
                 // Manually verify
                 let input2 = format!("{}{}", challenge.token, resp.nonce);
                 let hash2 = Sha256::digest(input2.as_bytes());
@@ -175,7 +182,10 @@ mod tests {
             difficulty: 1,
             issued_at: 0,
         };
-        let resp = ChallengeResponse { token: "xyz".to_string(), nonce: 0 };
+        let resp = ChallengeResponse {
+            token: "xyz".to_string(),
+            nonce: 0,
+        };
         // token mismatch → false without even checking hash
         assert_ne!(challenge.token, resp.token);
     }

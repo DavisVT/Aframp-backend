@@ -17,13 +17,22 @@ pub fn public_routes(state: LiquidityState) -> Router {
 /// Admin routes (require admin auth middleware applied by caller)
 pub fn admin_routes(state: LiquidityState) -> Router {
     Router::new()
-        .route("/api/admin/liquidity/pools", get(list_pools).post(create_pool))
+        .route(
+            "/api/admin/liquidity/pools",
+            get(list_pools).post(create_pool),
+        )
         .route(
             "/api/admin/liquidity/pools/:pool_id",
             get(get_pool).patch(update_pool),
         )
-        .route("/api/admin/liquidity/pools/:pool_id/pause", post(pause_pool))
-        .route("/api/admin/liquidity/pools/:pool_id/resume", post(resume_pool))
+        .route(
+            "/api/admin/liquidity/pools/:pool_id/pause",
+            post(pause_pool),
+        )
+        .route(
+            "/api/admin/liquidity/pools/:pool_id/resume",
+            post(resume_pool),
+        )
         .route(
             "/api/admin/liquidity/pools/:pool_id/deactivate",
             post(deactivate_pool),

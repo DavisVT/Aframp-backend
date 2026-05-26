@@ -32,13 +32,13 @@ pub enum CDNProvider {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheControlConfig {
-    pub static_assets_ttl: u64,        // seconds
-    pub api_responses_ttl: u64,         // seconds
-    pub public_data_ttl: u64,           // seconds
-    pub private_data_ttl: u64,         // seconds
-    pub immutable_assets_ttl: u64,     // seconds
-    pub max_age_shared_cache: u64,      // seconds
-    pub max_age_private_cache: u64,    // seconds
+    pub static_assets_ttl: u64,     // seconds
+    pub api_responses_ttl: u64,     // seconds
+    pub public_data_ttl: u64,       // seconds
+    pub private_data_ttl: u64,      // seconds
+    pub immutable_assets_ttl: u64,  // seconds
+    pub max_age_shared_cache: u64,  // seconds
+    pub max_age_private_cache: u64, // seconds
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,7 +67,8 @@ impl Default for CDNConfig {
                 .unwrap_or(false),
             provider: match std::env::var("CDN_PROVIDER")
                 .unwrap_or_else(|_| "cloudflare".to_string())
-                .as_str() {
+                .as_str()
+            {
                 "cloudfront" => CDNProvider::CloudFront,
                 "fastly" => CDNProvider::Fastly,
                 "akamai" => CDNProvider::Akamai,
@@ -201,12 +202,12 @@ impl CDNManager {
             ResourceType::PrivateData => (
                 self.config.cache_control.max_age_private_cache,
                 0,
-                "private"
+                "private",
             ),
             _ => (
                 self.config.cache_control.max_age_shared_cache,
                 ttl,
-                "public"
+                "public",
             ),
         };
 
@@ -222,7 +223,10 @@ impl CDNManager {
         }
 
         // Add must-revalidate for dynamic content
-        if matches!(resource_type, ResourceType::APIResponse | ResourceType::PrivateData) {
+        if matches!(
+            resource_type,
+            ResourceType::APIResponse | ResourceType::PrivateData
+        ) {
             directives.push("must-revalidate".to_string());
         }
 
@@ -236,7 +240,7 @@ impl CDNManager {
         let mut hasher = DefaultHasher::new();
         resource_type.hash(&mut hasher);
         Utc::now().timestamp_millis().hash(&mut hasher);
-        
+
         let hash = hasher.finish();
         format!("\"{:x}\"", hash)
     }
@@ -246,7 +250,7 @@ impl CDNManager {
             CDNProvider::Cloudflare => {
                 headers.insert("CF-Cache-Status", HeaderValue::from_static("DYNAMIC"));
                 headers.insert("CF-RAY", HeaderValue::from_static("dynamic"));
-                
+
                 if self.config.edge_functions.bot_protection_enabled {
                     headers.insert("CF-Bot-Protection", HeaderValue::from_static("active"));
                 }
@@ -279,11 +283,23 @@ impl CDNManager {
         }
 
         // Other security headers
-        headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
+        headers.insert(
+            "X-Content-Type-Options",
+            HeaderValue::from_static("nosniff"),
+        );
         headers.insert("X-Frame-Options", HeaderValue::from_static("DENY"));
-        headers.insert("X-XSS-Protection", HeaderValue::from_static("1; mode=block"));
-        headers.insert("Referrer-Policy", HeaderValue::from_static("strict-origin-when-cross-origin"));
-        headers.insert("Permissions-Policy", HeaderValue::from_static("geolocation=(), microphone=(), camera=()"));
+        headers.insert(
+            "X-XSS-Protection",
+            HeaderValue::from_static("1; mode=block"),
+        );
+        headers.insert(
+            "Referrer-Policy",
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        );
+        headers.insert(
+            "Permissions-Policy",
+            HeaderValue::from_static("geolocation=(), microphone=(), camera=()"),
+        );
     }
 
     fn add_geographic_headers(&self, headers: &mut HeaderMap) {
@@ -361,8 +377,11 @@ impl CDNManager {
         info!("Warming CDN cache with {} resources", resources.len());
 
         for resource in resources {
-            debug!("Warming cache resource: {} ({})", resource.path, resource.resource_type);
-            
+            debug!(
+                "Warming cache resource: {} ({})",
+                resource.path, resource.resource_type
+            );
+
             // In a real implementation, this would make HTTP requests to warm the cache
             // For now, we'll just simulate the warming process
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -488,7 +507,7 @@ mod tests {
     fn test_cache_control_header_generation() {
         let config = CDNConfig::default();
         let manager = CDNManager::new(config);
-        
+
         let header = manager.get_cache_control_header(ResourceType::StaticAsset);
         assert!(header.contains("max-age="));
         assert!(header.contains("public"));
@@ -498,13 +517,13 @@ mod tests {
     fn test_etag_generation() {
         let config = CDNConfig::default();
         let manager = CDNManager::new(config);
-        
+
         let etag1 = manager.generate_etag(ResourceType::APIResponse);
         let etag2 = manager.generate_etag(ResourceType::APIResponse);
-        
+
         // ETags should be different due to timestamp
         assert_ne!(etag1, etag2);
-        
+
         // ETags should be valid format
         assert!(etag1.starts_with('"'));
         assert!(etag1.ends_with('"'));

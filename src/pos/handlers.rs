@@ -29,16 +29,14 @@ pub async fn create_payment_intent(
     State(state): State<PosState>,
     Json(request): Json<CreatePaymentIntentRequest>,
 ) -> Result<Json<CreatePaymentIntentResponse>, AppError> {
-    let payment_intent = state.payment_intent_service
-        .create_payment_intent(
-            request.merchant_id,
-            request.order_id,
-            request.amount_cngn,
-        )
+    let payment_intent = state
+        .payment_intent_service
+        .create_payment_intent(request.merchant_id, request.order_id, request.amount_cngn)
         .await?;
 
     // Register for real-time monitoring
-    let _rx = state.lobby_service
+    let _rx = state
+        .lobby_service
         .register_payment(payment_intent.id, payment_intent.memo.clone())
         .await?;
 
@@ -61,7 +59,8 @@ pub async fn get_payment_status(
     State(state): State<PosState>,
     Path(payment_id): Path<Uuid>,
 ) -> Result<Json<PaymentStatusResponse>, AppError> {
-    let payment = state.payment_intent_service
+    let payment = state
+        .payment_intent_service
         .get_payment_intent(payment_id)
         .await?;
 
@@ -92,7 +91,8 @@ pub async fn cancel_payment(
     State(state): State<PosState>,
     Path(payment_id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
-    state.payment_intent_service
+    state
+        .payment_intent_service
         .cancel_payment_intent(payment_id)
         .await?;
 
@@ -106,7 +106,8 @@ pub async fn legacy_create_payment(
     State(state): State<PosState>,
     Json(request): Json<LegacyPaymentRequest>,
 ) -> Result<Json<crate::pos::legacy_bridge::LegacyPaymentResponse>, AppError> {
-    let response = state.legacy_bridge
+    let response = state
+        .legacy_bridge
         .create_payment_from_legacy(request)
         .await?;
 
@@ -119,9 +120,7 @@ pub async fn legacy_check_status(
     State(state): State<PosState>,
     Path(payment_id): Path<Uuid>,
 ) -> Result<Json<crate::pos::legacy_bridge::LegacyPaymentStatusResponse>, AppError> {
-    let response = state.legacy_bridge
-        .check_payment_status(payment_id)
-        .await?;
+    let response = state.legacy_bridge.check_payment_status(payment_id).await?;
 
     Ok(Json(response))
 }
@@ -132,17 +131,11 @@ pub async fn generate_proof_of_payment(
     State(state): State<PosState>,
     Path(payment_id): Path<Uuid>,
 ) -> Result<Json<crate::pos::proof_of_payment::ProofOfPaymentDisplay>, AppError> {
-    let proof = state.proof_of_payment
-        .generate_proof(payment_id)
-        .await?;
+    let proof = state.proof_of_payment.generate_proof(payment_id).await?;
 
-    let qr_code = state.proof_of_payment
-        .generate_proof_qr(&proof)?;
+    let qr_code = state.proof_of_payment.generate_proof_qr(&proof)?;
 
-    let display = crate::pos::proof_of_payment::ProofOfPaymentDisplay::from_record(
-        proof,
-        qr_code,
-    );
+    let display = crate::pos::proof_of_payment::ProofOfPaymentDisplay::from_record(proof, qr_code);
 
     Ok(Json(display))
 }
@@ -154,7 +147,8 @@ pub async fn verify_proof_of_payment(
     Path(payment_id): Path<Uuid>,
     Json(request): Json<VerifyProofRequest>,
 ) -> Result<Json<VerifyProofResponse>, AppError> {
-    let is_valid = state.proof_of_payment
+    let is_valid = state
+        .proof_of_payment
         .verify_proof(payment_id, &request.verification_code)
         .await?;
 

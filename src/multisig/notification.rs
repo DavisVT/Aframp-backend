@@ -208,7 +208,10 @@ impl MultiSigNotifier {
                 ),
             ),
             NotificationEvent::TimeLockElapsed => (
-                format!("⏰ Time-Lock Elapsed — {} Proposal #{} Now Executable", op, id_short),
+                format!(
+                    "⏰ Time-Lock Elapsed — {} Proposal #{} Now Executable",
+                    op, id_short
+                ),
                 format!(
                     "The 48-hour governance time-lock for proposal #{} has elapsed.\n\
                      The transaction can now be submitted to Stellar Horizon.",
@@ -238,7 +241,10 @@ impl MultiSigNotifier {
                     "Proposal #{} has been rejected.\n\
                      Reason: {}",
                     id_short,
-                    proposal.failure_reason.as_deref().unwrap_or("No reason provided"),
+                    proposal
+                        .failure_reason
+                        .as_deref()
+                        .unwrap_or("No reason provided"),
                 ),
             ),
             NotificationEvent::Expired => (

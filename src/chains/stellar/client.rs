@@ -208,7 +208,10 @@ impl StellarClient {
     }
 
     /// Get transaction details by hash
-    pub async fn get_transaction_details(&self, tx_hash: &str) -> StellarResult<HorizonTransactionRecord> {
+    pub async fn get_transaction_details(
+        &self,
+        tx_hash: &str,
+    ) -> StellarResult<HorizonTransactionRecord> {
         debug!("Fetching transaction details for hash: {}", tx_hash);
 
         let url = format!("{}/transactions/{}", self.config.horizon_url(), tx_hash);
@@ -245,7 +248,10 @@ impl StellarClient {
             .await
             .map_err(|e| StellarError::network_error(format!("JSON parsing error: {}", e)))?;
 
-        debug!("Successfully fetched transaction details for hash: {}", tx_hash);
+        debug!(
+            "Successfully fetched transaction details for hash: {}",
+            tx_hash
+        );
         Ok(transaction)
     }
 
@@ -520,7 +526,11 @@ impl StellarClient {
     }
 
     /// Retrieves statistics for a specific asset, such as total supply, number of accounts, etc.
-    pub async fn get_asset_stats(&self, asset_code: &str, asset_issuer: &str) -> StellarResult<JsonValue> {
+    pub async fn get_asset_stats(
+        &self,
+        asset_code: &str,
+        asset_issuer: &str,
+    ) -> StellarResult<JsonValue> {
         let url = format!(
             "{}/assets?asset_code={}&asset_issuer={}",
             self.config.horizon_url(),
@@ -547,7 +557,9 @@ impl StellarClient {
             .get("_embedded")
             .and_then(|v| v.get("records"))
             .and_then(|v| v.as_array())
-            .ok_or_else(|| StellarError::network_error("Missing records in asset stats response".to_string()))?;
+            .ok_or_else(|| {
+                StellarError::network_error("Missing records in asset stats response".to_string())
+            })?;
 
         if records.is_empty() {
             return Err(StellarError::network_error(format!(

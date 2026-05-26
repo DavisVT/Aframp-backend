@@ -274,10 +274,7 @@ impl ProofOfReservesWorker {
             .get_asset_stats(&self.cngn_asset_code, &self.cngn_issuer)
             .await?;
 
-        let amount_str = stats
-            .get("amount")
-            .and_then(|v| v.as_str())
-            .unwrap_or("0");
+        let amount_str = stats.get("amount").and_then(|v| v.as_str()).unwrap_or("0");
 
         Ok(BigDecimal::from_str(amount_str).unwrap_or_else(|_| BigDecimal::from(0)))
     }
@@ -330,7 +327,10 @@ impl ProofOfReservesWorker {
     ///   "balance_as_of": "2026-04-23T12:00:00Z"
     /// }
     /// ```
-    async fn fetch_single_bank_balance(&self, bank: &BankCredential) -> anyhow::Result<BankBalance> {
+    async fn fetch_single_bank_balance(
+        &self,
+        bank: &BankCredential,
+    ) -> anyhow::Result<BankBalance> {
         let url = format!(
             "{}/accounts/{}/settled-balance",
             bank.api_base_url.trim_end_matches('/'),

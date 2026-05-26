@@ -5,9 +5,9 @@ use uuid::Uuid;
 /// W3C-compliant Decentralized Identifier
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct DID {
-    pub method: String,      // e.g., "stellar", "ethereum"
-    pub network: String,     // e.g., "mainnet", "testnet"
-    pub identifier: String,  // unique agent identifier
+    pub method: String,     // e.g., "stellar", "ethereum"
+    pub network: String,    // e.g., "mainnet", "testnet"
+    pub identifier: String, // unique agent identifier
 }
 
 impl DID {
@@ -53,15 +53,15 @@ pub struct AgentProfile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceEndpoint {
     pub id: String,
-    pub endpoint_type: String,  // e.g., "API", "RPC", "WebSocket"
+    pub endpoint_type: String, // e.g., "API", "RPC", "WebSocket"
     pub url: String,
     pub authentication: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Capability {
-    pub domain: String,         // e.g., "code_audit", "financial_analysis"
-    pub skill_level: u8,        // 1-10
+    pub domain: String,  // e.g., "code_audit", "financial_analysis"
+    pub skill_level: u8, // 1-10
     pub verified: bool,
     pub proof_uri: Option<String>,
 }
@@ -96,7 +96,7 @@ impl ReputationDomain {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainReputationScore {
     pub domain: ReputationDomain,
-    pub score: f64,              // 0.0 - 100.0
+    pub score: f64, // 0.0 - 100.0
     pub total_interactions: u64,
     pub successful_interactions: u64,
     pub failed_interactions: u64,
@@ -110,7 +110,7 @@ pub struct AttestationRecord {
     pub agent_did: DID,
     pub issuer_did: DID,
     pub domain: ReputationDomain,
-    pub claim: String,           // e.g., "Successfully completed 1000 code audits"
+    pub claim: String, // e.g., "Successfully completed 1000 code audits"
     pub evidence_uri: Option<String>,
     pub signature: String,
     pub issued_at: DateTime<Utc>,
@@ -137,8 +137,8 @@ pub struct CompetenceProofRecord {
     pub agent_did: DID,
     pub domain: ReputationDomain,
     pub claim: String,
-    pub proof: Vec<u8>,          // ZK proof bytes
-    pub public_inputs: Vec<u8>,  // Public parameters
+    pub proof: Vec<u8>,         // ZK proof bytes
+    pub public_inputs: Vec<u8>, // Public parameters
     pub verified: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -147,7 +147,7 @@ pub struct CompetenceProofRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossPlatformReputation {
     pub agent_did: DID,
-    pub source_platform: String,  // e.g., "stellar", "ethereum"
+    pub source_platform: String, // e.g., "stellar", "ethereum"
     pub target_platform: String,
     pub reputation_hash: String,
     pub verification_proof: Vec<u8>,

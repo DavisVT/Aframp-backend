@@ -41,11 +41,7 @@ pub struct X402PaymentProof {
 }
 
 impl X402Client {
-    pub fn new(
-        agent_address: String,
-        horizon_url: String,
-        cngn_issuer: String,
-    ) -> Self {
+    pub fn new(agent_address: String, horizon_url: String, cngn_issuer: String) -> Self {
         Self {
             http: Client::new(),
             agent_address,

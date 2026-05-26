@@ -74,11 +74,7 @@ impl BankingRepository {
         .await?)
     }
 
-    pub async fn update_linked_account_status(
-        &self,
-        id: Uuid,
-        status: &str,
-    ) -> anyhow::Result<()> {
+    pub async fn update_linked_account_status(&self, id: Uuid, status: &str) -> anyhow::Result<()> {
         sqlx::query(
             "UPDATE linked_bank_accounts SET status = $2, updated_at = NOW() WHERE id = $1",
         )

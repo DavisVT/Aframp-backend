@@ -10,7 +10,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct AgentIdentity {
     pub profile: AgentProfile,
-    keypair: Option<Keypair>,  // Private key only stored locally
+    keypair: Option<Keypair>, // Private key only stored locally
 }
 
 impl AgentIdentity {
@@ -24,7 +24,7 @@ impl AgentIdentity {
         let mut csprng = OsRng {};
         let keypair = Keypair::generate(&mut csprng);
         let public_key = hex::encode(keypair.public.as_bytes());
-        
+
         let identifier = hex::encode(&keypair.public.as_bytes()[..16]);
         let did = DID::new(method, network, &identifier);
 
@@ -56,9 +56,10 @@ impl AgentIdentity {
 
     /// Sign a message with the agent's private key
     pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, KYAError> {
-        let keypair = self.keypair.as_ref()
-            .ok_or(KYAError::CryptoError("Private key not available".to_string()))?;
-        
+        let keypair = self.keypair.as_ref().ok_or(KYAError::CryptoError(
+            "Private key not available".to_string(),
+        ))?;
+
         let signature = keypair.sign(message);
         Ok(signature.to_bytes().to_vec())
     }
@@ -67,13 +68,13 @@ impl AgentIdentity {
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<bool, KYAError> {
         let public_key_bytes = hex::decode(&self.profile.public_key)
             .map_err(|e| KYAError::CryptoError(e.to_string()))?;
-        
+
         let public_key = PublicKey::from_bytes(&public_key_bytes)
             .map_err(|e| KYAError::CryptoError(e.to_string()))?;
-        
-        let sig = Signature::from_bytes(signature)
-            .map_err(|e| KYAError::CryptoError(e.to_string()))?;
-        
+
+        let sig =
+            Signature::from_bytes(signature).map_err(|e| KYAError::CryptoError(e.to_string()))?;
+
         Ok(public_key.verify(message, &sig).is_ok())
     }
 
@@ -128,7 +129,7 @@ impl IdentityRegistry {
     /// Retrieve an agent identity by DID
     pub async fn get_by_did(&self, did: &DID) -> Result<AgentIdentity, KYAError> {
         let did_str = did.to_string();
-        
+
         let row = sqlx::query!(
             r#"
             SELECT did, method, network, identifier, name, description, 
@@ -144,7 +145,8 @@ impl IdentityRegistry {
         .ok_or_else(|| KYAError::IdentityNotFound(did_str.clone()))?;
 
         let capabilities: Vec<Capability> = serde_json::from_value(row.capabilities)?;
-        let service_endpoints: Vec<ServiceEndpoint> = serde_json::from_value(row.service_endpoints)?;
+        let service_endpoints: Vec<ServiceEndpoint> =
+            serde_json::from_value(row.service_endpoints)?;
 
         let profile = AgentProfile {
             did: DID::new(&row.method, &row.network, &row.identifier),
@@ -187,7 +189,11 @@ impl IdentityRegistry {
     }
 
     /// List all registered agents
-    pub async fn list_agents(&self, limit: i64, offset: i64) -> Result<Vec<AgentIdentity>, KYAError> {
+    pub async fn list_agents(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<AgentIdentity>, KYAError> {
         let rows = sqlx::query!(
             r#"
             SELECT did, method, network, identifier, name, description,
@@ -206,7 +212,8 @@ impl IdentityRegistry {
         let mut agents = Vec::new();
         for row in rows {
             let capabilities: Vec<Capability> = serde_json::from_value(row.capabilities)?;
-            let service_endpoints: Vec<ServiceEndpoint> = serde_json::from_value(row.service_endpoints)?;
+            let service_endpoints: Vec<ServiceEndpoint> =
+                serde_json::from_value(row.service_endpoints)?;
 
             let profile = AgentProfile {
                 did: DID::new(&row.method, &row.network, &row.identifier),

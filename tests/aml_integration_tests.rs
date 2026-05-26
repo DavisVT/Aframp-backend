@@ -7,8 +7,8 @@
 //! - Investigation processes
 
 use aframp_backend::aml::{
-    policy_engine::AMLPolicyEngine, enhanced_case_management::EnhancedAMLCaseManager,
-    models::*, evaluation::*, rules::AMLRuleLibrary,
+    enhanced_case_management::EnhancedAMLCaseManager, evaluation::*, models::*,
+    policy_engine::AMLPolicyEngine, rules::AMLRuleLibrary,
 };
 use aframp_backend::cache::AdvancedRedisCache;
 use chrono::Utc;
@@ -96,9 +96,9 @@ fn create_test_evaluation_context() -> EvaluationContext {
 async fn test_aml_policy_engine_initialization() -> Result<(), anyhow::Error> {
     // This test would require a real database connection
     // For now, we'll test the policy engine configuration
-    
+
     let config = aframp_backend::aml::policy_engine::PolicyEngineConfig::default();
-    
+
     assert!(config.enable_caching);
     assert!(config.enable_performance_monitoring);
     assert_eq!(config.max_rules_per_evaluation, 100);
@@ -112,13 +112,17 @@ async fn test_aml_policy_engine_initialization() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_aml_rule_validation() -> Result<(), anyhow::Error> {
     let rules = AMLRuleLibrary::get_initial_rules();
-    
+
     // Verify we have the expected number of rules
     assert!(rules.len() >= 10);
-    
+
     // Validate each rule
     for rule in &rules {
-        assert!(rule.validate().is_ok(), "Rule {} should be valid", rule.name);
+        assert!(
+            rule.validate().is_ok(),
+            "Rule {} should be valid",
+            rule.name
+        );
         assert!(!rule.name.is_empty());
         assert!(!rule.description.is_empty());
         assert!(rule.risk_weight >= 0.0 && rule.risk_weight <= 1.0);
@@ -133,13 +137,13 @@ async fn test_aml_rule_validation() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_aml_rule_categories() -> Result<(), anyhow::Error> {
     let rules = AMLRuleLibrary::get_initial_rules();
-    
+
     // Verify we have rules for each required category
     let mut categories = std::collections::HashSet::new();
     for rule in &rules {
         categories.insert(format!("{:?}", rule.category));
     }
-    
+
     assert!(categories.contains("Structuring"));
     assert!(categories.contains("Velocity"));
     assert!(categories.contains("AmountAnomaly"));
@@ -156,25 +160,25 @@ async fn test_aml_rule_categories() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_aml_rule_evaluation_conditions() -> Result<(), anyhow::Error> {
     let rules = AMLRuleLibrary::get_initial_rules();
-    
+
     for rule in &rules {
         for condition in &rule.evaluation_logic.conditions {
             // Verify condition fields are valid
             assert!(!condition.field.is_empty());
             assert!(!condition.field.contains("invalid_field"));
-            
+
             // Verify operators are valid
             match condition.operator {
-                ComparisonOperator::Equals |
-                ComparisonOperator::NotEquals |
-                ComparisonOperator::GreaterThan |
-                ComparisonOperator::GreaterThanOrEqual |
-                ComparisonOperator::LessThan |
-                ComparisonOperator::LessThanOrEqual |
-                ComparisonOperator::Contains |
-                ComparisonOperator::NotContains |
-                ComparisonOperator::In |
-                ComparisonOperator::NotIn => {},
+                ComparisonOperator::Equals
+                | ComparisonOperator::NotEquals
+                | ComparisonOperator::GreaterThan
+                | ComparisonOperator::GreaterThanOrEqual
+                | ComparisonOperator::LessThan
+                | ComparisonOperator::LessThanOrEqual
+                | ComparisonOperator::Contains
+                | ComparisonOperator::NotContains
+                | ComparisonOperator::In
+                | ComparisonOperator::NotIn => {}
                 ComparisonOperator::Regex => {
                     // Verify regex patterns are valid
                     if let serde_json::Value::String(pattern) = &condition.value {
@@ -182,7 +186,7 @@ async fn test_aml_rule_evaluation_conditions() -> Result<(), anyhow::Error> {
                     }
                 }
             }
-            
+
             // Verify weights are valid if present
             if let Some(weight) = condition.weight {
                 assert!(weight >= 0.0 && weight <= 1.0);
@@ -196,13 +200,14 @@ async fn test_aml_rule_evaluation_conditions() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_risk_level_calculation() -> Result<(), anyhow::Error> {
     let config = aframp_backend::aml::policy_engine::PolicyEngineConfig::default();
-    
+
     // Test risk level thresholds
     let low_score = config.risk_thresholds.low_max - 1.0;
-    let medium_score = (config.risk_thresholds.medium_min + config.risk_thresholds.medium_max) / 2.0;
+    let medium_score =
+        (config.risk_thresholds.medium_min + config.risk_thresholds.medium_max) / 2.0;
     let high_score = (config.risk_thresholds.high_min + config.risk_thresholds.high_max) / 2.0;
     let critical_score = config.risk_thresholds.critical_min + 1.0;
-    
+
     // Create a mock policy engine to test risk level calculation
     // Note: This would normally require database connection
     assert!(low_score < config.risk_thresholds.low_max);
@@ -218,17 +223,23 @@ async fn test_risk_level_calculation() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_case_management_configuration() -> Result<(), anyhow::Error> {
     let config = aframp_backend::aml::enhanced_case_management::CaseManagementConfig::default();
-    
+
     assert!(config.auto_assignment_enabled);
     assert_eq!(config.default_sla_hours, 72);
     assert_eq!(config.high_risk_sla_hours, 24);
     assert_eq!(config.critical_risk_sla_hours, 4);
     assert_eq!(config.max_investigator_cases, 20);
-    
+
     // Verify investigation checklists exist for all case types
-    assert!(config.investigation_checklists.contains_key(&aframp_backend::aml::enhanced_case_management::CaseType::TransactionBased));
-    assert!(config.investigation_checklists.contains_key(&aframp_backend::aml::enhanced_case_management::CaseType::ActivityBased));
-    assert!(config.investigation_checklists.contains_key(&aframp_backend::aml::enhanced_case_management::CaseType::ReferralBased));
+    assert!(config
+        .investigation_checklists
+        .contains_key(&aframp_backend::aml::enhanced_case_management::CaseType::TransactionBased));
+    assert!(config
+        .investigation_checklists
+        .contains_key(&aframp_backend::aml::enhanced_case_management::CaseType::ActivityBased));
+    assert!(config
+        .investigation_checklists
+        .contains_key(&aframp_backend::aml::enhanced_case_management::CaseType::ReferralBased));
 
     Ok(())
 }
@@ -236,12 +247,15 @@ async fn test_case_management_configuration() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_investigation_checklists() -> Result<(), anyhow::Error> {
     let config = aframp_backend::aml::enhanced_case_management::CaseManagementConfig::default();
-    
+
     // Test transaction-based checklist
-    if let Some(checklist) = config.investigation_checklists.get(&aframp_backend::aml::enhanced_case_management::CaseType::TransactionBased) {
+    if let Some(checklist) = config
+        .investigation_checklists
+        .get(&aframp_backend::aml::enhanced_case_management::CaseType::TransactionBased)
+    {
         assert!(!checklist.required_items.is_empty());
         assert!(checklist.required_items.iter().all(|item| item.required));
-        
+
         // Verify required items have all necessary fields
         for item in &checklist.required_items {
             assert!(!item.title.is_empty());
@@ -249,9 +263,12 @@ async fn test_investigation_checklists() -> Result<(), anyhow::Error> {
             assert!(item.estimated_duration_minutes > 0);
         }
     }
-    
+
     // Test activity-based checklist
-    if let Some(checklist) = config.investigation_checklists.get(&aframp_backend::aml::enhanced_case_management::CaseType::ActivityBased) {
+    if let Some(checklist) = config
+        .investigation_checklists
+        .get(&aframp_backend::aml::enhanced_case_management::CaseType::ActivityBased)
+    {
         assert!(!checklist.required_items.is_empty());
         assert!(checklist.required_items.iter().all(|item| item.required));
     }
@@ -262,7 +279,7 @@ async fn test_investigation_checklists() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_aml_models_serialization() -> Result<(), anyhow::Error> {
     // Test that all AML models can be serialized/deserialized
-    
+
     let transaction = TransactionData {
         id: Uuid::new_v4(),
         user_id: Uuid::new_v4(),
@@ -287,11 +304,11 @@ async fn test_aml_models_serialization() -> Result<(), anyhow::Error> {
         },
         metadata: serde_json::json!({"test": true}),
     };
-    
+
     // Test serialization
     let serialized = serde_json::to_string(&transaction)?;
     let deserialized: TransactionData = serde_json::from_str(&serialized)?;
-    
+
     assert_eq!(transaction.id, deserialized.id);
     assert_eq!(transaction.amount, deserialized.amount);
     assert_eq!(transaction.transaction_type, deserialized.transaction_type);
@@ -302,7 +319,7 @@ async fn test_aml_models_serialization() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_evaluation_context_extraction() -> Result<(), anyhow::Error> {
     let context = create_test_evaluation_context();
-    
+
     // Test field extraction logic (this would normally be part of policy engine)
     let test_fields = vec![
         "transaction.amount",
@@ -321,26 +338,42 @@ async fn test_evaluation_context_extraction() -> Result<(), anyhow::Error> {
         "geolocation.is_high_risk_country",
         "geolocation.is_vpn",
     ];
-    
+
     // Verify all expected fields exist in the context
     for field in test_fields {
         let parts: Vec<&str> = field.split('.').collect();
         match parts.as_slice() {
             ["transaction", "amount"] => assert!(context.transaction.amount > 0.0),
             ["transaction", "currency"] => assert!(!context.transaction.currency.is_empty()),
-            ["transaction", "transaction_type"] => {}, // Valid enum
-            ["user_profile", "kyc_tier"] => {}, // Valid enum
-            ["user_profile", "jurisdiction"] => assert!(!context.user_profile.jurisdiction.is_empty()),
-            ["user_profile", "risk_score"] => assert!(context.user_profile.risk_score >= 0.0 && context.user_profile.risk_score <= 1.0),
-            ["user_profile", "is_pep"] => {}, // Boolean
-            ["user_profile", "is_sanctioned"] => {}, // Boolean
-            ["historical_metrics", "transaction_count_24h"] => assert!(context.historical_metrics.transaction_count_24h >= 0),
-            ["historical_metrics", "average_transaction_size"] => assert!(context.historical_metrics.average_transaction_size > 0.0),
-            ["real_time_signals", "ip_risk_score"] => assert!(context.real_time_signals.ip_risk_score >= 0.0 && context.real_time_signals.ip_risk_score <= 1.0),
-            ["real_time_signals", "device_risk_score"] => assert!(context.real_time_signals.device_risk_score >= 0.0 && context.real_time_signals.device_risk_score <= 1.0),
-            ["geolocation", "country"] => assert!(!context.transaction.geolocation.country.is_empty()),
-            ["geolocation", "is_high_risk_country"] => {}, // Boolean
-            ["geolocation", "is_vpn"] => {}, // Boolean
+            ["transaction", "transaction_type"] => {} // Valid enum
+            ["user_profile", "kyc_tier"] => {}        // Valid enum
+            ["user_profile", "jurisdiction"] => {
+                assert!(!context.user_profile.jurisdiction.is_empty())
+            }
+            ["user_profile", "risk_score"] => assert!(
+                context.user_profile.risk_score >= 0.0 && context.user_profile.risk_score <= 1.0
+            ),
+            ["user_profile", "is_pep"] => {}        // Boolean
+            ["user_profile", "is_sanctioned"] => {} // Boolean
+            ["historical_metrics", "transaction_count_24h"] => {
+                assert!(context.historical_metrics.transaction_count_24h >= 0)
+            }
+            ["historical_metrics", "average_transaction_size"] => {
+                assert!(context.historical_metrics.average_transaction_size > 0.0)
+            }
+            ["real_time_signals", "ip_risk_score"] => assert!(
+                context.real_time_signals.ip_risk_score >= 0.0
+                    && context.real_time_signals.ip_risk_score <= 1.0
+            ),
+            ["real_time_signals", "device_risk_score"] => assert!(
+                context.real_time_signals.device_risk_score >= 0.0
+                    && context.real_time_signals.device_risk_score <= 1.0
+            ),
+            ["geolocation", "country"] => {
+                assert!(!context.transaction.geolocation.country.is_empty())
+            }
+            ["geolocation", "is_high_risk_country"] => {} // Boolean
+            ["geolocation", "is_vpn"] => {}               // Boolean
             _ => panic!("Unexpected field: {}", field),
         }
     }
@@ -351,33 +384,38 @@ async fn test_evaluation_context_extraction() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_aml_flag_creation() -> Result<(), anyhow::Error> {
     // Test creating different types of AML flags
-    
+
     let sanctions_flag = AmlFlag::SanctionsHit {
         list: "OFAC".to_string(),
         matched_name: "John Doe".to_string(),
     };
-    
+
     let smurfing_flag = AmlFlag::SmurfingDetected {
         tx_count: 5,
         window_hours: 24,
         total_amount: "4500.00".to_string(),
     };
-    
+
     let rapid_flip_flag = AmlFlag::RapidFlip {
         on_ramp_tx_id: Uuid::new_v4(),
         off_ramp_corridor: "NG-US".to_string(),
         elapsed_minutes: 15,
     };
-    
+
     let high_corridor_risk_flag = AmlFlag::HighCorridorRisk {
         corridor: "NG-MM".to_string(),
         risk_score: 0.9,
         reason: "FATF Grey List — Myanmar".to_string(),
     };
-    
+
     // Test serialization of flags
-    let flags = vec![&sanctions_flag, &smurfing_flag, &rapid_flip_flag, &high_corridor_risk_flag];
-    
+    let flags = vec![
+        &sanctions_flag,
+        &smurfing_flag,
+        &rapid_flip_flag,
+        &high_corridor_risk_flag,
+    ];
+
     for flag in &flags {
         let serialized = serde_json::to_string(flag)?;
         let _deserialized: AmlFlag = serde_json::from_str(&serialized)?;
@@ -393,33 +431,37 @@ async fn test_policy_evaluation_result_structure() -> Result<(), anyhow::Error> 
         evaluation_context_id: Uuid::new_v4(),
         composite_risk_score: 0.75,
         risk_level: RiskLevel::High,
-        triggered_rules: vec![
-            RuleEvaluationResult {
-                rule_id: Uuid::new_v4(),
-                evaluation_context_id: Uuid::new_v4(),
-                triggered: true,
-                confidence_score: 0.8,
-                contributing_evidence: vec![],
-                recommended_response: ResponseAction::Flag,
-                evaluation_timestamp: Utc::now(),
-                evaluation_duration_ms: 150,
-                error: None,
-            }
-        ],
+        triggered_rules: vec![RuleEvaluationResult {
+            rule_id: Uuid::new_v4(),
+            evaluation_context_id: Uuid::new_v4(),
+            triggered: true,
+            confidence_score: 0.8,
+            contributing_evidence: vec![],
+            recommended_response: ResponseAction::Flag,
+            evaluation_timestamp: Utc::now(),
+            evaluation_duration_ms: 150,
+            error: None,
+        }],
         recommended_response: ResponseAction::Flag,
         evaluation_timestamp: Utc::now(),
         evaluation_duration_ms: 200,
         cache_hit: false,
     };
-    
+
     // Test serialization
     let serialized = serde_json::to_string(&evaluation_result)?;
     let deserialized: PolicyEvaluationResult = serde_json::from_str(&serialized)?;
-    
+
     assert_eq!(evaluation_result.policy_set_id, deserialized.policy_set_id);
-    assert_eq!(evaluation_result.composite_risk_score, deserialized.composite_risk_score);
+    assert_eq!(
+        evaluation_result.composite_risk_score,
+        deserialized.composite_risk_score
+    );
     assert_eq!(evaluation_result.risk_level, deserialized.risk_level);
-    assert_eq!(evaluation_result.triggered_rules.len(), deserialized.triggered_rules.len());
+    assert_eq!(
+        evaluation_result.triggered_rules.len(),
+        deserialized.triggered_rules.len()
+    );
 
     Ok(())
 }
@@ -441,14 +483,17 @@ async fn test_case_record_creation() -> Result<(), anyhow::Error> {
         resolved_timestamp: None,
         resolution_summary: None,
     };
-    
+
     // Test serialization
     let serialized = serde_json::to_string(&case_record)?;
     let deserialized: AMLCaseRecord = serde_json::from_str(&serialized)?;
-    
+
     assert_eq!(case_record.id, deserialized.id);
     assert_eq!(case_record.case_type, deserialized.case_type);
-    assert_eq!(case_record.risk_score_at_opening, deserialized.risk_score_at_opening);
+    assert_eq!(
+        case_record.risk_score_at_opening,
+        deserialized.risk_score_at_opening
+    );
     assert_eq!(case_record.case_status, deserialized.case_status);
 
     Ok(())
@@ -459,17 +504,19 @@ async fn test_case_evidence_record() -> Result<(), anyhow::Error> {
     let evidence_record = aframp_backend::aml::enhanced_case_management::CaseEvidenceRecord {
         id: Uuid::new_v4(),
         case_id: Uuid::new_v4(),
-        evidence_type: aframp_backend::aml::enhanced_case_management::EvidenceType::TransactionRecord,
+        evidence_type:
+            aframp_backend::aml::enhanced_case_management::EvidenceType::TransactionRecord,
         evidence_description: "Original transaction that triggered AML flag".to_string(),
         evidence_reference_id: Some(Uuid::new_v4().to_string()),
         added_by_officer_id: "officer_1".to_string(),
         added_timestamp: Utc::now(),
     };
-    
+
     // Test serialization
     let serialized = serde_json::to_string(&evidence_record)?;
-    let deserialized: aframp_backend::aml::enhanced_case_management::CaseEvidenceRecord = serde_json::from_str(&serialized)?;
-    
+    let deserialized: aframp_backend::aml::enhanced_case_management::CaseEvidenceRecord =
+        serde_json::from_str(&serialized)?;
+
     assert_eq!(evidence_record.id, deserialized.id);
     assert_eq!(evidence_record.evidence_type, deserialized.evidence_type);
     assert_eq!(evidence_record.case_id, deserialized.case_id);
@@ -487,13 +534,17 @@ async fn test_backtest_request_structure() -> Result<(), anyhow::Error> {
         sample_size: Some(1000),
         random_sample: false,
     };
-    
+
     // Test serialization
     let serialized = serde_json::to_string(&backtest_request)?;
-    let deserialized: aframp_backend::aml::policy_engine::BacktestRequest = serde_json::from_str(&serialized)?;
-    
+    let deserialized: aframp_backend::aml::policy_engine::BacktestRequest =
+        serde_json::from_str(&serialized)?;
+
     assert_eq!(backtest_request.rule_id, deserialized.rule_id);
-    assert_eq!(backtest_request.test_period_start, deserialized.test_period_start);
+    assert_eq!(
+        backtest_request.test_period_start,
+        deserialized.test_period_start
+    );
     assert_eq!(backtest_request.sample_size, deserialized.sample_size);
 
     Ok(())
@@ -502,23 +553,23 @@ async fn test_backtest_request_structure() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_sla_status_calculation() -> Result<(), anyhow::Error> {
     let config = aframp_backend::aml::enhanced_case_management::CaseManagementConfig::default();
-    
+
     // Test SLA calculation for different risk levels
     let now = Utc::now();
-    
+
     // Low risk case
     let low_risk_target = now + chrono::Duration::hours(config.default_sla_hours as i64);
-    
+
     // High risk case
     let high_risk_target = now + chrono::Duration::hours(config.high_risk_sla_hours as i64);
-    
+
     // Critical risk case
     let critical_risk_target = now + chrono::Duration::hours(config.critical_risk_sla_hours as i64);
-    
+
     // Verify SLA hierarchy
     assert!(critical_risk_target < high_risk_target);
     assert!(high_risk_target < low_risk_target);
-    
+
     // Verify reasonable SLA values
     assert!(config.default_sla_hours >= 24);
     assert!(config.high_risk_sla_hours <= config.default_sla_hours);
@@ -530,14 +581,14 @@ async fn test_sla_status_calculation() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_assignment_strategies() -> Result<(), anyhow::Error> {
     use aframp_backend::aml::enhanced_case_management::AssignmentStrategy;
-    
+
     // Test all assignment strategies are valid
     let strategies = vec![
         AssignmentStrategy::RoundRobin,
         AssignmentStrategy::WorkloadBalanced,
         AssignmentStrategy::SpecialtyBased,
     ];
-    
+
     for strategy in strategies {
         // Verify strategy can be serialized
         let serialized = serde_json::to_string(&strategy)?;
@@ -550,19 +601,19 @@ async fn test_assignment_strategies() -> Result<(), anyhow::Error> {
 #[tokio::test]
 async fn test_network_analysis_types() -> Result<(), anyhow::Error> {
     use aframp_backend::aml::enhanced_case_management::*;
-    
+
     // Test network node types
     let node_types = vec![
         NodeType::Subject,
         NodeType::Counterparty,
         NodeType::Intermediary,
     ];
-    
+
     for node_type in node_types {
         let serialized = serde_json::to_string(&node_type)?;
         let _deserialized: NodeType = serde_json::from_str(&serialized)?;
     }
-    
+
     // Test network pattern types
     let pattern_types = vec![
         PatternType::Circular,
@@ -570,7 +621,7 @@ async fn test_network_analysis_types() -> Result<(), anyhow::Error> {
         PatternType::RapidChain,
         PatternType::Layering,
     ];
-    
+
     for pattern_type in pattern_types {
         let serialized = serde_json::to_string(&pattern_type)?;
         let _deserialized: PatternType = serde_json::from_str(&serialized)?;
@@ -588,28 +639,40 @@ mod performance_tests {
     async fn benchmark_aml_rule_evaluation() -> Result<(), anyhow::Error> {
         let rules = AMLRuleLibrary::get_initial_rules();
         let context = create_test_evaluation_context();
-        
+
         const NUM_EVALUATIONS: usize = 1000;
-        
+
         // Benchmark rule evaluation (mock)
         let start = Instant::now();
-        
+
         for _i in 0..NUM_EVALUATIONS {
             // In a real test, this would evaluate rules against the context
             // For now, we'll just simulate the work
             let _score = context.transaction.amount * 0.1;
-            let _risk_level = if _score > 0.7 { RiskLevel::High } else { RiskLevel::Low };
+            let _risk_level = if _score > 0.7 {
+                RiskLevel::High
+            } else {
+                RiskLevel::Low
+            };
         }
-        
+
         let duration = start.elapsed();
-        
+
         println!("AML Rule Evaluation Benchmark:");
-        println!("{} evaluations in {:?} ({:.2} evals/sec)", 
-            NUM_EVALUATIONS, duration, NUM_EVALUATIONS as f64 / duration.as_secs_f64());
-        
+        println!(
+            "{} evaluations in {:?} ({:.2} evals/sec)",
+            NUM_EVALUATIONS,
+            duration,
+            NUM_EVALUATIONS as f64 / duration.as_secs_f64()
+        );
+
         // Should be able to evaluate at least 100 rules per second
         let evals_per_sec = NUM_EVALUATIONS as f64 / duration.as_secs_f64();
-        assert!(evals_per_sec > 100.0, "Evaluation too slow: {:.2} evals/sec", evals_per_sec);
+        assert!(
+            evals_per_sec > 100.0,
+            "Evaluation too slow: {:.2} evals/sec",
+            evals_per_sec
+        );
 
         Ok(())
     }
@@ -617,14 +680,16 @@ mod performance_tests {
     #[tokio::test]
     async fn benchmark_case_creation() -> Result<(), anyhow::Error> {
         const NUM_CASES: usize = 100;
-        
+
         let start = Instant::now();
-        
+
         for i in 0..NUM_CASES {
             let case_record = AMLCaseRecord {
                 id: Uuid::new_v4(),
-                case_type: aframp_backend::aml::enhanced_case_management::CaseType::TransactionBased,
-                case_source: aframp_backend::aml::enhanced_case_management::CaseSource::AMLRuleTrigger,
+                case_type:
+                    aframp_backend::aml::enhanced_case_management::CaseType::TransactionBased,
+                case_source:
+                    aframp_backend::aml::enhanced_case_management::CaseSource::AMLRuleTrigger,
                 risk_score_at_opening: (i as f64) / 100.0,
                 subject_kyc_id: Uuid::new_v4(),
                 subject_wallet_addresses: vec![format!("0x{:040x}", i)],
@@ -636,16 +701,20 @@ mod performance_tests {
                 resolved_timestamp: None,
                 resolution_summary: None,
             };
-            
+
             // Test serialization
             let _serialized = serde_json::to_string(&case_record)?;
         }
-        
+
         let duration = start.elapsed();
-        
+
         println!("Case Creation Benchmark:");
-        println!("{} cases created in {:?} ({:.2} cases/sec)", 
-            NUM_CASES, duration, NUM_CASES as f64 / duration.as_secs_f64());
+        println!(
+            "{} cases created in {:?} ({:.2} cases/sec)",
+            NUM_CASES,
+            duration,
+            NUM_CASES as f64 / duration.as_secs_f64()
+        );
 
         Ok(())
     }

@@ -25,7 +25,11 @@ pub async fn log_negotiation_event(
         request_method: "INTERNAL".into(),
         request_path: "/negotiation/state-machine".into(),
         request_body_hash: None,
-        response_status: if outcome == AuditOutcome::Success { 200 } else { 422 },
+        response_status: if outcome == AuditOutcome::Success {
+            200
+        } else {
+            422
+        },
         response_latency_ms: 0,
         outcome,
         failure_reason,

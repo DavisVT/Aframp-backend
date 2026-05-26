@@ -9,9 +9,7 @@ use chrono::{DateTime, Datelike, Duration, Timelike, Utc};
 use sqlx::PgPool;
 use tracing::{info, warn};
 
-use crate::database::analytics_repository::{
-    AnalyticsRepository, UpsertProfile, UpsertSnapshot,
-};
+use crate::database::analytics_repository::{AnalyticsRepository, UpsertProfile, UpsertSnapshot};
 
 // ---------------------------------------------------------------------------
 // Config
@@ -92,20 +90,30 @@ impl AnalyticsService {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
     ) -> Vec<TxRecord> {
-        let rows: Vec<(String, String, BigDecimal, BigDecimal, BigDecimal, String, String, Option<String>, DateTime<Utc>, String)> =
-            sqlx::query_as(
-                r#"SELECT wallet_address, type, cngn_amount, from_amount, to_amount,
+        let rows: Vec<(
+            String,
+            String,
+            BigDecimal,
+            BigDecimal,
+            BigDecimal,
+            String,
+            String,
+            Option<String>,
+            DateTime<Utc>,
+            String,
+        )> = sqlx::query_as(
+            r#"SELECT wallet_address, type, cngn_amount, from_amount, to_amount,
                      from_currency, to_currency, payment_provider, created_at, status
                    FROM transactions
                    WHERE wallet_address = $1 AND created_at >= $2 AND created_at < $3
                    ORDER BY created_at"#,
-            )
-            .bind(wallet_address)
-            .bind(from)
-            .bind(to)
-            .fetch_all(&self.pool)
-            .await
-            .unwrap_or_default();
+        )
+        .bind(wallet_address)
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await
+        .unwrap_or_default();
 
         rows.into_iter()
             .map(|(wa, tt, ca, fa, ta, fc, tc, pp, cr, st)| TxRecord {
@@ -131,7 +139,9 @@ impl AnalyticsService {
         period_start: DateTime<Utc>,
         period_end: DateTime<Utc>,
     ) {
-        let txs = self.fetch_txs(wallet_address, period_start, period_end).await;
+        let txs = self
+            .fetch_txs(wallet_address, period_start, period_end)
+            .await;
         if txs.is_empty() {
             return;
         }
@@ -142,7 +152,8 @@ impl AnalyticsService {
         let mut fiat_offramped = BigDecimal::zero();
         let mut type_counts: HashMap<String, i32> = HashMap::new();
         let mut provider_counts: HashMap<String, i32> = HashMap::new();
-        let mut counterparties: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut counterparties: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         let mut active_days: std::collections::HashSet<u32> = std::collections::HashSet::new();
 
         for tx in &txs {
@@ -168,8 +179,14 @@ impl AnalyticsService {
             counterparties.insert(tx.to_currency.clone());
         }
 
-        let most_used_tx_type = type_counts.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.clone());
-        let most_used_provider = provider_counts.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.clone());
+        let most_used_tx_type = type_counts
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| k.clone());
+        let most_used_provider = provider_counts
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| k.clone());
 
         let snap = UpsertSnapshot {
             wallet_address: wallet_address.to_string(),
@@ -193,7 +210,8 @@ impl AnalyticsService {
         }
 
         // Persist spending categories
-        self.compute_spending_categories(wallet_address, period, period_start, &txs).await;
+        self.compute_spending_categories(wallet_address, period, period_start, &txs)
+            .await;
     }
 
     async fn compute_spending_categories(
@@ -215,15 +233,26 @@ impl AnalyticsService {
                 "bill_payment" => "bill_payments",
                 _ => "transfers",
             };
-            let e = cat_counts.entry(cat.to_string()).or_insert((0, BigDecimal::zero()));
+            let e = cat_counts
+                .entry(cat.to_string())
+                .or_insert((0, BigDecimal::zero()));
             e.0 += 1;
             e.1 += &tx.cngn_amount;
         }
         for (cat, (count, amount)) in cat_counts {
             let pct = BigDecimal::from_f64((count as f64 / total) * 100.0).unwrap_or_default();
-            let _ = self.repo.upsert_spending_category(
-                wallet_address, period, period_start, &cat, count, amount, pct,
-            ).await;
+            let _ = self
+                .repo
+                .upsert_spending_category(
+                    wallet_address,
+                    period,
+                    period_start,
+                    &cat,
+                    count,
+                    amount,
+                    pct,
+                )
+                .await;
         }
     }
 
@@ -253,7 +282,10 @@ impl AnalyticsService {
         for tx in &txs {
             *hour_counts.entry(tx.created_at.hour()).or_insert(0) += 1;
         }
-        let preferred_hour = hour_counts.iter().max_by_key(|(_, v)| *v).map(|(h, _)| *h as i16);
+        let preferred_hour = hour_counts
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(h, _)| *h as i16);
 
         // Preferred provider (mode)
         let mut provider_counts: HashMap<String, usize> = HashMap::new();
@@ -262,7 +294,10 @@ impl AnalyticsService {
                 *provider_counts.entry(p.clone()).or_insert(0) += 1;
             }
         }
-        let preferred_provider = provider_counts.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.clone());
+        let preferred_provider = provider_counts
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| k.clone());
 
         // Preferred currency pair (mode of from_currency->to_currency)
         let mut pair_counts: HashMap<String, usize> = HashMap::new();
@@ -270,9 +305,13 @@ impl AnalyticsService {
             let pair = format!("{}->{}", tx.from_currency, tx.to_currency);
             *pair_counts.entry(pair).or_insert(0) += 1;
         }
-        let preferred_pair = pair_counts.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.clone());
+        let preferred_pair = pair_counts
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| k.clone());
 
-        let risk_score = self.compute_risk_score_from_txs(&txs, avg_tx_size.to_f64().unwrap_or(0.0));
+        let risk_score =
+            self.compute_risk_score_from_txs(&txs, avg_tx_size.to_f64().unwrap_or(0.0));
 
         let profile = UpsertProfile {
             wallet_address: wallet_address.to_string(),
@@ -304,7 +343,11 @@ impl AnalyticsService {
         let sizes: Vec<f64> = txs.iter().filter_map(|t| t.cngn_amount.to_f64()).collect();
         let mean = sizes.iter().sum::<f64>() / n;
         let variance = sizes.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / n;
-        let cv = if mean > 0.0 { variance.sqrt() / mean } else { 0.0 };
+        let cv = if mean > 0.0 {
+            variance.sqrt() / mean
+        } else {
+            0.0
+        };
         let size_score = (cv * 20.0).min(25.0);
 
         // Factor 2: frequency deviation (high frequency = higher risk)
@@ -313,7 +356,8 @@ impl AnalyticsService {
         let freq_score = (freq / 10.0 * 25.0).min(25.0);
 
         // Factor 3: new counterparty rate
-        let mut counterparties: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut counterparties: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         let mut new_cp_count = 0usize;
         for tx in txs {
             let cp = tx.to_currency.clone();
@@ -329,12 +373,17 @@ impl AnalyticsService {
         for tx in txs {
             hour_counts[tx.created_at.hour() as usize] += 1;
         }
-        let entropy: f64 = hour_counts.iter().map(|&c| {
-            if c == 0 { 0.0 } else {
-                let p = c as f64 / n;
-                -p * p.ln()
-            }
-        }).sum();
+        let entropy: f64 = hour_counts
+            .iter()
+            .map(|&c| {
+                if c == 0 {
+                    0.0
+                } else {
+                    let p = c as f64 / n;
+                    -p * p.ln()
+                }
+            })
+            .sum();
         let max_entropy = (24.0f64).ln();
         let time_score = (entropy / max_entropy * 25.0).min(25.0);
 
@@ -371,20 +420,29 @@ impl AnalyticsService {
             let ratio = recent_freq / baseline_freq;
             if ratio > self.config.volume_spike_multiplier {
                 let mag = BigDecimal::from_f64(ratio).unwrap_or_default();
-                let _ = self.repo.insert_anomaly(wallet_address, "volume_spike", mag).await;
+                let _ = self
+                    .repo
+                    .insert_anomaly(wallet_address, "volume_spike", mag)
+                    .await;
                 info!(wallet=%wallet_address, ratio=%ratio, "Volume spike anomaly flagged");
             }
         }
 
         // Size shift
-        let sizes: Vec<f64> = recent_txs.iter().filter_map(|t| t.cngn_amount.to_f64()).collect();
+        let sizes: Vec<f64> = recent_txs
+            .iter()
+            .filter_map(|t| t.cngn_amount.to_f64())
+            .collect();
         if !sizes.is_empty() {
             let mean = sizes.iter().sum::<f64>() / sizes.len() as f64;
             if baseline_avg > 0.0 {
                 let sigma = (mean - baseline_avg).abs() / baseline_avg;
                 if sigma > self.config.size_shift_sigma {
                     let mag = BigDecimal::from_f64(sigma).unwrap_or_default();
-                    let _ = self.repo.insert_anomaly(wallet_address, "size_shift", mag).await;
+                    let _ = self
+                        .repo
+                        .insert_anomaly(wallet_address, "size_shift", mag)
+                        .await;
                 }
             }
         }
@@ -400,7 +458,10 @@ impl AnalyticsService {
         let new_rate = new_count as f64 / recent_txs.len() as f64;
         if new_rate > self.config.new_counterparty_threshold {
             let mag = BigDecimal::from_f64(new_rate).unwrap_or_default();
-            let _ = self.repo.insert_anomaly(wallet_address, "new_counterparty_rate", mag).await;
+            let _ = self
+                .repo
+                .insert_anomaly(wallet_address, "new_counterparty_rate", mag)
+                .await;
         }
 
         // Time pattern shift
@@ -412,7 +473,10 @@ impl AnalyticsService {
         let hour_shift = (avg_hour - baseline_hour).abs();
         if hour_shift > self.config.time_shift_hours {
             let mag = BigDecimal::from_f64(hour_shift).unwrap_or_default();
-            let _ = self.repo.insert_anomaly(wallet_address, "time_pattern_shift", mag).await;
+            let _ = self
+                .repo
+                .insert_anomaly(wallet_address, "time_pattern_shift", mag)
+                .await;
         }
     }
 
@@ -423,7 +487,11 @@ impl AnalyticsService {
     pub async fn generate_insights(&self, wallet_address: &str, period: &str) {
         let to = Utc::now();
         let (from, prev_from, prev_to) = match period {
-            "weekly" => (to - Duration::days(7), to - Duration::days(14), to - Duration::days(7)),
+            "weekly" => (
+                to - Duration::days(7),
+                to - Duration::days(14),
+                to - Duration::days(7),
+            ),
             _ => {
                 let start = to.with_day(1).unwrap_or(to);
                 let prev_end = start - Duration::seconds(1);
@@ -448,9 +516,13 @@ impl AnalyticsService {
                 "bill_payment" => "bill_payments",
                 _ => "transfers",
             };
-            *cat_amounts.entry(cat.to_string()).or_insert(BigDecimal::zero()) += &tx.cngn_amount;
+            *cat_amounts
+                .entry(cat.to_string())
+                .or_insert(BigDecimal::zero()) += &tx.cngn_amount;
         }
-        let top_cat = cat_amounts.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let top_cat = cat_amounts
+            .iter()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
         let (top_category, top_category_amount) = match top_cat {
             Some((k, v)) => (Some(k.as_str()), Some(v.clone())),
             None => (None, None),
@@ -467,7 +539,11 @@ impl AnalyticsService {
         };
 
         // Largest tx
-        let largest = txs.iter().max_by(|a, b| a.cngn_amount.partial_cmp(&b.cngn_amount).unwrap_or(std::cmp::Ordering::Equal));
+        let largest = txs.iter().max_by(|a, b| {
+            a.cngn_amount
+                .partial_cmp(&b.cngn_amount)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let largest_tx_amount = largest.map(|t| t.cngn_amount.clone());
 
         // Most frequent counterparty
@@ -475,7 +551,10 @@ impl AnalyticsService {
         for tx in &txs {
             *cp_counts.entry(tx.to_currency.clone()).or_insert(0) += 1;
         }
-        let most_frequent_cp = cp_counts.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.as_str());
+        let most_frequent_cp = cp_counts
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| k.as_str());
 
         // Estimated monthly fees (placeholder — fees not yet tracked per-tx)
         let estimated_fees: Option<BigDecimal> = None;
@@ -489,19 +568,22 @@ impl AnalyticsService {
             Some("stable")
         };
 
-        let _ = self.repo.upsert_insight(
-            wallet_address,
-            period,
-            from,
-            top_category,
-            top_category_amount,
-            delta_pct,
-            largest_tx_amount,
-            None,
-            most_frequent_cp,
-            estimated_fees,
-            cngn_trend,
-        ).await;
+        let _ = self
+            .repo
+            .upsert_insight(
+                wallet_address,
+                period,
+                from,
+                top_category,
+                top_category_amount,
+                delta_pct,
+                largest_tx_amount,
+                None,
+                most_frequent_cp,
+                estimated_fees,
+                cngn_trend,
+            )
+            .await;
     }
 }
 
@@ -515,7 +597,13 @@ mod tests {
     use bigdecimal::FromPrimitive;
     use chrono::TimeZone;
 
-    fn make_tx(tx_type: &str, cngn: f64, hour: u32, provider: Option<&str>, to_currency: &str) -> TxRecord {
+    fn make_tx(
+        tx_type: &str,
+        cngn: f64,
+        hour: u32,
+        provider: Option<&str>,
+        to_currency: &str,
+    ) -> TxRecord {
         TxRecord {
             wallet_address: "GTEST".to_string(),
             tx_type: tx_type.to_string(),
@@ -552,7 +640,15 @@ mod tests {
     fn test_risk_score_bounded() {
         let svc = dummy_service();
         let txs: Vec<TxRecord> = (0..50)
-            .map(|i| make_tx("onramp", (i as f64 + 1.0) * 1000.0, i % 24, Some("mpesa"), "CNGN"))
+            .map(|i| {
+                make_tx(
+                    "onramp",
+                    (i as f64 + 1.0) * 1000.0,
+                    i % 24,
+                    Some("mpesa"),
+                    "CNGN",
+                )
+            })
             .collect();
         let score = svc.compute_risk_score_from_txs(&txs, 0.0);
         assert!(score >= 0.0 && score <= 100.0, "score={}", score);
@@ -628,6 +724,9 @@ mod tests {
         let new_tx_at = Utc.with_ymd_and_hms(2026, 4, 3, 10, 0, 0).unwrap();
 
         assert!(old_tx_at < period_start, "old tx should be before window");
-        assert!(new_tx_at >= period_start && new_tx_at < period_end, "new tx should be in window");
+        assert!(
+            new_tx_at >= period_start && new_tx_at < period_end,
+            "new tx should be in window"
+        );
     }
 }

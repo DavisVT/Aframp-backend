@@ -27,10 +27,7 @@ pub fn bug_bounty_routes(state: BugBountyState) -> Router {
             post(record_reward),
         )
         // Metrics
-        .route(
-            "/api/admin/security/bug-bounty/metrics",
-            get(get_metrics),
-        )
+        .route("/api/admin/security/bug-bounty/metrics", get(get_metrics))
         // Invitations
         .route(
             "/api/admin/security/bug-bounty/invitations",

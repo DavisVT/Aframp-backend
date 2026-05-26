@@ -46,10 +46,7 @@ impl DisputeStatus {
     pub fn is_terminal(&self) -> bool {
         matches!(
             self,
-            Self::ResolvedCustomer
-                | Self::ResolvedMerchant
-                | Self::ResolvedPartial
-                | Self::Closed
+            Self::ResolvedCustomer | Self::ResolvedMerchant | Self::ResolvedPartial | Self::Closed
         )
     }
 }

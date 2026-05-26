@@ -147,9 +147,12 @@ impl ModularScoring {
     }
 
     /// Get scores across all domains for an agent
-    pub async fn get_all_domain_scores(&self, agent_did: &DID) -> Result<Vec<DetailedScore>, KYAError> {
+    pub async fn get_all_domain_scores(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<DetailedScore>, KYAError> {
         let domain_scorer = DomainScore::new(self.pool.clone());
-        
+
         let domains = vec![
             ReputationDomain::CodeAudit,
             ReputationDomain::FinancialAnalysis,
@@ -177,7 +180,7 @@ impl ModularScoring {
     /// Calculate composite trust score across all domains
     pub async fn calculate_composite_score(&self, agent_did: &DID) -> Result<f64, KYAError> {
         let scores = self.get_all_domain_scores(agent_did).await?;
-        
+
         if scores.is_empty() {
             return Ok(50.0); // Neutral score for new agents
         }
@@ -241,7 +244,8 @@ impl ModularScoring {
         .fetch_one(&self.pool)
         .await?
         .rank
-        .unwrap_or(0) as u64 + 1;
+        .unwrap_or(0) as u64
+            + 1;
 
         let percentile = if total_agents > 0 {
             ((total_agents - rank) as f64 / total_agents as f64) * 100.0

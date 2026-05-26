@@ -55,52 +55,52 @@ pub enum ActionType {
 pub struct AuditLogEntry {
     /// Unique identifier for this log entry
     pub id: Uuid,
-    
+
     /// Sequence number (monotonically increasing)
     pub sequence: i64,
-    
+
     /// Hash of the previous log entry (creates the chain)
     pub previous_hash: String,
-    
+
     /// Hash of this entry's content
     pub entry_hash: String,
-    
+
     /// Actor who performed the action
     pub actor_id: String,
-    
+
     /// Type of actor
     pub actor_type: ActorType,
-    
+
     /// Type of action performed
     pub action_type: ActionType,
-    
+
     /// ID of the object being acted upon
     pub object_id: Option<String>,
-    
+
     /// Type of object (e.g., "transaction", "account", "proposal")
     pub object_type: Option<String>,
-    
+
     /// System timestamp (UTC)
     pub timestamp: DateTime<Utc>,
-    
+
     /// Hardware/system signature (e.g., server ID, pod name)
     pub hardware_signature: String,
-    
+
     /// Correlation ID for tracing related operations
     pub correlation_id: Option<String>,
-    
+
     /// Additional structured metadata
     pub metadata: serde_json::Value,
-    
+
     /// IP address of the actor (if applicable)
     pub ip_address: Option<String>,
-    
+
     /// User agent string (if applicable)
     pub user_agent: Option<String>,
-    
+
     /// Result of the action (success/failure)
     pub result: String,
-    
+
     /// Error message (if action failed)
     pub error_message: Option<String>,
 }
@@ -109,7 +109,7 @@ impl AuditLogEntry {
     /// Calculate the hash of this entry's content
     pub fn calculate_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        
+
         // Hash all immutable fields in canonical order
         hasher.update(self.id.as_bytes());
         hasher.update(self.sequence.to_le_bytes());
@@ -117,25 +117,25 @@ impl AuditLogEntry {
         hasher.update(self.actor_id.as_bytes());
         hasher.update(format!("{:?}", self.actor_type).as_bytes());
         hasher.update(format!("{:?}", self.action_type).as_bytes());
-        
+
         if let Some(ref obj_id) = self.object_id {
             hasher.update(obj_id.as_bytes());
         }
-        
+
         if let Some(ref obj_type) = self.object_type {
             hasher.update(obj_type.as_bytes());
         }
-        
+
         hasher.update(self.timestamp.to_rfc3339().as_bytes());
         hasher.update(self.hardware_signature.as_bytes());
-        
+
         if let Some(ref corr_id) = self.correlation_id {
             hasher.update(corr_id.as_bytes());
         }
-        
+
         hasher.update(self.metadata.to_string().as_bytes());
         hasher.update(self.result.as_bytes());
-        
+
         hex::encode(hasher.finalize())
     }
 }
@@ -163,15 +163,15 @@ impl AuditLedger {
     /// Create a new audit ledger instance
     pub async fn new(pool: PgPool) -> Result<Self, AuditLedgerError> {
         let hardware_signature = Self::get_hardware_signature();
-        
+
         // Get the last sequence and hash from the database
         let (last_sequence, last_hash) = Self::get_last_entry(&pool).await?;
-        
+
         info!(
             "Initialized audit ledger: last_sequence={}, hardware_signature={}",
             last_sequence, hardware_signature
         );
-        
+
         Ok(Self {
             pool,
             last_sequence: Arc::new(RwLock::new(last_sequence)),
@@ -179,7 +179,7 @@ impl AuditLedger {
             hardware_signature,
         })
     }
-    
+
     /// Append a new entry to the audit ledger
     pub async fn append(
         &self,
@@ -198,10 +198,10 @@ impl AuditLedger {
         // Acquire write locks to ensure sequential consistency
         let mut seq_lock = self.last_sequence.write().await;
         let mut hash_lock = self.last_hash.write().await;
-        
+
         let sequence = *seq_lock + 1;
         let previous_hash = hash_lock.clone();
-        
+
         let mut entry = AuditLogEntry {
             id: Uuid::new_v4(),
             sequence,
@@ -221,21 +221,20 @@ impl AuditLedger {
             result,
             error_message,
         };
-        
+
         // Calculate the hash of this entry
         entry.entry_hash = entry.calculate_hash();
-        
+
         // Persist to database with WORM guarantees
         self.persist_entry(&entry).await?;
-        
+
         // Update in-memory state
         *seq_lock = sequence;
         *hash_lock = entry.entry_hash.clone();
-        
+
         Ok(entry)
     }
 
-    
     /// Verify the integrity of the entire audit chain
     pub async fn verify_chain(
         &self,
@@ -243,7 +242,7 @@ impl AuditLedger {
         to_sequence: Option<i64>,
     ) -> Result<ChainVerificationResult, AuditLedgerError> {
         let entries = self.fetch_entries(from_sequence, to_sequence).await?;
-        
+
         if entries.is_empty() {
             return Ok(ChainVerificationResult {
                 valid: true,
@@ -252,14 +251,14 @@ impl AuditLedger {
                 broken_links: vec![],
             });
         }
-        
+
         let mut broken_links = Vec::new();
         let total_entries = entries.len();
         let mut verified_entries = 0;
-        
+
         for i in 0..entries.len() {
             let entry = &entries[i];
-            
+
             // Verify hash of current entry
             let calculated_hash = entry.calculate_hash();
             if calculated_hash != entry.entry_hash {
@@ -272,7 +271,7 @@ impl AuditLedger {
                 });
                 continue;
             }
-            
+
             // Verify link to previous entry
             if i > 0 {
                 let prev_entry = &entries[i - 1];
@@ -287,10 +286,10 @@ impl AuditLedger {
                     continue;
                 }
             }
-            
+
             verified_entries += 1;
         }
-        
+
         Ok(ChainVerificationResult {
             valid: broken_links.is_empty(),
             total_entries,
@@ -298,12 +297,12 @@ impl AuditLedger {
             broken_links,
         })
     }
-    
+
     /// Create an anchor point by submitting hash to Stellar
     pub async fn create_anchor(&self) -> Result<AnchorPoint, AuditLedgerError> {
         let seq_lock = self.last_sequence.read().await;
         let hash_lock = self.last_hash.read().await;
-        
+
         let anchor = AnchorPoint {
             id: Uuid::new_v4(),
             sequence: *seq_lock,
@@ -312,36 +311,33 @@ impl AuditLedger {
             stellar_transaction_id: None, // Will be set after Stellar submission
             stellar_ledger: None,
         };
-        
+
         // Persist anchor point
         self.persist_anchor(&anchor).await?;
-        
+
         info!(
             "Created anchor point: sequence={}, hash={}",
             anchor.sequence, anchor.entry_hash
         );
-        
+
         Ok(anchor)
     }
-    
+
     /// Submit anchor to Stellar blockchain
-    pub async fn submit_anchor_to_stellar(
-        &self,
-        anchor_id: Uuid,
-    ) -> Result<(), AuditLedgerError> {
+    pub async fn submit_anchor_to_stellar(&self, anchor_id: Uuid) -> Result<(), AuditLedgerError> {
         // Fetch the anchor
         let anchor = self.fetch_anchor(anchor_id).await?;
-        
+
         // TODO: Implement Stellar transaction submission
         // This would use the stellar_sdk to create a transaction with the hash in the memo
         warn!(
             "Stellar anchor submission not yet implemented for anchor {}",
             anchor_id
         );
-        
+
         Ok(())
     }
-    
+
     /// Get hardware signature for this instance
     fn get_hardware_signature() -> String {
         // Use hostname + pod name (for Kubernetes) or container ID
@@ -349,12 +345,12 @@ impl AuditLedger {
             .ok()
             .and_then(|h| h.into_string().ok())
             .unwrap_or_else(|| "unknown".to_string());
-        
+
         let pod_name = std::env::var("POD_NAME").unwrap_or_else(|_| "local".to_string());
-        
+
         format!("{}:{}", hostname, pod_name)
     }
-    
+
     /// Get the last entry from the database
     async fn get_last_entry(pool: &PgPool) -> Result<(i64, String), AuditLedgerError> {
         let result = sqlx::query!(
@@ -368,13 +364,13 @@ impl AuditLedger {
         .fetch_optional(pool)
         .await
         .map_err(|e| AuditLedgerError::Database(e.to_string()))?;
-        
+
         match result {
             Some(row) => Ok((row.sequence, row.entry_hash)),
             None => Ok((0, "genesis".to_string())),
         }
     }
-    
+
     /// Persist an entry to the database
     async fn persist_entry(&self, entry: &AuditLogEntry) -> Result<(), AuditLedgerError> {
         sqlx::query!(
@@ -408,10 +404,10 @@ impl AuditLedger {
         .execute(&self.pool)
         .await
         .map_err(|e| AuditLedgerError::Database(e.to_string()))?;
-        
+
         Ok(())
     }
-    
+
     /// Fetch entries from the database
     async fn fetch_entries(
         &self,
@@ -458,10 +454,10 @@ impl AuditLedger {
             .fetch_all(&self.pool)
             .await
         };
-        
+
         entries.map_err(|e| AuditLedgerError::Database(e.to_string()))
     }
-    
+
     /// Persist an anchor point
     async fn persist_anchor(&self, anchor: &AnchorPoint) -> Result<(), AuditLedgerError> {
         sqlx::query!(
@@ -481,10 +477,10 @@ impl AuditLedger {
         .execute(&self.pool)
         .await
         .map_err(|e| AuditLedgerError::Database(e.to_string()))?;
-        
+
         Ok(())
     }
-    
+
     /// Fetch an anchor point
     async fn fetch_anchor(&self, anchor_id: Uuid) -> Result<AnchorPoint, AuditLedgerError> {
         sqlx::query_as!(
@@ -524,13 +520,13 @@ pub struct BrokenLink {
 pub enum AuditLedgerError {
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Chain verification failed: {0}")]
     VerificationFailed(String),
-    
+
     #[error("Anchor not found: {0}")]
     AnchorNotFound(String),
-    
+
     #[error("Stellar submission failed: {0}")]
     StellarSubmissionFailed(String),
 }
@@ -538,7 +534,7 @@ pub enum AuditLedgerError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_entry_hash_calculation() {
         let entry = AuditLogEntry {
@@ -560,10 +556,10 @@ mod tests {
             result: "success".to_string(),
             error_message: None,
         };
-        
+
         let hash1 = entry.calculate_hash();
         let hash2 = entry.calculate_hash();
-        
+
         // Hash should be deterministic
         assert_eq!(hash1, hash2);
         assert_eq!(hash1.len(), 64); // SHA-256 produces 64 hex characters

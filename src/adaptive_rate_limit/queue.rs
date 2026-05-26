@@ -47,11 +47,7 @@ impl EmergencyQueue {
     /// Enqueue a request. If the queue is full, shed the oldest request first.
     ///
     /// Returns a receiver that will yield the response when the request is processed.
-    pub async fn enqueue(
-        &self,
-        req: Request<Body>,
-        path: String,
-    ) -> oneshot::Receiver<Response> {
+    pub async fn enqueue(&self, req: Request<Body>, path: String) -> oneshot::Receiver<Response> {
         let (tx, rx) = oneshot::channel();
 
         let mut queue = self.inner.lock().await;
@@ -59,8 +55,7 @@ impl EmergencyQueue {
         // Shed oldest if at capacity
         if queue.len() >= self.max_depth {
             if let Some(oldest) = queue.pop_front() {
-                let elapsed_ms = (Utc::now() - oldest.enqueued_at)
-                    .num_milliseconds();
+                let elapsed_ms = (Utc::now() - oldest.enqueued_at).num_milliseconds();
 
                 warn!(
                     path = %oldest.path,
@@ -128,9 +123,7 @@ pub fn service_unavailable_response(message: &str, retry_after_secs: u64) -> Res
         })),
     )
         .into_response();
-    res.headers_mut().insert(
-        "Retry-After",
-        retry_after_secs.to_string().parse().unwrap(),
-    );
+    res.headers_mut()
+        .insert("Retry-After", retry_after_secs.to_string().parse().unwrap());
     res
 }

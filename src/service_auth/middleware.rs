@@ -104,7 +104,10 @@ pub async fn service_token_verification(
                 .with_label_values(&[service_name, &path, "unauthorized"])
                 .inc();
 
-            return Err(unauthorized_response("INVALID_SERVICE_TOKEN", &e.to_string()));
+            return Err(unauthorized_response(
+                "INVALID_SERVICE_TOKEN",
+                &e.to_string(),
+            ));
         }
     };
 

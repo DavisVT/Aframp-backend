@@ -17,56 +17,48 @@ lazy_static! {
         &["result", "country_code", "policy_type"]
     )
     .expect("Can't create geo policy evaluations metric");
-
     pub static ref GEO_POLICY_EVALUATION_DURATION: HistogramVec = register_histogram_vec!(
         "geo_restriction_policy_evaluation_duration_seconds",
         "Time spent evaluating geo-restriction policies",
         &["result"]
     )
     .expect("Can't create geo policy evaluation duration metric");
-
     pub static ref GEO_GEOLOCATION_LOOKUPS: CounterVec = register_counter_vec!(
         "geo_restriction_geolocation_lookups_total",
         "Total number of IP geolocation lookups",
         &["result", "cache_hit"]
     )
     .expect("Can't create geolocation lookups metric");
-
     pub static ref GEO_GEOLOCATION_CACHE_SIZE: IntGaugeVec = register_int_gauge_vec!(
         "geo_restriction_geolocation_cache_size",
         "Number of entries in geolocation cache",
         &[]
     )
     .expect("Can't create geolocation cache size metric");
-
     pub static ref GEO_POLICY_CACHE_SIZE: IntGaugeVec = register_int_gauge_vec!(
         "geo_restriction_policy_cache_size",
         "Number of entries in policy evaluation cache",
         &[]
     )
     .expect("Can't create policy cache size metric");
-
     pub static ref GEO_AUDIT_EVENTS: CounterVec = register_counter_vec!(
         "geo_restriction_audit_events_total",
         "Total number of geo-restriction audit events logged",
         &["action", "result"]
     )
     .expect("Can't create audit events metric");
-
     pub static ref GEO_BLOCKED_REQUESTS: CounterVec = register_counter_vec!(
         "geo_restriction_blocked_requests_total",
         "Total number of requests blocked by geo-restriction",
         &["country_code", "reason"]
     )
     .expect("Can't create blocked requests metric");
-
     pub static ref GEO_RESTRICTED_REQUESTS: CounterVec = register_counter_vec!(
         "geo_restriction_restricted_requests_total",
         "Total number of requests restricted by geo-restriction",
         &["country_code", "reason"]
     )
     .expect("Can't create restricted requests metric");
-
     pub static ref GEO_VERIFICATION_REQUIRED: CounterVec = register_counter_vec!(
         "geo_restriction_verification_required_total",
         "Total number of requests requiring enhanced verification",
@@ -121,23 +113,17 @@ impl GeoRestrictionMetrics {
 
     /// Update geolocation cache size
     pub fn update_geolocation_cache_size(&self, size: i64) {
-        GEO_GEOLOCATION_CACHE_SIZE
-            .with_label_values(&[])
-            .set(size);
+        GEO_GEOLOCATION_CACHE_SIZE.with_label_values(&[]).set(size);
     }
 
     /// Update policy cache size
     pub fn update_policy_cache_size(&self, size: i64) {
-        GEO_POLICY_CACHE_SIZE
-            .with_label_values(&[])
-            .set(size);
+        GEO_POLICY_CACHE_SIZE.with_label_values(&[]).set(size);
     }
 
     /// Record audit event
     pub fn record_audit_event(&self, action: &str, result: &str) {
-        GEO_AUDIT_EVENTS
-            .with_label_values(&[action, result])
-            .inc();
+        GEO_AUDIT_EVENTS.with_label_values(&[action, result]).inc();
     }
 
     /// Record blocked request

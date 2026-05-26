@@ -70,7 +70,8 @@ impl ShardMigrator {
     pub async fn run(&self, job: &MigrationJob) -> Result<u64, String> {
         // Persist job start in coordinator
         let coordinator = self.router.coordinator();
-        self.upsert_job(coordinator, job, "running", None, 0).await?;
+        self.upsert_job(coordinator, job, "running", None, 0)
+            .await?;
 
         let source_pool = self.get_shard_pool(job.source_shard).await?;
         let target_pool = self.get_shard_pool(job.target_shard).await?;
@@ -80,7 +81,13 @@ impl ShardMigrator {
 
         loop {
             let batch = self
-                .fetch_batch(&source_pool, &job.table_name, &job.shard_key_col, &last_key, job.batch_size)
+                .fetch_batch(
+                    &source_pool,
+                    &job.table_name,
+                    &job.shard_key_col,
+                    &last_key,
+                    job.batch_size,
+                )
                 .await?;
 
             if batch.is_empty() {
@@ -91,7 +98,13 @@ impl ShardMigrator {
 
             // Copy to target
             let copied = self
-                .copy_batch(&source_pool, &target_pool, &job.table_name, &job.shard_key_col, &batch)
+                .copy_batch(
+                    &source_pool,
+                    &target_pool,
+                    &job.table_name,
+                    &job.shard_key_col,
+                    &batch,
+                )
                 .await?;
 
             // Delete from source only after successful copy
@@ -102,7 +115,14 @@ impl ShardMigrator {
             last_key = new_last_key;
 
             // Persist cursor
-            self.upsert_job(coordinator, job, "running", last_key.as_deref(), total_migrated as i64).await?;
+            self.upsert_job(
+                coordinator,
+                job,
+                "running",
+                last_key.as_deref(),
+                total_migrated as i64,
+            )
+            .await?;
 
             info!(
                 job_id=%job.id,
@@ -113,7 +133,14 @@ impl ShardMigrator {
             );
         }
 
-        self.upsert_job(coordinator, job, "done", last_key.as_deref(), total_migrated as i64).await?;
+        self.upsert_job(
+            coordinator,
+            job,
+            "done",
+            last_key.as_deref(),
+            total_migrated as i64,
+        )
+        .await?;
         info!(job_id=%job.id, total_migrated=%total_migrated, "Migration job complete");
         Ok(total_migrated)
     }
@@ -193,9 +220,7 @@ impl ShardMigrator {
             .map(|(i, _)| format!("${}", i + 1))
             .collect::<Vec<_>>()
             .join(",");
-        let select_sql = format!(
-            "SELECT * FROM {table} WHERE {key_col}::text IN ({placeholders})"
-        );
+        let select_sql = format!("SELECT * FROM {table} WHERE {key_col}::text IN ({placeholders})");
 
         // We use JSON to transfer rows generically without knowing the schema.
         let json_rows: Vec<(serde_json::Value,)> = {
@@ -251,14 +276,13 @@ impl ShardMigrator {
     }
 
     async fn load_cursor(&self, coordinator: &PgPool, job_id: Uuid) -> Option<String> {
-        let row: Option<(Option<String>,)> = sqlx::query_as(
-            "SELECT last_key FROM shard_migration_jobs WHERE id=$1",
-        )
-        .bind(job_id)
-        .fetch_optional(coordinator)
-        .await
-        .ok()
-        .flatten();
+        let row: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT last_key FROM shard_migration_jobs WHERE id=$1")
+                .bind(job_id)
+                .fetch_optional(coordinator)
+                .await
+                .ok()
+                .flatten();
         row.and_then(|(k,)| k)
     }
 

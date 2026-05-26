@@ -1,6 +1,8 @@
 use crate::treasury::{
     engine::InterventionEngine,
-    types::{ListInterventionsQuery, SystemMode, TriggerInterventionRequest, TriggerInterventionResponse},
+    types::{
+        ListInterventionsQuery, SystemMode, TriggerInterventionRequest, TriggerInterventionResponse,
+    },
 };
 use axum::{
     extract::{Path, Query, State},

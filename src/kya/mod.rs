@@ -8,22 +8,22 @@
 // - Cross-platform reputation portability
 // - Sybil-resistant feedback mechanisms
 
-pub mod identity;
-pub mod reputation;
 pub mod attestation;
-pub mod zkp;
-pub mod scoring;
-pub mod registry;
-pub mod models;
 pub mod error;
+pub mod identity;
+pub mod models;
+pub mod registry;
+pub mod reputation;
 pub mod routes;
+pub mod scoring;
+pub mod zkp;
 
-pub use identity::{AgentIdentity, IdentityRegistry};
-pub use reputation::{ReputationManager, FeedbackAuthorization};
 pub use attestation::{Attestation, AttestationVerifier};
-pub use zkp::{CompetenceProof, ZKProofVerifier};
-pub use scoring::{DomainScore, ModularScoring};
-pub use registry::KYARegistry;
-pub use models::*;
 pub use error::KYAError;
+pub use identity::{AgentIdentity, IdentityRegistry};
+pub use models::*;
+pub use registry::KYARegistry;
+pub use reputation::{FeedbackAuthorization, ReputationManager};
 pub use routes::kya_routes;
+pub use scoring::{DomainScore, ModularScoring};
+pub use zkp::{CompetenceProof, ZKProofVerifier};

@@ -103,19 +103,23 @@ impl SlaRepository {
         status: Option<&str>,
     ) -> sqlx::Result<Vec<SlaBreachIncident>> {
         match status {
-            Some(s) => sqlx::query_as!(
+            Some(s) => {
+                sqlx::query_as!(
                 SlaBreachIncident,
                 "SELECT * FROM sla_breach_incidents WHERE status = $1 ORDER BY detected_at DESC",
                 s
             )
-            .fetch_all(&self.pool)
-            .await,
-            None => sqlx::query_as!(
-                SlaBreachIncident,
-                "SELECT * FROM sla_breach_incidents ORDER BY detected_at DESC LIMIT 100"
-            )
-            .fetch_all(&self.pool)
-            .await,
+                .fetch_all(&self.pool)
+                .await
+            }
+            None => {
+                sqlx::query_as!(
+                    SlaBreachIncident,
+                    "SELECT * FROM sla_breach_incidents ORDER BY detected_at DESC LIMIT 100"
+                )
+                .fetch_all(&self.pool)
+                .await
+            }
         }
     }
 
@@ -156,10 +160,7 @@ impl SlaRepository {
         .await
     }
 
-    pub async fn get_post_mortem(
-        &self,
-        incident_id: Uuid,
-    ) -> sqlx::Result<Option<SlaPostMortem>> {
+    pub async fn get_post_mortem(&self, incident_id: Uuid) -> sqlx::Result<Option<SlaPostMortem>> {
         sqlx::query_as!(
             SlaPostMortem,
             "SELECT * FROM sla_post_mortems WHERE incident_id = $1",
@@ -176,8 +177,7 @@ impl SlaRepository {
         partner_id: Option<Uuid>,
         month: NaiveDate,
     ) -> sqlx::Result<SlaComplianceReport> {
-        let month_start = NaiveDate::from_ymd_opt(month.year(), month.month(), 1)
-            .unwrap_or(month);
+        let month_start = NaiveDate::from_ymd_opt(month.year(), month.month(), 1).unwrap_or(month);
         let month_end = {
             let (y, m) = if month.month() == 12 {
                 (month.year() + 1, 1)

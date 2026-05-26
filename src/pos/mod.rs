@@ -16,19 +16,19 @@
 // - Handles overpayment/underpayment detection
 // ============================================================================
 
-pub mod qr_generator;
-pub mod lobby_service;
-pub mod payment_intent;
-pub mod legacy_bridge;
-pub mod proof_of_payment;
-pub mod models;
 pub mod handlers;
+pub mod legacy_bridge;
+pub mod lobby_service;
+pub mod models;
+pub mod payment_intent;
+pub mod proof_of_payment;
+pub mod qr_generator;
 pub mod routes;
-pub mod websocket;
 pub mod validation;
+pub mod websocket;
 
-pub use qr_generator::QrGenerator;
+pub use legacy_bridge::LegacyBridge;
 pub use lobby_service::LobbyService;
 pub use payment_intent::PaymentIntent;
-pub use legacy_bridge::LegacyBridge;
 pub use proof_of_payment::ProofOfPayment;
+pub use qr_generator::QrGenerator;

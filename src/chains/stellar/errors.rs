@@ -57,9 +57,7 @@ impl StellarError {
     }
 
     pub fn transaction_not_found(hash: impl Into<String>) -> Self {
-        Self::TransactionNotFound {
-            hash: hash.into(),
-        }
+        Self::TransactionNotFound { hash: hash.into() }
     }
 
     pub fn invalid_address(address: impl Into<String>) -> Self {

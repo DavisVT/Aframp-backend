@@ -2,8 +2,7 @@ use crate::payments::error::PaymentResult;
 use crate::payments::provider::PaymentProvider;
 use crate::payments::types::{
     Money, PaymentRequest, PaymentResponse, PaymentState, ProviderName, StatusRequest,
-    StatusResponse, WebhookEvent, WebhookVerificationResult, WithdrawalRequest,
-    WithdrawalResponse,
+    StatusResponse, WebhookEvent, WebhookVerificationResult, WithdrawalRequest, WithdrawalResponse,
 };
 use async_trait::async_trait;
 

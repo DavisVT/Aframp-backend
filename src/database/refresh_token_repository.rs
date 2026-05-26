@@ -12,8 +12,8 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use super::error::{DatabaseError, DbResult};
-use sqlx::PgPool;
 use crate::auth::refresh_token_service::RefreshTokenStatus;
+use sqlx::PgPool;
 
 // ── Refresh token entity ─────────────────────────────────────────────────────
 
@@ -103,26 +103,23 @@ impl RefreshTokenRepository {
 
     /// Find token by token_id
     pub async fn find_by_token_id(&self, token_id: &str) -> DbResult<Option<RefreshToken>> {
-        let token = sqlx::query_as::<_, RefreshToken>(
-            "SELECT * FROM refresh_tokens WHERE token_id = $1",
-        )
-        .bind(token_id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(DatabaseError::from_sqlx)?;
+        let token =
+            sqlx::query_as::<_, RefreshToken>("SELECT * FROM refresh_tokens WHERE token_id = $1")
+                .bind(token_id)
+                .fetch_optional(&self.db)
+                .await
+                .map_err(DatabaseError::from_sqlx)?;
 
         Ok(token)
     }
 
     /// Find token by ID
     pub async fn find_by_id(&self, id: &str) -> DbResult<Option<RefreshToken>> {
-        let token = sqlx::query_as::<_, RefreshToken>(
-            "SELECT * FROM refresh_tokens WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.db)
-        .await
-        .map_err(DatabaseError::from_sqlx)?;
+        let token = sqlx::query_as::<_, RefreshToken>("SELECT * FROM refresh_tokens WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(DatabaseError::from_sqlx)?;
 
         Ok(token)
     }
@@ -319,26 +316,22 @@ impl RefreshTokenRepository {
 
     /// Delete expired tokens (cleanup)
     pub async fn delete_expired(&self, before: DateTime<Utc>) -> DbResult<u64> {
-        let result = sqlx::query(
-            "DELETE FROM refresh_tokens WHERE expires_at < $1",
-        )
-        .bind(before)
-        .execute(&self.db)
-        .await
-        .map_err(DatabaseError::from_sqlx)?;
+        let result = sqlx::query("DELETE FROM refresh_tokens WHERE expires_at < $1")
+            .bind(before)
+            .execute(&self.db)
+            .await
+            .map_err(DatabaseError::from_sqlx)?;
 
         Ok(result.rows_affected())
     }
 
     /// Delete expired families (cleanup)
     pub async fn delete_expired_families(&self, before: DateTime<Utc>) -> DbResult<u64> {
-        let result = sqlx::query(
-            "DELETE FROM refresh_tokens WHERE family_expires_at < $1",
-        )
-        .bind(before)
-        .execute(&self.db)
-        .await
-        .map_err(DatabaseError::from_sqlx)?;
+        let result = sqlx::query("DELETE FROM refresh_tokens WHERE family_expires_at < $1")
+            .bind(before)
+            .execute(&self.db)
+            .await
+            .map_err(DatabaseError::from_sqlx)?;
 
         Ok(result.rows_affected())
     }

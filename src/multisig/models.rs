@@ -71,10 +71,7 @@ pub enum MultiSigProposalStatus {
 
 impl MultiSigProposalStatus {
     pub fn is_terminal(self) -> bool {
-        matches!(
-            self,
-            Self::Confirmed | Self::Rejected | Self::Expired
-        )
+        matches!(self, Self::Confirmed | Self::Rejected | Self::Expired)
     }
 }
 

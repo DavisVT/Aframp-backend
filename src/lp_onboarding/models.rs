@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use sqlx::types::BigDecimal;
+use uuid::Uuid;
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -162,7 +162,7 @@ pub struct CreateAgreementRequest {
 #[derive(Debug, Deserialize)]
 pub struct DocuSignWebhookPayload {
     pub envelope_id: String,
-    pub status: String,          // "completed" | "declined" | etc.
+    pub status: String, // "completed" | "declined" | etc.
     pub document_hash: Option<String>,
 }
 

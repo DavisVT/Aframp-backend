@@ -92,7 +92,11 @@ fn not_found(msg: &str) -> Response {
     (StatusCode::NOT_FOUND, Json(json!({"error": msg}))).into_response()
 }
 fn internal_err(msg: &str) -> Response {
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": msg}))).into_response()
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({"error": msg})),
+    )
+        .into_response()
 }
 
 fn parse_bd(s: &str) -> Option<BigDecimal> {
@@ -108,30 +112,41 @@ pub async fn create_partner(
     Json(body): Json<CreatePartnerRequest>,
 ) -> Response {
     let hash = PartnerService::hash_api_key(&body.api_key);
-    match state.repo.create_partner(
-        &body.slug,
-        &body.name,
-        &hash,
-        body.webhook_url.as_deref(),
-        body.webhook_secret.as_deref(),
-    ).await {
-        Ok(p) => (StatusCode::CREATED, Json(json!({
-            "id": p.id, "slug": p.slug, "name": p.name, "status": p.status,
-            "created_at": p.created_at,
-        }))).into_response(),
+    match state
+        .repo
+        .create_partner(
+            &body.slug,
+            &body.name,
+            &hash,
+            body.webhook_url.as_deref(),
+            body.webhook_secret.as_deref(),
+        )
+        .await
+    {
+        Ok(p) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "id": p.id, "slug": p.slug, "name": p.name, "status": p.status,
+                "created_at": p.created_at,
+            })),
+        )
+            .into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
 }
 
-pub async fn list_partners(
-    State(state): State<Arc<AdminPartnerState>>,
-) -> Response {
+pub async fn list_partners(State(state): State<Arc<AdminPartnerState>>) -> Response {
     match state.repo.list_partners().await {
         Ok(partners) => {
-            let items: Vec<serde_json::Value> = partners.iter().map(|p| json!({
-                "id": p.id, "slug": p.slug, "name": p.name, "status": p.status,
-                "webhook_url": p.webhook_url, "created_at": p.created_at,
-            })).collect();
+            let items: Vec<serde_json::Value> = partners
+                .iter()
+                .map(|p| {
+                    json!({
+                        "id": p.id, "slug": p.slug, "name": p.name, "status": p.status,
+                        "webhook_url": p.webhook_url, "created_at": p.created_at,
+                    })
+                })
+                .collect();
             (StatusCode::OK, Json(json!({"partners": items}))).into_response()
         }
         Err(e) => internal_err(&e.to_string()),
@@ -171,14 +186,18 @@ pub async fn upsert_branding(
     Path(id): Path<Uuid>,
     Json(body): Json<UpsertBrandingRequest>,
 ) -> Response {
-    match state.repo.upsert_branding(
-        id,
-        body.logo_url.as_deref(),
-        body.primary_color.as_deref(),
-        body.secondary_color.as_deref(),
-        body.email_template.unwrap_or(json!({})),
-        body.language_overrides.unwrap_or(json!({})),
-    ).await {
+    match state
+        .repo
+        .upsert_branding(
+            id,
+            body.logo_url.as_deref(),
+            body.primary_color.as_deref(),
+            body.secondary_color.as_deref(),
+            body.email_template.unwrap_or(json!({})),
+            body.language_overrides.unwrap_or(json!({})),
+        )
+        .await
+    {
         Ok(_) => (StatusCode::OK, Json(json!({"updated": true}))).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
@@ -189,11 +208,15 @@ pub async fn get_branding(
     Path(id): Path<Uuid>,
 ) -> Response {
     match state.repo.get_branding(id).await {
-        Ok(Some(b)) => (StatusCode::OK, Json(json!({
-            "logo_url": b.logo_url, "primary_color": b.primary_color,
-            "secondary_color": b.secondary_color, "email_template": b.email_template,
-            "language_overrides": b.language_overrides,
-        }))).into_response(),
+        Ok(Some(b)) => (
+            StatusCode::OK,
+            Json(json!({
+                "logo_url": b.logo_url, "primary_color": b.primary_color,
+                "secondary_color": b.secondary_color, "email_template": b.email_template,
+                "language_overrides": b.language_overrides,
+            })),
+        )
+            .into_response(),
         Ok(None) => (StatusCode::OK, Json(json!({}))).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
@@ -211,14 +234,18 @@ pub async fn upsert_fee(
     if !["percent", "flat"].contains(&body.fee_type.as_str()) {
         return bad_request("fee_type must be percent or flat");
     }
-    match state.repo.upsert_fee(
-        id,
-        &body.corridor,
-        &body.fee_type,
-        fee_value,
-        body.min_amount.as_deref().and_then(parse_bd),
-        body.max_amount.as_deref().and_then(parse_bd),
-    ).await {
+    match state
+        .repo
+        .upsert_fee(
+            id,
+            &body.corridor,
+            &body.fee_type,
+            fee_value,
+            body.min_amount.as_deref().and_then(parse_bd),
+            body.max_amount.as_deref().and_then(parse_bd),
+        )
+        .await
+    {
         Ok(_) => (StatusCode::OK, Json(json!({"updated": true}))).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
@@ -230,12 +257,17 @@ pub async fn list_fees(
 ) -> Response {
     match state.repo.list_fees(id).await {
         Ok(fees) => {
-            let items: Vec<serde_json::Value> = fees.iter().map(|f| json!({
-                "id": f.id, "corridor": f.corridor, "fee_type": f.fee_type,
-                "fee_value": f.fee_value.to_string(), "is_active": f.is_active,
-                "min_amount": f.min_amount.as_ref().map(|v| v.to_string()),
-                "max_amount": f.max_amount.as_ref().map(|v| v.to_string()),
-            })).collect();
+            let items: Vec<serde_json::Value> = fees
+                .iter()
+                .map(|f| {
+                    json!({
+                        "id": f.id, "corridor": f.corridor, "fee_type": f.fee_type,
+                        "fee_value": f.fee_value.to_string(), "is_active": f.is_active,
+                        "min_amount": f.min_amount.as_ref().map(|v| v.to_string()),
+                        "max_amount": f.max_amount.as_ref().map(|v| v.to_string()),
+                    })
+                })
+                .collect();
             (StatusCode::OK, Json(json!({"fees": items}))).into_response()
         }
         Err(e) => internal_err(&e.to_string()),
@@ -251,13 +283,17 @@ pub async fn upsert_limits(
         Some(v) => v,
         None => return bad_request("Invalid per_tx_min"),
     };
-    match state.repo.upsert_limits(
-        id,
-        body.daily_volume_limit.as_deref().and_then(parse_bd),
-        per_tx_min,
-        body.per_tx_max.as_deref().and_then(parse_bd),
-        body.kyc_threshold.as_deref().and_then(parse_bd),
-    ).await {
+    match state
+        .repo
+        .upsert_limits(
+            id,
+            body.daily_volume_limit.as_deref().and_then(parse_bd),
+            per_tx_min,
+            body.per_tx_max.as_deref().and_then(parse_bd),
+            body.kyc_threshold.as_deref().and_then(parse_bd),
+        )
+        .await
+    {
         Ok(_) => (StatusCode::OK, Json(json!({"updated": true}))).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
@@ -268,12 +304,16 @@ pub async fn get_limits(
     Path(id): Path<Uuid>,
 ) -> Response {
     match state.repo.get_limits(id).await {
-        Ok(Some(l)) => (StatusCode::OK, Json(json!({
-            "daily_volume_limit": l.daily_volume_limit.as_ref().map(|v| v.to_string()),
-            "per_tx_min": l.per_tx_min.to_string(),
-            "per_tx_max": l.per_tx_max.as_ref().map(|v| v.to_string()),
-            "kyc_threshold": l.kyc_threshold.as_ref().map(|v| v.to_string()),
-        }))).into_response(),
+        Ok(Some(l)) => (
+            StatusCode::OK,
+            Json(json!({
+                "daily_volume_limit": l.daily_volume_limit.as_ref().map(|v| v.to_string()),
+                "per_tx_min": l.per_tx_min.to_string(),
+                "per_tx_max": l.per_tx_max.as_ref().map(|v| v.to_string()),
+                "kyc_threshold": l.kyc_threshold.as_ref().map(|v| v.to_string()),
+            })),
+        )
+            .into_response(),
         Ok(None) => (StatusCode::OK, Json(json!({}))).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
@@ -285,13 +325,18 @@ pub async fn list_settlements(
 ) -> Response {
     match state.repo.list_settlements(id, 90).await {
         Ok(settlements) => {
-            let items: Vec<serde_json::Value> = settlements.iter().map(|s| json!({
-                "id": s.id, "settlement_date": s.settlement_date.to_string(),
-                "total_volume": s.total_volume.to_string(),
-                "total_fees": s.total_fees.to_string(),
-                "net_payable": s.net_payable.to_string(),
-                "tx_count": s.tx_count, "status": s.status, "report_url": s.report_url,
-            })).collect();
+            let items: Vec<serde_json::Value> = settlements
+                .iter()
+                .map(|s| {
+                    json!({
+                        "id": s.id, "settlement_date": s.settlement_date.to_string(),
+                        "total_volume": s.total_volume.to_string(),
+                        "total_fees": s.total_fees.to_string(),
+                        "net_payable": s.net_payable.to_string(),
+                        "tx_count": s.tx_count, "status": s.status, "report_url": s.report_url,
+                    })
+                })
+                .collect();
             (StatusCode::OK, Json(json!({"settlements": items}))).into_response()
         }
         Err(e) => internal_err(&e.to_string()),

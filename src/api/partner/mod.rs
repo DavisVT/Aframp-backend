@@ -94,19 +94,53 @@ fn extract_bearer(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn err_resp(status: StatusCode, code: &str, msg: &str) -> Response {
-    (status, Json(json!({"error": {"code": code, "message": msg}}))).into_response()
+    (
+        status,
+        Json(json!({"error": {"code": code, "message": msg}})),
+    )
+        .into_response()
 }
 
 fn partner_err(e: PartnerError) -> Response {
     match e {
-        PartnerError::Unauthorized => err_resp(StatusCode::UNAUTHORIZED, "UNAUTHORIZED", "Invalid or inactive API key"),
-        PartnerError::UnsupportedCorridor(c) => err_resp(StatusCode::BAD_REQUEST, "UNSUPPORTED_CORRIDOR", &format!("Corridor not supported: {}", c)),
-        PartnerError::BelowMinimum(m) => err_resp(StatusCode::BAD_REQUEST, "BELOW_MINIMUM", &format!("Amount below minimum: {}", m)),
-        PartnerError::ExceedsMaximum(m) => err_resp(StatusCode::BAD_REQUEST, "EXCEEDS_MAXIMUM", &format!("Amount exceeds maximum: {}", m)),
-        PartnerError::DailyLimitExceeded => err_resp(StatusCode::UNPROCESSABLE_ENTITY, "DAILY_LIMIT_EXCEEDED", "Daily volume limit exceeded"),
-        PartnerError::InsufficientLiquidity(c) => err_resp(StatusCode::UNPROCESSABLE_ENTITY, "INSUFFICIENT_LIQUIDITY", &format!("Insufficient liquidity for {}", c)),
-        PartnerError::DuplicateRef(r) => err_resp(StatusCode::CONFLICT, "DUPLICATE_REF", &format!("Duplicate partner_ref: {}", r)),
-        PartnerError::Database(e) => err_resp(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", &e),
+        PartnerError::Unauthorized => err_resp(
+            StatusCode::UNAUTHORIZED,
+            "UNAUTHORIZED",
+            "Invalid or inactive API key",
+        ),
+        PartnerError::UnsupportedCorridor(c) => err_resp(
+            StatusCode::BAD_REQUEST,
+            "UNSUPPORTED_CORRIDOR",
+            &format!("Corridor not supported: {}", c),
+        ),
+        PartnerError::BelowMinimum(m) => err_resp(
+            StatusCode::BAD_REQUEST,
+            "BELOW_MINIMUM",
+            &format!("Amount below minimum: {}", m),
+        ),
+        PartnerError::ExceedsMaximum(m) => err_resp(
+            StatusCode::BAD_REQUEST,
+            "EXCEEDS_MAXIMUM",
+            &format!("Amount exceeds maximum: {}", m),
+        ),
+        PartnerError::DailyLimitExceeded => err_resp(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "DAILY_LIMIT_EXCEEDED",
+            "Daily volume limit exceeded",
+        ),
+        PartnerError::InsufficientLiquidity(c) => err_resp(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "INSUFFICIENT_LIQUIDITY",
+            &format!("Insufficient liquidity for {}", c),
+        ),
+        PartnerError::DuplicateRef(r) => err_resp(
+            StatusCode::CONFLICT,
+            "DUPLICATE_REF",
+            &format!("Duplicate partner_ref: {}", r),
+        ),
+        PartnerError::Database(e) => {
+            err_resp(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", &e)
+        }
     }
 }
 
@@ -121,7 +155,13 @@ pub async fn get_quote(
 ) -> Response {
     let key = match extract_bearer(&headers) {
         Some(k) => k,
-        None => return err_resp(StatusCode::UNAUTHORIZED, "MISSING_KEY", "Authorization header required"),
+        None => {
+            return err_resp(
+                StatusCode::UNAUTHORIZED,
+                "MISSING_KEY",
+                "Authorization header required",
+            )
+        }
     };
     let partner = match state.service.authenticate(key).await {
         Ok(p) => p,
@@ -130,7 +170,13 @@ pub async fn get_quote(
 
     let from_amount = match body.from_amount.parse::<BigDecimal>() {
         Ok(a) => a,
-        Err(_) => return err_resp(StatusCode::BAD_REQUEST, "INVALID_AMOUNT", "Invalid from_amount"),
+        Err(_) => {
+            return err_resp(
+                StatusCode::BAD_REQUEST,
+                "INVALID_AMOUNT",
+                "Invalid from_amount",
+            )
+        }
     };
     let base_rate = match body.from_currency.as_str() {
         // Placeholder rates — in production these come from ExchangeRateService
@@ -140,17 +186,31 @@ pub async fn get_quote(
         _ => BigDecimal::from_f64(1.0).unwrap(),
     };
 
-    match state.service.get_quote(partner.id, &body.from_currency, &body.to_currency, from_amount, base_rate).await {
-        Ok(q) => (StatusCode::OK, Json(QuoteResponse {
-            from_currency: q.from_currency,
-            to_currency: q.to_currency,
-            from_amount: q.from_amount.to_string(),
-            to_amount: q.to_amount.to_string(),
-            fx_rate: q.fx_rate.to_string(),
-            fee_amount: q.fee_amount.to_string(),
-            fee_type: q.fee_type,
-            expires_at: q.expires_at,
-        })).into_response(),
+    match state
+        .service
+        .get_quote(
+            partner.id,
+            &body.from_currency,
+            &body.to_currency,
+            from_amount,
+            base_rate,
+        )
+        .await
+    {
+        Ok(q) => (
+            StatusCode::OK,
+            Json(QuoteResponse {
+                from_currency: q.from_currency,
+                to_currency: q.to_currency,
+                from_amount: q.from_amount.to_string(),
+                to_amount: q.to_amount.to_string(),
+                fx_rate: q.fx_rate.to_string(),
+                fee_amount: q.fee_amount.to_string(),
+                fee_type: q.fee_type,
+                expires_at: q.expires_at,
+            }),
+        )
+            .into_response(),
         Err(e) => partner_err(e),
     }
 }
@@ -162,7 +222,13 @@ pub async fn initiate_transfer(
 ) -> Response {
     let key = match extract_bearer(&headers) {
         Some(k) => k,
-        None => return err_resp(StatusCode::UNAUTHORIZED, "MISSING_KEY", "Authorization header required"),
+        None => {
+            return err_resp(
+                StatusCode::UNAUTHORIZED,
+                "MISSING_KEY",
+                "Authorization header required",
+            )
+        }
     };
     let partner = match state.service.authenticate(key).await {
         Ok(p) => p,
@@ -171,7 +237,13 @@ pub async fn initiate_transfer(
 
     let from_amount = match body.from_amount.parse::<BigDecimal>() {
         Ok(a) => a,
-        Err(_) => return err_resp(StatusCode::BAD_REQUEST, "INVALID_AMOUNT", "Invalid from_amount"),
+        Err(_) => {
+            return err_resp(
+                StatusCode::BAD_REQUEST,
+                "INVALID_AMOUNT",
+                "Invalid from_amount",
+            )
+        }
     };
     let fx_rate = match body.fx_rate.parse::<BigDecimal>() {
         Ok(r) => r,
@@ -192,23 +264,32 @@ pub async fn initiate_transfer(
         expires_at: chrono::Utc::now(),
     };
 
-    match state.service.initiate_transfer(
-        partner.id,
-        &body.partner_ref,
-        &quote,
-        body.metadata.unwrap_or(serde_json::Value::Object(Default::default())),
-    ).await {
-        Ok(t) => (StatusCode::CREATED, Json(TransferResponse {
-            id: t.id,
-            partner_ref: t.partner_ref,
-            from_currency: t.from_currency,
-            to_currency: t.to_currency,
-            from_amount: t.from_amount.to_string(),
-            to_amount: t.to_amount.to_string(),
-            fee_amount: t.fee_amount.to_string(),
-            status: t.status,
-            created_at: t.created_at,
-        })).into_response(),
+    match state
+        .service
+        .initiate_transfer(
+            partner.id,
+            &body.partner_ref,
+            &quote,
+            body.metadata
+                .unwrap_or(serde_json::Value::Object(Default::default())),
+        )
+        .await
+    {
+        Ok(t) => (
+            StatusCode::CREATED,
+            Json(TransferResponse {
+                id: t.id,
+                partner_ref: t.partner_ref,
+                from_currency: t.from_currency,
+                to_currency: t.to_currency,
+                from_amount: t.from_amount.to_string(),
+                to_amount: t.to_amount.to_string(),
+                fee_amount: t.fee_amount.to_string(),
+                status: t.status,
+                created_at: t.created_at,
+            }),
+        )
+            .into_response(),
         Err(e) => partner_err(e),
     }
 }
@@ -220,7 +301,13 @@ pub async fn get_transfer_status(
 ) -> Response {
     let key = match extract_bearer(&headers) {
         Some(k) => k,
-        None => return err_resp(StatusCode::UNAUTHORIZED, "MISSING_KEY", "Authorization header required"),
+        None => {
+            return err_resp(
+                StatusCode::UNAUTHORIZED,
+                "MISSING_KEY",
+                "Authorization header required",
+            )
+        }
     };
     let partner = match state.service.authenticate(key).await {
         Ok(p) => p,
@@ -228,19 +315,27 @@ pub async fn get_transfer_status(
     };
 
     match state.repo.get_transfer(transfer_id, partner.id).await {
-        Ok(Some(t)) => (StatusCode::OK, Json(TransferResponse {
-            id: t.id,
-            partner_ref: t.partner_ref,
-            from_currency: t.from_currency,
-            to_currency: t.to_currency,
-            from_amount: t.from_amount.to_string(),
-            to_amount: t.to_amount.to_string(),
-            fee_amount: t.fee_amount.to_string(),
-            status: t.status,
-            created_at: t.created_at,
-        })).into_response(),
+        Ok(Some(t)) => (
+            StatusCode::OK,
+            Json(TransferResponse {
+                id: t.id,
+                partner_ref: t.partner_ref,
+                from_currency: t.from_currency,
+                to_currency: t.to_currency,
+                from_amount: t.from_amount.to_string(),
+                to_amount: t.to_amount.to_string(),
+                fee_amount: t.fee_amount.to_string(),
+                status: t.status,
+                created_at: t.created_at,
+            }),
+        )
+            .into_response(),
         Ok(None) => err_resp(StatusCode::NOT_FOUND, "NOT_FOUND", "Transfer not found"),
-        Err(e) => err_resp(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", &e.to_string()),
+        Err(e) => err_resp(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            &e.to_string(),
+        ),
     }
 }
 
@@ -250,7 +345,13 @@ pub async fn get_liquidity(
 ) -> Response {
     let key = match extract_bearer(&headers) {
         Some(k) => k,
-        None => return err_resp(StatusCode::UNAUTHORIZED, "MISSING_KEY", "Authorization header required"),
+        None => {
+            return err_resp(
+                StatusCode::UNAUTHORIZED,
+                "MISSING_KEY",
+                "Authorization header required",
+            )
+        }
     };
     let partner = match state.service.authenticate(key).await {
         Ok(p) => p,
@@ -259,16 +360,25 @@ pub async fn get_liquidity(
 
     match state.repo.list_liquidity(partner.id).await {
         Ok(accounts) => {
-            let items: Vec<serde_json::Value> = accounts.iter().map(|a| json!({
-                "currency": a.currency,
-                "balance": a.balance.to_string(),
-                "reserved": a.reserved.to_string(),
-                "available": (&a.balance - &a.reserved).to_string(),
-                "stellar_address": a.stellar_address,
-            })).collect();
+            let items: Vec<serde_json::Value> = accounts
+                .iter()
+                .map(|a| {
+                    json!({
+                        "currency": a.currency,
+                        "balance": a.balance.to_string(),
+                        "reserved": a.reserved.to_string(),
+                        "available": (&a.balance - &a.reserved).to_string(),
+                        "stellar_address": a.stellar_address,
+                    })
+                })
+                .collect();
             (StatusCode::OK, Json(json!({"liquidity": items}))).into_response()
         }
-        Err(e) => err_resp(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", &e.to_string()),
+        Err(e) => err_resp(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            &e.to_string(),
+        ),
     }
 }
 
@@ -278,7 +388,13 @@ pub async fn get_settlements(
 ) -> Response {
     let key = match extract_bearer(&headers) {
         Some(k) => k,
-        None => return err_resp(StatusCode::UNAUTHORIZED, "MISSING_KEY", "Authorization header required"),
+        None => {
+            return err_resp(
+                StatusCode::UNAUTHORIZED,
+                "MISSING_KEY",
+                "Authorization header required",
+            )
+        }
     };
     let partner = match state.service.authenticate(key).await {
         Ok(p) => p,
@@ -287,19 +403,28 @@ pub async fn get_settlements(
 
     match state.repo.list_settlements(partner.id, 30).await {
         Ok(settlements) => {
-            let items: Vec<serde_json::Value> = settlements.iter().map(|s| json!({
-                "id": s.id,
-                "settlement_date": s.settlement_date.to_string(),
-                "total_volume": s.total_volume.to_string(),
-                "total_fees": s.total_fees.to_string(),
-                "net_payable": s.net_payable.to_string(),
-                "tx_count": s.tx_count,
-                "status": s.status,
-                "report_url": s.report_url,
-            })).collect();
+            let items: Vec<serde_json::Value> = settlements
+                .iter()
+                .map(|s| {
+                    json!({
+                        "id": s.id,
+                        "settlement_date": s.settlement_date.to_string(),
+                        "total_volume": s.total_volume.to_string(),
+                        "total_fees": s.total_fees.to_string(),
+                        "net_payable": s.net_payable.to_string(),
+                        "tx_count": s.tx_count,
+                        "status": s.status,
+                        "report_url": s.report_url,
+                    })
+                })
+                .collect();
             (StatusCode::OK, Json(json!({"settlements": items}))).into_response()
         }
-        Err(e) => err_resp(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", &e.to_string()),
+        Err(e) => err_resp(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            &e.to_string(),
+        ),
     }
 }
 
@@ -309,7 +434,13 @@ pub async fn get_branding(
 ) -> Response {
     let key = match extract_bearer(&headers) {
         Some(k) => k,
-        None => return err_resp(StatusCode::UNAUTHORIZED, "MISSING_KEY", "Authorization header required"),
+        None => {
+            return err_resp(
+                StatusCode::UNAUTHORIZED,
+                "MISSING_KEY",
+                "Authorization header required",
+            )
+        }
     };
     let partner = match state.service.authenticate(key).await {
         Ok(p) => p,
@@ -317,14 +448,22 @@ pub async fn get_branding(
     };
 
     match state.repo.get_branding(partner.id).await {
-        Ok(Some(b)) => (StatusCode::OK, Json(json!({
-            "logo_url": b.logo_url,
-            "primary_color": b.primary_color,
-            "secondary_color": b.secondary_color,
-            "email_template": b.email_template,
-            "language_overrides": b.language_overrides,
-        }))).into_response(),
+        Ok(Some(b)) => (
+            StatusCode::OK,
+            Json(json!({
+                "logo_url": b.logo_url,
+                "primary_color": b.primary_color,
+                "secondary_color": b.secondary_color,
+                "email_template": b.email_template,
+                "language_overrides": b.language_overrides,
+            })),
+        )
+            .into_response(),
         Ok(None) => (StatusCode::OK, Json(json!({}))).into_response(),
-        Err(e) => err_resp(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", &e.to_string()),
+        Err(e) => err_resp(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            &e.to_string(),
+        ),
     }
 }

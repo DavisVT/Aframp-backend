@@ -224,9 +224,7 @@ async fn check_ip_whitelist(
     }
 }
 
-fn check_credential_validity(
-    cred: &super::models::PartnerCredential,
-) -> Result<(), PartnerError> {
+fn check_credential_validity(cred: &super::models::PartnerCredential) -> Result<(), PartnerError> {
     if cred.revoked_at.is_some() {
         return Err(PartnerError::CredentialRevoked);
     }
@@ -319,8 +317,7 @@ pub async fn deprecation_header_middleware(
             resp.headers_mut().insert("deprecation", v);
         }
         if let Some(url) = &dep.migration_guide_url {
-            if let Ok(v) =
-                HeaderValue::from_str(&format!(r#"<{}>; rel="successor-version""#, url))
+            if let Ok(v) = HeaderValue::from_str(&format!(r#"<{}>; rel="successor-version""#, url))
             {
                 resp.headers_mut().insert("link", v);
             }

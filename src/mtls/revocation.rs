@@ -34,7 +34,10 @@ impl RevocationList {
 
     /// Add a serial to the CRL immediately.
     pub fn revoke(&self, serial: &str, service_name: &str, reason: &str) {
-        self.revoked_serials.write().unwrap().insert(serial.to_string());
+        self.revoked_serials
+            .write()
+            .unwrap()
+            .insert(serial.to_string());
         self.entries.write().unwrap().push(RevocationEntry {
             serial: serial.to_string(),
             service_name: service_name.to_string(),

@@ -9,10 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use stellar_xdr::next::{
-    AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ClawbackOp, DecoratedSignature,
-    Hash, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions, PublicKey,
-    SequenceNumber, Signature, SignatureHint, StringM, TimeBounds, TimePoint, Transaction,
-    TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM, WriteXdr,
+    AccountId, AlphaNum12, AlphaNum4, Asset, AssetCode12, AssetCode4, ClawbackOp,
+    DecoratedSignature, Hash, Limits, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
+    PublicKey, SequenceNumber, Signature, SignatureHint, StringM, TimeBounds, TimePoint,
+    Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope, Uint256, VecM,
+    WriteXdr,
 };
 use tracing::{error, info, instrument, warn};
 
@@ -116,7 +117,10 @@ impl CngnBurnTransactionBuilder {
     ) -> StellarResult<BurnTransactionDraft> {
         validate_address(&operation.source_address)?;
 
-        let source_account = self.stellar_client.get_account(&operation.source_address).await?;
+        let source_account = self
+            .stellar_client
+            .get_account(&operation.source_address)
+            .await?;
         let issuer = self
             .config
             .issuer_for_network(self.stellar_client.network())
@@ -139,32 +143,28 @@ impl CngnBurnTransactionBuilder {
         let memo = CngnMemo::Text(operation.redemption_id.clone());
 
         let (tx, envelope) = match operation.burn_type {
-            BurnType::PaymentToIssuer => {
-                build_payment_burn_transaction(
-                    &operation.source_address,
-                    &issuer,
-                    amount_stroops,
-                    sequence,
-                    fee,
-                    self.timeout,
-                    &memo,
-                    &asset_code,
-                    &issuer,
-                )?
-            }
-            BurnType::Clawback => {
-                build_clawback_burn_transaction(
-                    &operation.source_address,
-                    &issuer,
-                    amount_stroops,
-                    sequence,
-                    fee,
-                    self.timeout,
-                    &memo,
-                    &asset_code,
-                    &issuer,
-                )?
-            }
+            BurnType::PaymentToIssuer => build_payment_burn_transaction(
+                &operation.source_address,
+                &issuer,
+                amount_stroops,
+                sequence,
+                fee,
+                self.timeout,
+                &memo,
+                &asset_code,
+                &issuer,
+            )?,
+            BurnType::Clawback => build_clawback_burn_transaction(
+                &operation.source_address,
+                &issuer,
+                amount_stroops,
+                sequence,
+                fee,
+                self.timeout,
+                &memo,
+                &asset_code,
+                &issuer,
+            )?,
         };
 
         let network_id = network_id(self.stellar_client.network().network_passphrase());
@@ -236,7 +236,10 @@ impl CngnBurnTransactionBuilder {
         }
 
         let fee = fee_stroops.unwrap_or(self.base_fee_stroops);
-        ensure_source_has_xlm_for_fee(&source_account.balances, fee * batch_operation.operations.len() as u32)?;
+        ensure_source_has_xlm_for_fee(
+            &source_account.balances,
+            fee * batch_operation.operations.len() as u32,
+        )?;
 
         let sequence = source_account.sequence + 1;
         let memo = CngnMemo::Text(batch_operation.batch_id.clone());
@@ -247,12 +250,20 @@ impl CngnBurnTransactionBuilder {
             .map(|op| {
                 let amount_stroops = decimal_to_stroops(&op.amount_cngn)?;
                 match op.burn_type {
-                    BurnType::PaymentToIssuer => {
-                        build_payment_operation(&op.source_address, &issuer, amount_stroops, &asset_code, &issuer)
-                    }
-                    BurnType::Clawback => {
-                        build_clawback_operation(&op.source_address, &issuer, amount_stroops, &asset_code, &issuer)
-                    }
+                    BurnType::PaymentToIssuer => build_payment_operation(
+                        &op.source_address,
+                        &issuer,
+                        amount_stroops,
+                        &asset_code,
+                        &issuer,
+                    ),
+                    BurnType::Clawback => build_clawback_operation(
+                        &op.source_address,
+                        &issuer,
+                        amount_stroops,
+                        &asset_code,
+                        &issuer,
+                    ),
                 }
             })
             .collect();
@@ -349,9 +360,12 @@ impl CngnBurnTransactionBuilder {
         signed_envelope_xdr: &str,
     ) -> StellarResult<serde_json::Value> {
         validate_signed_envelope_has_signatures(signed_envelope_xdr)?;
-        
-        let result = self.stellar_client.submit_transaction_xdr(signed_envelope_xdr).await?;
-        
+
+        let result = self
+            .stellar_client
+            .submit_transaction_xdr(signed_envelope_xdr)
+            .await?;
+
         // Check for specific error codes mentioned in requirements
         if let Some(successful) = result.get("successful").and_then(|v| v.as_bool()) {
             if !successful {
@@ -362,7 +376,7 @@ impl CngnBurnTransactionBuilder {
                 }
             }
         }
-        
+
         Ok(result)
     }
 }
@@ -428,7 +442,8 @@ fn build_payment_burn_transaction(
     asset_code: &str,
     issuer: &str,
 ) -> StellarResult<(Transaction, TransactionEnvelope)> {
-    let operation = build_payment_operation(source, destination, amount_stroops, asset_code, issuer)?;
+    let operation =
+        build_payment_operation(source, destination, amount_stroops, asset_code, issuer)?;
     build_single_operation_transaction(source, operation, sequence, fee_stroops, timeout, memo)
 }
 
@@ -443,7 +458,8 @@ fn build_clawback_burn_transaction(
     asset_code: &str,
     issuer_address: &str,
 ) -> StellarResult<(Transaction, TransactionEnvelope)> {
-    let operation = build_clawback_operation(source, issuer, amount_stroops, asset_code, issuer_address)?;
+    let operation =
+        build_clawback_operation(source, issuer, amount_stroops, asset_code, issuer_address)?;
     build_single_operation_transaction(source, operation, sequence, fee_stroops, timeout, memo)
 }
 
@@ -562,14 +578,16 @@ fn parse_muxed_account(address: &str) -> StellarResult<MuxedAccount> {
     use stellar_strkey::ed25519::{
         MuxedAccount as StrkeyMuxedAccount, PublicKey as StrkeyPublicKey,
     };
-    
+
     if address.starts_with('M') {
         let muxed = StrkeyMuxedAccount::from_string(address)
             .map_err(|_| StellarError::invalid_address(address))?;
-        Ok(MuxedAccount::MuxedEd25519(stellar_xdr::next::MuxedAccountMed25519 {
-            id: muxed.id,
-            ed25519: Uint256(muxed.ed25519),
-        }))
+        Ok(MuxedAccount::MuxedEd25519(
+            stellar_xdr::next::MuxedAccountMed25519 {
+                id: muxed.id,
+                ed25519: Uint256(muxed.ed25519),
+            },
+        ))
     } else {
         let public_key = StrkeyPublicKey::from_string(address)
             .map_err(|_| StellarError::invalid_address(address))?;
@@ -579,7 +597,7 @@ fn parse_muxed_account(address: &str) -> StellarResult<MuxedAccount> {
 
 fn parse_account_id(address: &str) -> StellarResult<AccountId> {
     use stellar_strkey::ed25519::PublicKey as StrkeyPublicKey;
-    
+
     let public_key = StrkeyPublicKey::from_string(address)
         .map_err(|_| StellarError::invalid_address(address))?;
     Ok(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
@@ -692,7 +710,7 @@ fn decimal_from_stroops(stroops: i64) -> String {
 
 fn decode_signing_key(secret_seed: &str) -> StellarResult<ed25519_dalek::SigningKey> {
     use stellar_strkey::ed25519::PrivateKey as StrkeyPrivateKey;
-    
+
     let private = StrkeyPrivateKey::from_string(secret_seed)
         .map_err(|_| StellarError::signing_error("invalid secret seed"))?;
     Ok(ed25519_dalek::SigningKey::from_bytes(&private.0))
@@ -705,7 +723,7 @@ fn ensure_signing_key_matches_source(
     use stellar_strkey::ed25519::{
         MuxedAccount as StrkeyMuxedAccount, PublicKey as StrkeyPublicKey,
     };
-    
+
     let public_key_bytes = signing_key.verifying_key().to_bytes();
     let expected = if source.starts_with('M') {
         StrkeyMuxedAccount::from_string(source)

@@ -1,7 +1,10 @@
 use crate::agent_cfo::handlers::{
     get_policy, project_cost, query_ledger, record_inference, unfreeze_agent, CfoState,
 };
-use axum::{routing::{get, post}, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 
 pub fn agent_cfo_routes(state: CfoState) -> Router {
     Router::new()

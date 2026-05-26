@@ -322,10 +322,7 @@ impl MultiSigRepository {
             // Unique constraint violation → duplicate signature
             if let sqlx::Error::Database(ref db_err) = e {
                 if db_err.constraint() == Some("multisig_signatures_proposal_id_signer_id_key") {
-                    return MultiSigError::DuplicateSignature(
-                        signer_key.to_string(),
-                        proposal_id,
-                    );
+                    return MultiSigError::DuplicateSignature(signer_key.to_string(), proposal_id);
                 }
             }
             MultiSigError::Database(e)

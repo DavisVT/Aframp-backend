@@ -1,9 +1,6 @@
 //! HTTP handlers for Merchant CRM endpoints.
 
-use crate::merchant_crm::{
-    models::*,
-    service::MerchantCrmService,
-};
+use crate::merchant_crm::{models::*, service::MerchantCrmService};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -64,7 +61,11 @@ pub async fn update_tags(
     let tags: Vec<String> = body
         .get("tags")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
     match svc.update_tags(merchant_id, &wallet_address, tags).await {

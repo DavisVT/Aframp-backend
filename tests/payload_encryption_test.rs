@@ -30,11 +30,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// Build an encrypted envelope for a plaintext value using the given platform public key.
-    fn encrypt_field(
-        plaintext: &[u8],
-        platform_pub: &PublicKey,
-        kid: &str,
-    ) -> EncryptedEnvelope {
+    fn encrypt_field(plaintext: &[u8], platform_pub: &PublicKey, kid: &str) -> EncryptedEnvelope {
         let ephemeral_secret = EphemeralSecret::random(&mut OsRng);
         let ephemeral_pub = ephemeral_secret.public_key();
         let epk_bytes = ephemeral_pub.to_encoded_point(false).as_bytes().to_vec();
@@ -84,10 +80,7 @@ mod tests {
 
         Router::new()
             .route("/test", post(echo))
-            .layer(middleware::from_fn_with_state(
-                state,
-                decryption_middleware,
-            ))
+            .layer(middleware::from_fn_with_state(state, decryption_middleware))
     }
 
     async fn post_json(app: Router, body: Value) -> (StatusCode, Value) {
@@ -259,10 +252,7 @@ mod tests {
 
         let app = Router::new()
             .route("/test", post(echo_text))
-            .layer(middleware::from_fn_with_state(
-                state,
-                decryption_middleware,
-            ));
+            .layer(middleware::from_fn_with_state(state, decryption_middleware));
 
         let req = Request::builder()
             .method("POST")

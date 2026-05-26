@@ -89,7 +89,8 @@ impl axum::response::IntoResponse for MultiSigError {
         use axum::Json;
         use serde_json::json;
 
-        let status = StatusCode::from_u16(self.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status =
+            StatusCode::from_u16(self.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         let body = json!({
             "error": self.to_string(),
             "code": format!("{:?}", self).split('(').next().unwrap_or("UnknownError"),

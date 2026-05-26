@@ -8,7 +8,11 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::{sync::watch, task, time::{sleep, Duration}};
+use tokio::{
+    sync::watch,
+    task,
+    time::{sleep, Duration},
+};
 
 const DEFAULT_MINT_AUDIT_DIR: &str = "./mint_audit_logs";
 const MINT_AUDIT_FILENAME: &str = "mint_authorizations.log";
@@ -78,7 +82,8 @@ impl fmt::Debug for MintAuditStore {
 
 impl MintAuditStore {
     pub fn from_env() -> Result<Self, MintAuditError> {
-        let directory = std::env::var("MINT_AUDIT_LOG_DIR").unwrap_or_else(|_| DEFAULT_MINT_AUDIT_DIR.to_string());
+        let directory = std::env::var("MINT_AUDIT_LOG_DIR")
+            .unwrap_or_else(|_| DEFAULT_MINT_AUDIT_DIR.to_string());
         Self::new(PathBuf::from(directory))
     }
 
@@ -97,7 +102,8 @@ impl MintAuditStore {
     ) -> Result<MintAuditEntry, MintAuditError> {
         let path = self.log_path.clone();
         task::spawn_blocking(move || {
-            let previous_hash = last_entry_hash_sync(&path)?.unwrap_or_else(|| GENESIS_HASH.to_string());
+            let previous_hash =
+                last_entry_hash_sync(&path)?.unwrap_or_else(|| GENESIS_HASH.to_string());
             let timestamp = Utc::now();
             let content = MintAuditEntryContent {
                 actor_id: &actor_id,
@@ -135,7 +141,8 @@ impl MintAuditStore {
 
     pub async fn verify(self: Arc<Self>) -> Result<MintAuditVerificationResult, MintAuditError> {
         let path = self.log_path.clone();
-        task::spawn_blocking(move || verify_sync(&path)).await
+        task::spawn_blocking(move || verify_sync(&path))
+            .await
             .map_err(|e| MintAuditError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?
     }
 }
@@ -268,7 +275,8 @@ fn verify_sync(path: &Path) -> Result<MintAuditVerificationResult, MintAuditErro
             request_payload: &entry.request_payload,
         };
         let content_bytes = serde_json::to_vec(&content)?;
-        let expected_current_hash = sha256_hex(&[entry.previous_hash.as_bytes(), &content_bytes].concat());
+        let expected_current_hash =
+            sha256_hex(&[entry.previous_hash.as_bytes(), &content_bytes].concat());
         if expected_current_hash != entry.current_hash {
             tampered_entries.push(TamperedMintAuditEntry {
                 line_number,

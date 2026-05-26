@@ -157,8 +157,8 @@ pub async fn rotate_secret(
         .await
     {
         Ok(new_secret) => {
-            let grace_period_ends = chrono::Utc::now()
-                + chrono::Duration::seconds(grace_period_secs);
+            let grace_period_ends =
+                chrono::Utc::now() + chrono::Duration::seconds(grace_period_secs);
 
             info!(
                 service_name = %service_name,

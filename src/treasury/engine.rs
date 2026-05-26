@@ -187,7 +187,8 @@ impl InterventionEngine {
                         response_latency_ms: (confirmed_at - now).num_milliseconds(),
                         outcome: AuditOutcome::Success,
                         failure_reason: None,
-                        environment: std::env::var("APP_ENV").unwrap_or_else(|_| "production".to_string()),
+                        environment: std::env::var("APP_ENV")
+                            .unwrap_or_else(|_| "production".to_string()),
                     })
                     .await;
 
@@ -235,7 +236,8 @@ impl InterventionEngine {
                         response_latency_ms: 0,
                         outcome: AuditOutcome::Failure,
                         failure_reason: Some(e.clone()),
-                        environment: std::env::var("APP_ENV").unwrap_or_else(|_| "production".to_string()),
+                        environment: std::env::var("APP_ENV")
+                            .unwrap_or_else(|_| "production".to_string()),
                     })
                     .await;
 

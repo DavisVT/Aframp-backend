@@ -8,10 +8,10 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseTier {
-    Monitor,   // Log and alert only
-    Soft,      // Rate limit tightening, re-auth
-    Hard,      // Temporary suspension
-    Critical,  // Immediate revocation
+    Monitor,  // Log and alert only
+    Soft,     // Rate limit tightening, re-auth
+    Hard,     // Temporary suspension
+    Critical, // Immediate revocation
 }
 
 impl ResponseTier {

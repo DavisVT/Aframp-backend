@@ -32,7 +32,7 @@ pub struct ComplianceStatus {
 pub trait KybProvider {
     /// Verifies business details with external registries (e.g., Orbis, D&B)
     fn verify_business(&self, business_id: &str) -> Result<VerificationStatus, String>;
-    
+
     /// Checks sanctions against UBOs
     fn screen_sanctions(&self, entity_name: &str) -> Result<bool, String>;
 }
@@ -41,7 +41,11 @@ pub trait KybProvider {
 pub struct RiskScoringModel;
 
 impl RiskScoringModel {
-    pub fn calculate_risk(jurisdiction_risk: u8, aml_maturity: u8, sanctions_hits: u8) -> RiskLevel {
+    pub fn calculate_risk(
+        jurisdiction_risk: u8,
+        aml_maturity: u8,
+        sanctions_hits: u8,
+    ) -> RiskLevel {
         if sanctions_hits > 0 {
             return RiskLevel::Critical;
         }
@@ -59,7 +63,11 @@ pub struct DocumentManagementSystem;
 
 impl DocumentManagementSystem {
     /// Stores an uploaded document and performs a preliminary format check
-    pub fn upload_document(partner_id: &str, doc_type: &str, data: &[u8]) -> Result<String, String> {
+    pub fn upload_document(
+        partner_id: &str,
+        doc_type: &str,
+        data: &[u8],
+    ) -> Result<String, String> {
         // Mock doc check and storage
         Ok(format!("doc_id_for_{}_{}", partner_id, doc_type))
     }

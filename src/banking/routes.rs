@@ -13,8 +13,14 @@ use axum::{
 pub fn banking_routes(state: BankingState) -> Router {
     Router::new()
         // Account linkage
-        .route("/api/v1/banking/users/{user_id}/accounts", post(link_account))
-        .route("/api/v1/banking/users/{user_id}/accounts", get(list_accounts))
+        .route(
+            "/api/v1/banking/users/{user_id}/accounts",
+            post(link_account),
+        )
+        .route(
+            "/api/v1/banking/users/{user_id}/accounts",
+            get(list_accounts),
+        )
         .route(
             "/api/v1/banking/users/{user_id}/accounts/{account_id}",
             delete(unlink_account),

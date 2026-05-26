@@ -44,14 +44,15 @@ impl FranchiseRepository {
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn get_organization(&self, org_id: Uuid) -> Result<Option<Organization>, DatabaseError> {
-        sqlx::query_as::<_, Organization>(
-            "SELECT * FROM organizations WHERE id = $1",
-        )
-        .bind(org_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(DatabaseError::from_sqlx)
+    pub async fn get_organization(
+        &self,
+        org_id: Uuid,
+    ) -> Result<Option<Organization>, DatabaseError> {
+        sqlx::query_as::<_, Organization>("SELECT * FROM organizations WHERE id = $1")
+            .bind(org_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(DatabaseError::from_sqlx)
     }
 
     pub async fn update_settlement(
@@ -210,11 +211,7 @@ impl FranchiseRepository {
         .map_err(DatabaseError::from_sqlx)
     }
 
-    pub async fn remove_member(
-        &self,
-        org_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<(), DatabaseError> {
+    pub async fn remove_member(&self, org_id: Uuid, user_id: Uuid) -> Result<(), DatabaseError> {
         sqlx::query(
             "UPDATE organization_members SET is_active = FALSE, updated_at = now()
              WHERE organization_id = $1 AND user_id = $2",
@@ -253,10 +250,15 @@ impl FranchiseRepository {
         org_id: Uuid,
     ) -> Result<Vec<OrganizationRole>, DatabaseError> {
         let corporate_perms = serde_json::json!([
-            "org:admin","org:view","branch:manage","branch:view",
-            "member:manage","settlement:manage","reports:view"
+            "org:admin",
+            "org:view",
+            "branch:manage",
+            "branch:view",
+            "member:manage",
+            "settlement:manage",
+            "reports:view"
         ]);
-        let manager_perms = serde_json::json!(["branch:view","reports:view"]);
+        let manager_perms = serde_json::json!(["branch:view", "reports:view"]);
 
         sqlx::query(
             r#"
@@ -284,13 +286,11 @@ impl FranchiseRepository {
     }
 
     pub async fn get_role(&self, role_id: Uuid) -> Result<Option<OrganizationRole>, DatabaseError> {
-        sqlx::query_as::<_, OrganizationRole>(
-            "SELECT * FROM organization_roles WHERE id = $1",
-        )
-        .bind(role_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(DatabaseError::from_sqlx)
+        sqlx::query_as::<_, OrganizationRole>("SELECT * FROM organization_roles WHERE id = $1")
+            .bind(role_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(DatabaseError::from_sqlx)
     }
 
     // -------------------------------------------------------------------------
@@ -337,7 +337,8 @@ impl FranchiseRepository {
         period_start: NaiveDate,
         period_end: NaiveDate,
         branch_id: Option<Uuid>,
-    ) -> Result<Vec<(Option<Uuid>, Option<String>, sqlx::types::BigDecimal, i64)>, DatabaseError> {
+    ) -> Result<Vec<(Option<Uuid>, Option<String>, sqlx::types::BigDecimal, i64)>, DatabaseError>
+    {
         sqlx::query_as::<_, (Option<Uuid>, Option<String>, sqlx::types::BigDecimal, i64)>(
             r#"
             SELECT

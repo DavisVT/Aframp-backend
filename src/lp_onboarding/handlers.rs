@@ -153,12 +153,7 @@ pub async fn send_agreement(
     Json(req): Json<SendAgreementRequest>,
 ) -> impl IntoResponse {
     match svc
-        .send_agreement_for_signature(
-            partner_id,
-            req.agreement,
-            req.signer_email,
-            req.signer_name,
-        )
+        .send_agreement_for_signature(partner_id, req.agreement, req.signer_email, req.signer_name)
         .await
     {
         Ok(a) => (StatusCode::CREATED, Json(serde_json::to_value(a).unwrap())).into_response(),

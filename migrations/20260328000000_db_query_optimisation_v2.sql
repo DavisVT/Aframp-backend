@@ -31,7 +31,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_wallets_address_balance
     ON wallets (wallet_address)
-    INCLUDE (balance, afri_balance, last_balance_check, user_id)
+    INCLUDE (balance, cngn_balance, last_balance_check, user_id)
     WHERE wallet_address IS NOT NULL;
 
 -- ---------------------------------------------------------------------------
@@ -65,14 +65,14 @@ CREATE INDEX IF NOT EXISTS idx_transactions_status_created_general
 -- ---------------------------------------------------------------------------
 -- 6. Stellar confirmation worker
 --    WHERE status IN ('pending','processing')
---      AND stellar_tx_hash IS NOT NULL AND stellar_tx_hash <> ''
+--      AND blockchain_tx_hash IS NOT NULL AND blockchain_tx_hash <> ''
 --      AND created_at > NOW() - INTERVAL '...'
 --    ORDER BY created_at ASC
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_transactions_stellar_polling
     ON transactions (status, created_at ASC)
-    INCLUDE (stellar_tx_hash, transaction_id)
-    WHERE stellar_tx_hash IS NOT NULL
+    INCLUDE (blockchain_tx_hash, transaction_id)
+    WHERE blockchain_tx_hash IS NOT NULL
       AND status IN ('pending', 'processing');
 
 -- ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_wallet_currency_cursor
 --     Queries that aggregate by (type, status, date) for daily reports.
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_transactions_type_status_date
-    ON transactions (type, status, date_trunc('day', created_at));
+    ON transactions (type, status, created_at);
 
 -- Completed transactions by provider in a date range (reconciliation)
 CREATE INDEX IF NOT EXISTS idx_transactions_provider_status_created
@@ -142,12 +142,12 @@ CREATE INDEX IF NOT EXISTS idx_exchange_rates_pair_created
 
 -- ---------------------------------------------------------------------------
 -- 13. Fee structure lookup optimisation
---     get_active_by_type: WHERE fee_type=$1 AND is_active=TRUE
+--     get_active_by_type: WHERE transaction_type=$1 AND is_active=TRUE
 --                         AND effective_from <= $2
 --                         AND (effective_until IS NULL OR effective_until >= $2)
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_fee_structures_active_type_time
-    ON fee_structures (fee_type, effective_from DESC)
+    ON fee_structures (transaction_type, effective_from DESC)
     WHERE is_active = TRUE;
 
 -- ---------------------------------------------------------------------------
@@ -282,8 +282,8 @@ END $$;
 CREATE OR REPLACE VIEW v_unused_indexes AS
 SELECT
     schemaname,
-    tablename,
-    indexname,
+    relname AS tablename,
+    indexrelname AS indexname,
     idx_scan,
     idx_tup_read,
     idx_tup_fetch,

@@ -1,11 +1,11 @@
 use crate::event_bus::models::*;
 use anyhow::Result;
-use sqlx::PgPool;
-use uuid::Uuid;
 use chrono::Utc;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
 const MAX_RETRY_COUNT: i32 = 3;
 
@@ -83,9 +83,14 @@ impl EventBus {
     }
 
     /// Route a failed event to the dead-letter queue after max retries
-    pub async fn dead_letter(&self, event_id: Uuid, consumer_name: &str, reason: &str) -> Result<()> {
+    pub async fn dead_letter(
+        &self,
+        event_id: Uuid,
+        consumer_name: &str,
+        reason: &str,
+    ) -> Result<()> {
         let existing: Option<i32> = sqlx::query_scalar(
-            "SELECT retry_count FROM dead_letter_queue WHERE event_id = $1 AND consumer_name = $2"
+            "SELECT retry_count FROM dead_letter_queue WHERE event_id = $1 AND consumer_name = $2",
         )
         .bind(event_id)
         .bind(consumer_name)
@@ -138,7 +143,7 @@ impl EventBus {
     /// Replay events for a given aggregate since a timestamp (for recovery)
     pub async fn replay_events(&self, aggregate_id: &str) -> Result<Vec<EventRecord>> {
         let events = sqlx::query_as::<_, EventRecord>(
-            "SELECT * FROM event_records WHERE aggregate_id = $1 ORDER BY published_at ASC"
+            "SELECT * FROM event_records WHERE aggregate_id = $1 ORDER BY published_at ASC",
         )
         .bind(aggregate_id)
         .fetch_all(&self.pool)

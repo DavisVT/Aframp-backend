@@ -93,7 +93,9 @@ impl ServiceAllowlist {
             .await
             .insert(calling_service.to_string(), rules.clone());
 
-        let allowed = self.match_endpoint(&rules, target_endpoint).unwrap_or(false);
+        let allowed = self
+            .match_endpoint(&rules, target_endpoint)
+            .unwrap_or(false);
 
         debug!(
             calling_service = %calling_service,

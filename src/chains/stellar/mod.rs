@@ -1,15 +1,15 @@
-pub mod xdr_parser;
 pub mod burn_transaction_builder;
 pub mod client;
 pub mod config;
+pub mod dex_liquidity;
 pub mod errors;
 pub mod issuer;
 pub mod payment;
+pub mod sep;
 pub mod service;
 pub mod trustline;
 pub mod types;
-pub mod sep;
-pub mod dex_liquidity;
+pub mod xdr_parser;
 
 #[cfg(test)]
 mod tests;

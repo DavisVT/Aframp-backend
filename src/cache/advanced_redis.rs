@@ -102,13 +102,13 @@ impl AdvancedRedisCache {
 
                 // Fetch from source
                 let value = fetch_fn().await?;
-                
+
                 // Set in cache
                 self.set(key, &value, ttl).await?;
-                
+
                 // Release lock
                 self.release_lock(&lock_key).await?;
-                
+
                 Ok(value)
             } else {
                 // Failed to acquire lock, fetch without caching to avoid stampede
@@ -125,17 +125,23 @@ impl AdvancedRedisCache {
     /// Acquire distributed lock with timeout and retry logic
     pub async fn acquire_lock(&self, lock_key: &str) -> CacheResult<String> {
         if !self.config.enable_distributed_locking {
-            return Err(CacheError::ConfigurationError("Distributed locking is disabled".to_string()));
+            return Err(CacheError::ConfigurationError(
+                "Distributed locking is disabled".to_string(),
+            ));
         }
 
         let lock_value = format!("{}:{}", Uuid::new_v4(), chrono::Utc::now().timestamp());
-        
+
         for attempt in 1..=self.config.max_retry_attempts {
             let mut conn = self.get_connection().await?;
-            
+
             // Use SET with NX and EX options for atomic lock acquisition
             let result: Option<String> = conn
-                .set_nx_ex(lock_key, &lock_value, self.config.lock_timeout.as_secs() as u64)
+                .set_nx_ex(
+                    lock_key,
+                    &lock_value,
+                    self.config.lock_timeout.as_secs() as u64,
+                )
                 .await
                 .map_err(|e| {
                     error!("Failed to acquire lock for key '{}': {}", lock_key, e);
@@ -154,8 +160,14 @@ impl AdvancedRedisCache {
             }
         }
 
-        warn!("Failed to acquire lock for key: {} after {} attempts", lock_key, self.config.max_retry_attempts);
-        Err(CacheError::LockError(format!("Failed to acquire lock for key: {}", lock_key)))
+        warn!(
+            "Failed to acquire lock for key: {} after {} attempts",
+            lock_key, self.config.max_retry_attempts
+        );
+        Err(CacheError::LockError(format!(
+            "Failed to acquire lock for key: {}",
+            lock_key
+        )))
     }
 
     /// Release distributed lock with ownership verification
@@ -165,7 +177,7 @@ impl AdvancedRedisCache {
         }
 
         let mut conn = self.get_connection().await?;
-        
+
         // Use Lua script for atomic lock release with ownership check
         let lua_script = r#"
             if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -189,7 +201,10 @@ impl AdvancedRedisCache {
         if released {
             debug!("Released lock for key: {}", lock_key);
         } else {
-            warn!("Failed to release lock for key: {} (not owned or expired)", lock_key);
+            warn!(
+                "Failed to release lock for key: {} (not owned or expired)",
+                lock_key
+            );
         }
 
         Ok(released)
@@ -198,7 +213,7 @@ impl AdvancedRedisCache {
     /// Event-driven cache invalidation using Redis pub/sub
     pub async fn invalidate_pattern(&self, pattern: &str) -> CacheResult<u64> {
         let mut conn = self.get_connection().await?;
-        
+
         // Find all keys matching the pattern
         let keys: Vec<String> = conn.keys(pattern).await.map_err(|e| {
             error!("Failed to scan keys for pattern '{}': {}", pattern, e);
@@ -228,7 +243,7 @@ impl AdvancedRedisCache {
     /// Publish cache invalidation events
     async fn publish_invalidation_event(&self, keys: &[String]) -> CacheResult<()> {
         let mut conn = self.get_connection().await?;
-        
+
         let event = serde_json::json!({
             "type": "cache_invalidation",
             "keys": keys,
@@ -251,12 +266,14 @@ impl AdvancedRedisCache {
     /// Subscribe to cache invalidation events
     pub async fn subscribe_to_invalidations(&self) -> CacheResult<InvalidationSubscriber> {
         if !self.config.enable_event_driven_invalidation {
-            return Err(CacheError::ConfigurationError("Event-driven invalidation is disabled".to_string()));
+            return Err(CacheError::ConfigurationError(
+                "Event-driven invalidation is disabled".to_string(),
+            ));
         }
 
         let mut conn = self.get_connection().await?;
         let pubsub = conn.into_pubsub();
-        
+
         pubsub.subscribe("cache_invalidation").await.map_err(|e| {
             error!("Failed to subscribe to cache invalidation channel: {}", e);
             e.into()
@@ -282,8 +299,11 @@ impl AdvancedRedisCache {
         sorted_entries.sort_by_key(|e| std::cmp::Reverse(e.priority));
 
         for entry in sorted_entries {
-            debug!("Warming cache entry: {} (priority: {:?})", entry.key, entry.priority);
-            
+            debug!(
+                "Warming cache entry: {} (priority: {:?})",
+                entry.key, entry.priority
+            );
+
             if let Err(e) = self.set(&entry.key, &entry.value, Some(entry.ttl)).await {
                 warn!("Failed to warm cache entry '{}': {}", entry.key, e);
             }
@@ -300,19 +320,19 @@ impl AdvancedRedisCache {
         }
 
         let mut conn = self.get_connection().await?;
-        
+
         // Get Redis info
         let info: String = conn.info().await.map_err(|e| e.into())?;
-        
+
         // Parse Redis info for metrics
         let metrics = self.parse_redis_info(&info);
-        
+
         Ok(metrics)
     }
 
     fn parse_redis_info(&self, info: &str) -> CachePerformanceMetrics {
         let mut metrics = CachePerformanceMetrics::default();
-        
+
         for line in info.lines() {
             if let Some((key, value)) = line.split_once(':') {
                 match key {
@@ -372,7 +392,10 @@ impl AdvancedRedisCache {
 
         for (key, value, ttl) in items {
             let json_str = serde_json::to_string(value).map_err(|e| {
-                error!("Failed to serialize value for batch set key '{}': {}", key, e);
+                error!(
+                    "Failed to serialize value for batch set key '{}': {}",
+                    key, e
+                );
                 e
             })?;
 
@@ -406,7 +429,7 @@ impl AdvancedRedisCache {
         }
 
         let mut conn = self.get_connection().await?;
-        
+
         // Use Redis MGET for batch retrieval
         let results: Vec<Option<String>> = conn.mget(keys).await.map_err(|e| {
             error!("Batch get operation failed: {}", e);
@@ -417,15 +440,16 @@ impl AdvancedRedisCache {
         let mut deserialized_results = Vec::with_capacity(results.len());
         for (i, result) in results.into_iter().enumerate() {
             match result {
-                Some(json_str) => {
-                    match serde_json::from_str::<T>(&json_str) {
-                        Ok(value) => deserialized_results.push(Some(value)),
-                        Err(e) => {
-                            error!("Failed to deserialize batch get result for key '{}': {}", keys[i], e);
-                            deserialized_results.push(None);
-                        }
+                Some(json_str) => match serde_json::from_str::<T>(&json_str) {
+                    Ok(value) => deserialized_results.push(Some(value)),
+                    Err(e) => {
+                        error!(
+                            "Failed to deserialize batch get result for key '{}': {}",
+                            keys[i], e
+                        );
+                        deserialized_results.push(None);
                     }
-                }
+                },
                 None => deserialized_results.push(None),
             }
         }
@@ -483,10 +507,12 @@ impl AdvancedRedisCache {
 
 // Implement the basic Cache trait for AdvancedRedisCache
 #[async_trait]
-impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> super::Cache<T> for AdvancedRedisCache {
+impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> super::Cache<T>
+    for AdvancedRedisCache
+{
     async fn get(&self, key: &str) -> CacheResult<Option<T>> {
         let mut conn = self.get_connection().await?;
-        
+
         let result: Option<String> = conn.get(key).await.map_err(|e| {
             error!("Redis GET failed for key '{}': {}", key, e);
             e.into()
@@ -506,7 +532,7 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> super::Cache<T> fo
 
     async fn set(&self, key: &str, value: &T, ttl: Option<Duration>) -> CacheResult<()> {
         let mut conn = self.get_connection().await?;
-        
+
         let json_str = serde_json::to_string(value).map_err(|e| {
             error!("Failed to serialize value for key '{}': {}", key, e);
             e.into()
@@ -515,7 +541,10 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> super::Cache<T> fo
         match ttl {
             Some(ttl_duration) => {
                 let ttl_seconds = ttl_duration.as_secs() as u64;
-                let _: () = conn.set_ex(key, json_str, ttl_seconds).await.map_err(|e| e.into())?;
+                let _: () = conn
+                    .set_ex(key, json_str, ttl_seconds)
+                    .await
+                    .map_err(|e| e.into())?;
             }
             None => {
                 let _: () = conn.set(key, json_str).await.map_err(|e| e.into())?;
@@ -537,8 +566,13 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> super::Cache<T> fo
         Ok(exists)
     }
 
-    async fn set_multiple(&self, items: Vec<(String, T)>, ttl: Option<Duration>) -> CacheResult<()> {
-        let items_with_refs: Vec<_> = items.iter()
+    async fn set_multiple(
+        &self,
+        items: Vec<(String, T)>,
+        ttl: Option<Duration>,
+    ) -> CacheResult<()> {
+        let items_with_refs: Vec<_> = items
+            .iter()
             .map(|(key, value)| (key.as_str(), value, ttl))
             .collect();
         self.batch_set(items_with_refs).await
@@ -563,7 +597,10 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> super::Cache<T> fo
 
     async fn expire(&self, key: &str, ttl: Duration) -> CacheResult<bool> {
         let mut conn = self.get_connection().await?;
-        let result: bool = conn.expire(key, ttl.as_secs() as u64).await.map_err(|e| e.into())?;
+        let result: bool = conn
+            .expire(key, ttl.as_secs() as u64)
+            .await
+            .map_err(|e| e.into())?;
         Ok(result)
     }
 
@@ -586,9 +623,10 @@ pub struct InvalidationSubscriber {
 
 impl InvalidationSubscriber {
     pub async fn next_message(&mut self) -> CacheResult<InvalidationMessage> {
-        let msg = self.pubsub.on_message().next().await.ok_or_else(|| {
-            CacheError::ConnectionError("PubSub connection closed".to_string())
-        })?;
+        let msg =
+            self.pubsub.on_message().next().await.ok_or_else(|| {
+                CacheError::ConnectionError("PubSub connection closed".to_string())
+            })?;
 
         let payload: String = msg.get_payload().map_err(|e| {
             error!("Failed to get pubsub message payload: {}", e);

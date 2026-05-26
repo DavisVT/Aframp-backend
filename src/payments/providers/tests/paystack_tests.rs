@@ -105,10 +105,7 @@ async fn initiate_payment_constructs_correct_request_and_parses_success() {
         response.payment_url.as_deref(),
         Some("https://checkout.paystack.com/abc123")
     );
-    assert_eq!(
-        response.provider_reference.as_deref(),
-        Some("txn_ps_001")
-    );
+    assert_eq!(response.provider_reference.as_deref(), Some("txn_ps_001"));
 }
 
 #[tokio::test]
@@ -179,8 +176,7 @@ async fn initiate_payment_handles_malformed_response_body() {
         .expect_err("should fail on malformed response");
 
     assert!(
-        err.to_string().contains("invalid provider JSON")
-            || err.to_string().contains("JSON"),
+        err.to_string().contains("invalid provider JSON") || err.to_string().contains("JSON"),
         "unexpected error: {}",
         err
     );
@@ -395,10 +391,7 @@ async fn process_withdrawal_constructs_correct_request_and_parses_success() {
 
     assert_eq!(response.transaction_reference, "wd_ps_001");
     assert_eq!(response.status, PaymentState::Processing);
-    assert_eq!(
-        response.provider_reference.as_deref(),
-        Some("wd_ps_001")
-    );
+    assert_eq!(response.provider_reference.as_deref(), Some("wd_ps_001"));
 }
 
 #[tokio::test]
@@ -624,10 +617,7 @@ fn parse_webhook_event_maps_charge_success() {
         .expect("should parse successfully");
 
     assert_eq!(event.event_type, "charge.success");
-    assert_eq!(
-        event.provider_reference.as_deref(),
-        Some("txn_ps_001")
-    );
+    assert_eq!(event.provider_reference.as_deref(), Some("txn_ps_001"));
     assert!(matches!(event.status, Some(PaymentState::Success)));
 }
 

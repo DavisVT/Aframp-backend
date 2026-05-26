@@ -58,7 +58,9 @@ impl FairQueue {
                 // High priority always gets its guaranteed minimum
                 let in_use = self.high_in_use.load(Ordering::Relaxed);
                 let limit = self.config.high_priority_min_slots
-                    + (self.config.total_processing_slots - self.config.high_priority_min_slots - self.config.standard_priority_slots);
+                    + (self.config.total_processing_slots
+                        - self.config.high_priority_min_slots
+                        - self.config.standard_priority_slots);
                 if in_use < limit {
                     self.high_in_use.fetch_add(1, Ordering::Relaxed);
                     crate::ddos::metrics::queue_depth()
@@ -72,9 +74,10 @@ impl FairQueue {
             PriorityTier::Standard => {
                 let in_use = self.standard_in_use.load(Ordering::Relaxed);
                 // Standard gets proportional allocation from remaining slots
-                let remaining = self.config.total_processing_slots.saturating_sub(
-                    self.high_in_use.load(Ordering::Relaxed),
-                );
+                let remaining = self
+                    .config
+                    .total_processing_slots
+                    .saturating_sub(self.high_in_use.load(Ordering::Relaxed));
                 let limit = remaining.min(self.config.standard_priority_slots);
                 if in_use < limit {
                     self.standard_in_use.fetch_add(1, Ordering::Relaxed);
@@ -95,7 +98,9 @@ impl FairQueue {
                     return false;
                 }
                 let in_use = self.low_in_use.load(Ordering::Relaxed);
-                let limit = self.config.total_processing_slots
+                let limit = self
+                    .config
+                    .total_processing_slots
                     .saturating_sub(self.config.high_priority_min_slots)
                     .saturating_sub(self.config.standard_priority_slots);
                 if in_use < limit {
@@ -116,9 +121,15 @@ impl FairQueue {
 
     pub fn release(&self, tier: PriorityTier) {
         match tier {
-            PriorityTier::High => { self.high_in_use.fetch_sub(1, Ordering::Relaxed); }
-            PriorityTier::Standard => { self.standard_in_use.fetch_sub(1, Ordering::Relaxed); }
-            PriorityTier::Low => { self.low_in_use.fetch_sub(1, Ordering::Relaxed); }
+            PriorityTier::High => {
+                self.high_in_use.fetch_sub(1, Ordering::Relaxed);
+            }
+            PriorityTier::Standard => {
+                self.standard_in_use.fetch_sub(1, Ordering::Relaxed);
+            }
+            PriorityTier::Low => {
+                self.low_in_use.fetch_sub(1, Ordering::Relaxed);
+            }
         }
     }
 
@@ -132,9 +143,15 @@ impl FairQueue {
         let fill = in_use / total;
 
         let (low_thresh, high_thresh) = match tier {
-            PriorityTier::High => (0.9, 1.0),     // only drop high-priority when nearly full
-            PriorityTier::Standard => (self.config.wred_low_threshold, self.config.wred_high_threshold),
-            PriorityTier::Low => (self.config.wred_low_threshold * 0.5, self.config.wred_high_threshold * 0.7),
+            PriorityTier::High => (0.9, 1.0), // only drop high-priority when nearly full
+            PriorityTier::Standard => (
+                self.config.wred_low_threshold,
+                self.config.wred_high_threshold,
+            ),
+            PriorityTier::Low => (
+                self.config.wred_low_threshold * 0.5,
+                self.config.wred_high_threshold * 0.7,
+            ),
         };
 
         if fill <= low_thresh {
@@ -183,8 +200,12 @@ mod tests {
     fn test_high_priority_always_gets_slots() {
         let q = FairQueue::new(test_config());
         // Fill up low and standard
-        for _ in 0..5 { q.try_acquire(PriorityTier::Standard); }
-        for _ in 0..2 { q.try_acquire(PriorityTier::Low); }
+        for _ in 0..5 {
+            q.try_acquire(PriorityTier::Standard);
+        }
+        for _ in 0..2 {
+            q.try_acquire(PriorityTier::Low);
+        }
         // High priority should still get a slot
         assert!(q.try_acquire(PriorityTier::High));
     }
@@ -193,9 +214,15 @@ mod tests {
     fn test_low_priority_shed_first() {
         let q = FairQueue::new(test_config());
         // Fill all slots with high and standard
-        for _ in 0..3 { q.try_acquire(PriorityTier::High); }
-        for _ in 0..5 { q.try_acquire(PriorityTier::Standard); }
-        for _ in 0..2 { q.try_acquire(PriorityTier::Low); }
+        for _ in 0..3 {
+            q.try_acquire(PriorityTier::High);
+        }
+        for _ in 0..5 {
+            q.try_acquire(PriorityTier::Standard);
+        }
+        for _ in 0..2 {
+            q.try_acquire(PriorityTier::Low);
+        }
         // Now queue is full — low priority should be rejected
         assert!(!q.try_acquire(PriorityTier::Low));
     }
@@ -211,12 +238,20 @@ mod tests {
     fn test_wred_drop_probability_increases_with_fill() {
         let q = FairQueue::new(test_config());
         // Fill to 60% (6/10 slots)
-        for _ in 0..6 { q.try_acquire(PriorityTier::Standard); }
+        for _ in 0..6 {
+            q.try_acquire(PriorityTier::Standard);
+        }
         let p_low = q.wred_drop_probability(PriorityTier::Low);
         let p_std = q.wred_drop_probability(PriorityTier::Standard);
-        assert!(p_low > 0.0, "low priority should have drop probability > 0 at 60% fill");
+        assert!(
+            p_low > 0.0,
+            "low priority should have drop probability > 0 at 60% fill"
+        );
         assert!(p_std >= 0.0);
-        assert!(p_low >= p_std, "low priority should have higher drop probability");
+        assert!(
+            p_low >= p_std,
+            "low priority should have higher drop probability"
+        );
     }
 
     #[test]

@@ -1,17 +1,15 @@
 use axum::{extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 
+use crate::audit::{models::AuditOutcome, writer::AuditWriter};
 use crate::negotiation::{
     audit::{log_evidence_package, log_negotiation_event},
     engine::NegotiationEngine,
     escrow::SorobanEscrow,
-    models::{
-        AcceptRequest, CounterOfferRequest, InitiateNegotiationRequest, NegotiationResponse,
-    },
+    models::{AcceptRequest, CounterOfferRequest, InitiateNegotiationRequest, NegotiationResponse},
     repository::NegotiationRepository,
     x402::X402EntranceFee,
 };
-use crate::audit::{models::AuditOutcome, writer::AuditWriter};
 
 pub struct NegotiationState {
     pub repo: NegotiationRepository,
@@ -40,7 +38,14 @@ pub async fn initiate(
     )
     .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
 
-    log_negotiation_event(&state.audit, &session, "proposed", AuditOutcome::Success, None).await;
+    log_negotiation_event(
+        &state.audit,
+        &session,
+        "proposed",
+        AuditOutcome::Success,
+        None,
+    )
+    .await;
 
     let id = session.id;
     state.repo.save(session).await;

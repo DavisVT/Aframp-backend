@@ -60,7 +60,9 @@ impl LpOnboardingService {
         reviewer_id: Uuid,
         req: ReviewDocumentRequest,
     ) -> Result<(), ServiceError> {
-        self.repo.review_document(document_id, reviewer_id, &req).await?;
+        self.repo
+            .review_document(document_id, reviewer_id, &req)
+            .await?;
         // If all required docs are approved, advance partner to legal_review
         Ok(())
     }
@@ -165,7 +167,10 @@ impl LpOnboardingService {
             .await?
             .ok_or(ServiceError::NoSignedAgreement)?;
 
-        let key = self.repo.add_stellar_key(partner_id, added_by, &req).await?;
+        let key = self
+            .repo
+            .add_stellar_key(partner_id, added_by, &req)
+            .await?;
         info!(partner_id=%partner_id, stellar_address=%key.stellar_address, "Stellar key allowlisted");
         Ok(key)
     }
@@ -181,7 +186,10 @@ impl LpOnboardingService {
     }
 
     pub async fn is_address_allowed(&self, stellar_address: &str) -> Result<bool, ServiceError> {
-        Ok(self.repo.is_stellar_address_allowed(stellar_address).await?)
+        Ok(self
+            .repo
+            .is_stellar_address_allowed(stellar_address)
+            .await?)
     }
 
     // ── Admin actions ─────────────────────────────────────────────────────────
@@ -204,7 +212,9 @@ impl LpOnboardingService {
         req: RevokePartnerRequest,
     ) -> Result<(), ServiceError> {
         self.require_partner_exists(partner_id).await?;
-        self.repo.revoke_partner(partner_id, revoked_by, &req.reason).await?;
+        self.repo
+            .revoke_partner(partner_id, revoked_by, &req.reason)
+            .await?;
         // Revoke all active stellar keys immediately
         let keys = self.repo.list_stellar_keys(partner_id).await?;
         for key in keys.into_iter().filter(|k| k.is_active) {
@@ -226,10 +236,7 @@ impl LpOnboardingService {
         Ok(())
     }
 
-    pub async fn get_dashboard(
-        &self,
-        partner_id: Uuid,
-    ) -> Result<PartnerDashboard, ServiceError> {
+    pub async fn get_dashboard(&self, partner_id: Uuid) -> Result<PartnerDashboard, ServiceError> {
         self.repo
             .get_dashboard(partner_id)
             .await?

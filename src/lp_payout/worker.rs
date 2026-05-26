@@ -6,11 +6,7 @@
 //!      builds & submits cNGN payment transactions for each LP.
 
 use crate::chains::stellar::client::StellarClient;
-use crate::lp_payout::{
-    engine::RewardEngine,
-    models::LpPayout,
-    repository::LpPayoutRepository,
-};
+use crate::lp_payout::{engine::RewardEngine, models::LpPayout, repository::LpPayoutRepository};
 use crate::services::cngn_payment_builder::{CngnPaymentBuilder, PaymentMemo, PaymentOperation};
 use std::sync::Arc;
 use std::time::Duration;
@@ -78,8 +74,7 @@ impl LpPayoutWorker {
         info!("LP Payout worker started");
 
         let mut snapshot_ticker = tokio::time::interval(self.config.snapshot_interval);
-        let mut disburse_ticker =
-            tokio::time::interval(self.config.disbursement_check_interval);
+        let mut disburse_ticker = tokio::time::interval(self.config.disbursement_check_interval);
 
         loop {
             tokio::select! {
@@ -267,10 +262,7 @@ impl LpPayoutWorker {
                 .await
             {
                 Ok(resp) => {
-                    let tx_hash = resp["hash"]
-                        .as_str()
-                        .unwrap_or(&signed.hash)
-                        .to_string();
+                    let tx_hash = resp["hash"].as_str().unwrap_or(&signed.hash).to_string();
                     self.repo.mark_payout_completed(payout.id, &tx_hash).await?;
                     info!(
                         lp = %payout.stellar_address,

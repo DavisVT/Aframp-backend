@@ -76,7 +76,8 @@ impl LockdownManager {
         }
         // Auto-expire check
         if let Some(activated_at) = inner.activated_at {
-            if activated_at.elapsed() > Duration::from_secs(self.config.lockdown_max_duration_secs) {
+            if activated_at.elapsed() > Duration::from_secs(self.config.lockdown_max_duration_secs)
+            {
                 return false; // expired — caller should call deactivate()
             }
         }
@@ -90,20 +91,25 @@ impl LockdownManager {
             inner.active
                 && inner
                     .activated_at
-                    .map(|t| t.elapsed() > Duration::from_secs(self.config.lockdown_max_duration_secs))
+                    .map(|t| {
+                        t.elapsed() > Duration::from_secs(self.config.lockdown_max_duration_secs)
+                    })
                     .unwrap_or(false)
         };
         if should_deactivate {
-            info!("Lockdown auto-expired after {} seconds", self.config.lockdown_max_duration_secs);
+            info!(
+                "Lockdown auto-expired after {} seconds",
+                self.config.lockdown_max_duration_secs
+            );
             self.deactivate().await;
         }
     }
 
     pub async fn status(&self) -> LockdownStatus {
         let inner = self.inner.read().await;
-        let auto_expires_at = inner.activated_at_utc.map(|t| {
-            t + chrono::Duration::seconds(self.config.lockdown_max_duration_secs as i64)
-        });
+        let auto_expires_at = inner
+            .activated_at_utc
+            .map(|t| t + chrono::Duration::seconds(self.config.lockdown_max_duration_secs as i64));
         LockdownStatus {
             active: inner.active,
             activated_at: inner.activated_at_utc,
@@ -124,7 +130,18 @@ impl LockdownManager {
             }
             // Simple CIDR check for /24 and /16 (production would use ipnetwork crate)
             if let Some(prefix) = entry.strip_suffix("/24") {
-                if ip.starts_with(prefix.rsplit('.').skip(1).collect::<Vec<_>>().iter().rev().cloned().collect::<Vec<_>>().join(".").as_str()) {
+                if ip.starts_with(
+                    prefix
+                        .rsplit('.')
+                        .skip(1)
+                        .collect::<Vec<_>>()
+                        .iter()
+                        .rev()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(".")
+                        .as_str(),
+                ) {
                     return true;
                 }
             }

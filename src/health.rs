@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use tokio::time::timeout;
 use tracing::{error, info};
 
-use crate::cache::RedisCache;
 use crate::cache::warmer::WarmingState;
+use crate::cache::RedisCache;
 use crate::chains::stellar::client::StellarClient;
 
 /// Health status response
@@ -255,10 +255,9 @@ impl HealthChecker {
                 );
                 health_status.status = HealthState::Unhealthy;
             } else {
-                health_status.checks.insert(
-                    "cache_warming".to_string(),
-                    ComponentHealth::up(None),
-                );
+                health_status
+                    .checks
+                    .insert("cache_warming".to_string(), ComponentHealth::up(None));
             }
         }
 

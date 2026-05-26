@@ -8,6 +8,7 @@
 //! - Prometheus metrics for certificate lifecycle and handshake events
 //! - Admin API endpoints for certificate inventory and management
 
+pub mod admin;
 pub mod ca;
 pub mod cert;
 pub mod config;
@@ -17,12 +18,11 @@ pub mod middleware;
 pub mod provisioner;
 pub mod revocation;
 pub mod worker;
-pub mod admin;
 
 pub use ca::{CertificateAuthority, IntermediateCa};
-pub use cert::{ServiceCertificate, ServiceIdentity, CertificateStore};
+pub use cert::{CertificateStore, ServiceCertificate, ServiceIdentity};
 pub use config::MtlsConfig;
-pub use infra_tls::{service_tls_identity, postgres_mtls_params, InfraMtlsParams};
+pub use infra_tls::{postgres_mtls_params, service_tls_identity, InfraMtlsParams};
 pub use provisioner::CertificateProvisioner;
 pub use revocation::RevocationService;
 pub use worker::CertLifecycleWorker;

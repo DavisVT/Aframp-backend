@@ -79,12 +79,7 @@ impl AttackDetector {
     }
 
     /// Record an incoming request and check for attack patterns.
-    pub async fn record_request(
-        &self,
-        endpoint: &str,
-        ip: &str,
-        fingerprint: &RequestFingerprint,
-    ) {
+    pub async fn record_request(&self, endpoint: &str, ip: &str, fingerprint: &RequestFingerprint) {
         let now = Instant::now();
 
         // Update global RPS window (1-second buckets, keep last 60s)
@@ -113,7 +108,8 @@ impl AttackDetector {
         // Run detection checks
         self.check_volumetric_spike().await;
         self.check_endpoint_flood(endpoint).await;
-        self.check_fingerprint_cluster(&fingerprint.cluster_key).await;
+        self.check_fingerprint_cluster(&fingerprint.cluster_key)
+            .await;
     }
 
     /// Returns current global RPS over the last second.
@@ -156,7 +152,11 @@ impl AttackDetector {
 
         let ep_count = ep
             .get(endpoint)
-            .map(|v| v.iter().filter(|t| now.duration_since(**t) < Duration::from_secs(10)).count())
+            .map(|v| {
+                v.iter()
+                    .filter(|t| now.duration_since(**t) < Duration::from_secs(10))
+                    .count()
+            })
             .unwrap_or(0) as f64;
 
         let global_count = global
@@ -167,13 +167,19 @@ impl AttackDetector {
         if global_count > 0.0 && ep_count / global_count > self.config.endpoint_flood_share {
             let event = AttackEvent {
                 id: uuid::Uuid::new_v4().to_string(),
-                class: AttackClass::EndpointFlood { endpoint: endpoint.to_string() },
+                class: AttackClass::EndpointFlood {
+                    endpoint: endpoint.to_string(),
+                },
                 detected_at: chrono::Utc::now(),
                 peak_rps: ep_count / 10.0,
                 mitigation: "selective_blocking".to_string(),
                 resolved_at: None,
             };
-            warn!(endpoint = endpoint, share = ep_count / global_count, "Endpoint flood detected");
+            warn!(
+                endpoint = endpoint,
+                share = ep_count / global_count,
+                "Endpoint flood detected"
+            );
             self.record_attack(event).await;
         }
     }
@@ -183,20 +189,30 @@ impl AttackDetector {
         let now = Instant::now();
         let count = clusters
             .get(cluster_key)
-            .map(|v| v.iter().filter(|t| now.duration_since(**t) < Duration::from_secs(10)).count())
+            .map(|v| {
+                v.iter()
+                    .filter(|t| now.duration_since(**t) < Duration::from_secs(10))
+                    .count()
+            })
             .unwrap_or(0);
 
         // If a single fingerprint cluster accounts for >100 req/10s, flag it
         if count > 100 {
             let event = AttackEvent {
                 id: uuid::Uuid::new_v4().to_string(),
-                class: AttackClass::FingerprintCluster { cluster_id: cluster_key.to_string() },
+                class: AttackClass::FingerprintCluster {
+                    cluster_id: cluster_key.to_string(),
+                },
                 detected_at: chrono::Utc::now(),
                 peak_rps: count as f64 / 10.0,
                 mitigation: "selective_blocking".to_string(),
                 resolved_at: None,
             };
-            warn!(cluster = cluster_key, count = count, "Fingerprint cluster attack detected");
+            warn!(
+                cluster = cluster_key,
+                count = count,
+                "Fingerprint cluster attack detected"
+            );
             self.record_attack(event).await;
         }
     }
@@ -204,11 +220,14 @@ impl AttackDetector {
     /// Track a connection for slow HTTP detection.
     pub async fn track_connection(&self, conn_id: &str) {
         let mut slow = self.slow_connections.write().await;
-        slow.insert(conn_id.to_string(), SlowConnState {
-            started_at: Instant::now(),
-            bytes_received: 0,
-            flagged: false,
-        });
+        slow.insert(
+            conn_id.to_string(),
+            SlowConnState {
+                started_at: Instant::now(),
+                bytes_received: 0,
+                flagged: false,
+            },
+        );
     }
 
     /// Update bytes received for a connection; returns true if it should be terminated.
@@ -223,7 +242,11 @@ impl AttackDetector {
                     && state.started_at.elapsed() > self.config.slow_request_timeout()
                 {
                     state.flagged = true;
-                    warn!(conn_id = conn_id, rate = rate, "Slow HTTP connection flagged");
+                    warn!(
+                        conn_id = conn_id,
+                        rate = rate,
+                        "Slow HTTP connection flagged"
+                    );
                     return true;
                 }
             }
@@ -296,7 +319,10 @@ impl AttackDetector {
         let now = Instant::now();
         ep.iter()
             .map(|(k, v)| {
-                let count = v.iter().filter(|t| now.duration_since(**t) < Duration::from_secs(10)).count();
+                let count = v
+                    .iter()
+                    .filter(|t| now.duration_since(**t) < Duration::from_secs(10))
+                    .count();
                 (k.clone(), count as f64 / 10.0)
             })
             .collect()

@@ -9,7 +9,10 @@ impl MarketMakingBot {
     /// Maintains the order book by adjusting bids and asks to hit the target spread
     pub fn maintain_order_book(&self, current_price: f64) -> Result<(), String> {
         // Mock maintaining order book depth
-        println!("Maintaining order book for {}/{} at price {}", self.base_asset, self.quote_asset, current_price);
+        println!(
+            "Maintaining order book for {}/{} at price {}",
+            self.base_asset, self.quote_asset, current_price
+        );
         Ok(())
     }
 }

@@ -62,11 +62,10 @@ impl ServiceHttpClient {
             // Retry with new token
             self.inject_auth_headers(&mut request, &request_id).await?;
 
-            let retry_response = self
-                .http_client
-                .execute(request)
-                .await
-                .map_err(|e| ServiceAuthError::Internal(format!("HTTP error on retry: {}", e)))?;
+            let retry_response =
+                self.http_client.execute(request).await.map_err(|e| {
+                    ServiceAuthError::Internal(format!("HTTP error on retry: {}", e))
+                })?;
 
             return Ok(retry_response);
         }

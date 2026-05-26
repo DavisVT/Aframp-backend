@@ -15,17 +15,19 @@ pub fn pos_routes(state: PosState) -> Router {
         .route("/v1/pos/payments", post(create_payment_intent))
         .route("/v1/pos/payments/:payment_id", get(get_payment_status))
         .route("/v1/pos/payments/:payment_id", delete(cancel_payment))
-        
         // Legacy POS integration endpoints
         .route("/v1/pos/legacy/payments", post(legacy_create_payment))
-        .route("/v1/pos/legacy/payments/:payment_id/status", get(legacy_check_status))
-        
+        .route(
+            "/v1/pos/legacy/payments/:payment_id/status",
+            get(legacy_check_status),
+        )
         // Proof of payment endpoints
         .route("/v1/pos/proof/:payment_id", get(generate_proof_of_payment))
-        .route("/v1/pos/proof/:payment_id/verify", post(verify_proof_of_payment))
-        
+        .route(
+            "/v1/pos/proof/:payment_id/verify",
+            post(verify_proof_of_payment),
+        )
         // WebSocket endpoint for real-time notifications
         .route("/v1/pos/ws/:payment_id", get(websocket_handler))
-        
         .with_state(state)
 }

@@ -23,8 +23,10 @@ pub fn find_original(new: &CreateReportRequest, existing: &[BugBountyReport]) ->
             )
         })
         .find(|r| {
-            r.affected_component.eq_ignore_ascii_case(&new.affected_component)
-                && r.vulnerability_type.eq_ignore_ascii_case(&new.vulnerability_type)
+            r.affected_component
+                .eq_ignore_ascii_case(&new.affected_component)
+                && r.vulnerability_type
+                    .eq_ignore_ascii_case(&new.vulnerability_type)
         })
         .map(|r| r.id)
 }
@@ -32,9 +34,9 @@ pub fn find_original(new: &CreateReportRequest, existing: &[BugBountyReport]) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bug_bounty::models::Severity;
     use chrono::Utc;
     use serde_json::json;
-    use crate::bug_bounty::models::Severity;
 
     /// Build a minimal `BugBountyReport` with sensible defaults for testing.
     fn make_report(
@@ -110,14 +112,22 @@ mod tests {
 
     #[test]
     fn matching_report_with_status_resolved_is_not_duplicate() {
-        let existing = vec![make_report("api/auth", "sql-injection", ReportStatus::Resolved)];
+        let existing = vec![make_report(
+            "api/auth",
+            "sql-injection",
+            ReportStatus::Resolved,
+        )];
         let new = make_request("api/auth", "sql-injection");
         assert!(!is_duplicate(&new, &existing));
     }
 
     #[test]
     fn matching_report_with_status_duplicate_is_not_duplicate() {
-        let existing = vec![make_report("api/auth", "sql-injection", ReportStatus::Duplicate)];
+        let existing = vec![make_report(
+            "api/auth",
+            "sql-injection",
+            ReportStatus::Duplicate,
+        )];
         let new = make_request("api/auth", "sql-injection");
         assert!(!is_duplicate(&new, &existing));
     }

@@ -269,8 +269,10 @@ mod tests {
 
     #[test]
     fn private_key_denied_in_api_response() {
-        let decision =
-            transmission_decision(DataField::WalletPrivateKey, TransmissionContext::ApiResponse);
+        let decision = transmission_decision(
+            DataField::WalletPrivateKey,
+            TransmissionContext::ApiResponse,
+        );
         assert!(matches!(decision, TransmissionDecision::Deny { .. }));
     }
 

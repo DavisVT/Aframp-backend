@@ -2,15 +2,14 @@
 //!
 //! Supports both tax-inclusive and tax-exclusive pricing models.
 
-use crate::merchant_invoicing::models::{LineItem, TaxBreakdownEntry, TaxCalculationResult, TaxRule};
+use crate::merchant_invoicing::models::{
+    LineItem, TaxBreakdownEntry, TaxCalculationResult, TaxRule,
+};
 
 /// Calculate tax for a set of line items given the applicable rules.
 ///
 /// Rules are pre-filtered by region and active status before calling this.
-pub fn calculate_tax(
-    line_items: &[LineItem],
-    rules: &[TaxRule],
-) -> TaxCalculationResult {
+pub fn calculate_tax(line_items: &[LineItem], rules: &[TaxRule]) -> TaxCalculationResult {
     let gross_subtotal: f64 = line_items
         .iter()
         .map(|item| item.quantity * item.unit_price)

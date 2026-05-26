@@ -39,10 +39,9 @@ impl MerchantApiKeyService {
         expires_in_days: Option<i64>,
     ) -> Result<GeneratedKey, DatabaseError> {
         // Generate cryptographically secure API key
-        let generated = generate_api_key(environment.clone())
-            .map_err(|e| DatabaseError::new(crate::database::error::DatabaseErrorKind::Unknown {
-                message: e,
-            }))?;
+        let generated = generate_api_key(environment.clone()).map_err(|e| {
+            DatabaseError::new(crate::database::error::DatabaseErrorKind::Unknown { message: e })
+        })?;
 
         // Calculate expiry
         let expires_at = expires_in_days.map(|days| Utc::now() + Duration::days(days));

@@ -65,36 +65,44 @@ impl CertificateManager {
         service_name: &str,
     ) -> ServiceAuthResult<ServiceCertificate> {
         // Generate RSA key pair
-        let rsa = Rsa::generate(2048)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Key generation failed: {}", e)))?;
+        let rsa = Rsa::generate(2048).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Key generation failed: {}", e))
+        })?;
 
-        let key = PKey::from_rsa(rsa)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Key conversion failed: {}", e)))?;
+        let key = PKey::from_rsa(rsa).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Key conversion failed: {}", e))
+        })?;
 
         // Generate serial number
-        let mut serial = BigNum::new()
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Serial generation failed: {}", e)))?;
+        let mut serial = BigNum::new().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Serial generation failed: {}", e))
+        })?;
         serial
             .rand(159, MsbOption::MAYBE_ZERO, false)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Serial generation failed: {}", e)))?;
+            .map_err(|e| {
+                ServiceAuthError::CertificateError(format!("Serial generation failed: {}", e))
+            })?;
 
         // Build certificate
-        let mut cert_builder = X509::builder()
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Cert builder failed: {}", e)))?;
+        let mut cert_builder = X509::builder().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Cert builder failed: {}", e))
+        })?;
 
-        cert_builder
-            .set_version(2)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Set version failed: {}", e)))?;
+        cert_builder.set_version(2).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Set version failed: {}", e))
+        })?;
 
-        let serial_asn1 = serial.to_asn1_integer()
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Serial conversion failed: {}", e)))?;
+        let serial_asn1 = serial.to_asn1_integer().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Serial conversion failed: {}", e))
+        })?;
         cert_builder
             .set_serial_number(&serial_asn1)
             .map_err(|e| ServiceAuthError::CertificateError(format!("Set serial failed: {}", e)))?;
 
         // Set subject
-        let mut subject_name = X509Name::builder()
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Name builder failed: {}", e)))?;
+        let mut subject_name = X509Name::builder().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Name builder failed: {}", e))
+        })?;
         subject_name
             .append_entry_by_text("CN", service_name)
             .map_err(|e| ServiceAuthError::CertificateError(format!("Set CN failed: {}", e)))?;
@@ -103,9 +111,9 @@ impl CertificateManager {
             .map_err(|e| ServiceAuthError::CertificateError(format!("Set O failed: {}", e)))?;
         let subject_name = subject_name.build();
 
-        cert_builder
-            .set_subject_name(&subject_name)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Set subject failed: {}", e)))?;
+        cert_builder.set_subject_name(&subject_name).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Set subject failed: {}", e))
+        })?;
 
         // Set issuer (CA)
         cert_builder
@@ -113,17 +121,19 @@ impl CertificateManager {
             .map_err(|e| ServiceAuthError::CertificateError(format!("Set issuer failed: {}", e)))?;
 
         // Set validity period
-        let not_before = Asn1Time::days_from_now(0)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Set not_before failed: {}", e)))?;
-        let not_after = Asn1Time::days_from_now(CERT_VALIDITY_DAYS as u32)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Set not_after failed: {}", e)))?;
+        let not_before = Asn1Time::days_from_now(0).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Set not_before failed: {}", e))
+        })?;
+        let not_after = Asn1Time::days_from_now(CERT_VALIDITY_DAYS as u32).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Set not_after failed: {}", e))
+        })?;
 
-        cert_builder
-            .set_not_before(&not_before)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Set not_before failed: {}", e)))?;
-        cert_builder
-            .set_not_after(&not_after)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Set not_after failed: {}", e)))?;
+        cert_builder.set_not_before(&not_before).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Set not_before failed: {}", e))
+        })?;
+        cert_builder.set_not_after(&not_after).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Set not_after failed: {}", e))
+        })?;
 
         // Set public key
         cert_builder
@@ -131,20 +141,23 @@ impl CertificateManager {
             .map_err(|e| ServiceAuthError::CertificateError(format!("Set pubkey failed: {}", e)))?;
 
         // Add extensions
-        let basic_constraints = BasicConstraints::new().build()
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Basic constraints failed: {}", e)))?;
+        let basic_constraints = BasicConstraints::new().build().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Basic constraints failed: {}", e))
+        })?;
         cert_builder
             .append_extension(basic_constraints)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Append extension failed: {}", e)))?;
+            .map_err(|e| {
+                ServiceAuthError::CertificateError(format!("Append extension failed: {}", e))
+            })?;
 
         let key_usage = KeyUsage::new()
             .digital_signature()
             .key_encipherment()
             .build()
             .map_err(|e| ServiceAuthError::CertificateError(format!("Key usage failed: {}", e)))?;
-        cert_builder
-            .append_extension(key_usage)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Append extension failed: {}", e)))?;
+        cert_builder.append_extension(key_usage).map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Append extension failed: {}", e))
+        })?;
 
         let subject_alt_name = SubjectAlternativeName::new()
             .dns(service_name)
@@ -152,7 +165,9 @@ impl CertificateManager {
             .map_err(|e| ServiceAuthError::CertificateError(format!("SAN failed: {}", e)))?;
         cert_builder
             .append_extension(subject_alt_name)
-            .map_err(|e| ServiceAuthError::CertificateError(format!("Append extension failed: {}", e)))?;
+            .map_err(|e| {
+                ServiceAuthError::CertificateError(format!("Append extension failed: {}", e))
+            })?;
 
         // Sign with CA key
         cert_builder
@@ -162,17 +177,19 @@ impl CertificateManager {
         let cert = cert_builder.build();
 
         // Export to PEM
-        let cert_pem = String::from_utf8(
-            cert.to_pem()
-                .map_err(|e| ServiceAuthError::CertificateError(format!("Cert PEM export failed: {}", e)))?,
-        )
-        .map_err(|e| ServiceAuthError::CertificateError(format!("UTF-8 conversion failed: {}", e)))?;
+        let cert_pem = String::from_utf8(cert.to_pem().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Cert PEM export failed: {}", e))
+        })?)
+        .map_err(|e| {
+            ServiceAuthError::CertificateError(format!("UTF-8 conversion failed: {}", e))
+        })?;
 
-        let key_pem = String::from_utf8(
-            key.private_key_to_pem_pkcs8()
-                .map_err(|e| ServiceAuthError::CertificateError(format!("Key PEM export failed: {}", e)))?,
-        )
-        .map_err(|e| ServiceAuthError::CertificateError(format!("UTF-8 conversion failed: {}", e)))?;
+        let key_pem = String::from_utf8(key.private_key_to_pem_pkcs8().map_err(|e| {
+            ServiceAuthError::CertificateError(format!("Key PEM export failed: {}", e))
+        })?)
+        .map_err(|e| {
+            ServiceAuthError::CertificateError(format!("UTF-8 conversion failed: {}", e))
+        })?;
 
         // Store private key in secrets manager (placeholder - implement actual secrets manager integration)
         let private_key_ref = format!("service_cert_key_{}", service_id);
@@ -224,7 +241,10 @@ impl CertificateManager {
     }
 
     /// Get active certificate for a service
-    pub async fn get_certificate(&self, service_id: Uuid) -> ServiceAuthResult<Option<ServiceCertificate>> {
+    pub async fn get_certificate(
+        &self,
+        service_id: Uuid,
+    ) -> ServiceAuthResult<Option<ServiceCertificate>> {
         let row = sqlx::query!(
             r#"
             SELECT id, service_id, certificate_pem, private_key_ref,

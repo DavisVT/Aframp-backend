@@ -73,8 +73,8 @@ pub struct InfraMtlsParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, Utc};
     use crate::mtls::cert::ServiceCertificate;
+    use chrono::{Duration, Utc};
 
     fn make_cert(service: &str, days: i64, revoked: bool) -> ServiceCertificate {
         ServiceCertificate {

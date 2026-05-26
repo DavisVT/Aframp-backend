@@ -31,7 +31,7 @@ pub fn has_permission(role: &OrganizationRole, permission: &str) -> bool {
 /// - Branch-scope members can only access their assigned branch.
 pub fn can_access_branch(member: &OrganizationMember, branch_id: Uuid) -> bool {
     match member.branch_id {
-        None => true,                          // org-wide access
+        None => true, // org-wide access
         Some(assigned) => assigned == branch_id,
     }
 }
@@ -50,8 +50,5 @@ pub fn corporate_admin_permissions() -> Vec<&'static str> {
 }
 
 pub fn branch_manager_permissions() -> Vec<&'static str> {
-    vec![
-        permissions::BRANCH_VIEW,
-        permissions::REPORTS_VIEW,
-    ]
+    vec![permissions::BRANCH_VIEW, permissions::REPORTS_VIEW]
 }

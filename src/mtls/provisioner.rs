@@ -29,7 +29,12 @@ impl CertificateProvisioner {
         revocation: Arc<RevocationService>,
         config: MtlsConfig,
     ) -> Self {
-        Self { ca: Some(ca), store, revocation, config }
+        Self {
+            ca: Some(ca),
+            store,
+            revocation,
+            config,
+        }
     }
 
     /// Create a provisioner with no CA configured (admin endpoints still work,
@@ -39,17 +44,27 @@ impl CertificateProvisioner {
         revocation: Arc<RevocationService>,
         config: MtlsConfig,
     ) -> Self {
-        Self { ca: None, store, revocation, config }
+        Self {
+            ca: None,
+            store,
+            revocation,
+            config,
+        }
     }
 
     /// Provision a certificate at startup if none exists or rotation is due.
     /// Returns the current valid certificate.
     pub fn provision_at_startup(&self, service_name: &str) -> Result<ServiceCertificate, String> {
         match self.store.get(service_name) {
-            Some(cert) if !cert.is_revoked && !cert.is_expired()
-                && !cert.needs_rotation(self.config.rotation_threshold_days) =>
+            Some(cert)
+                if !cert.is_revoked
+                    && !cert.is_expired()
+                    && !cert.needs_rotation(self.config.rotation_threshold_days) =>
             {
-                info!(service_name, "Existing certificate is valid — no provisioning needed");
+                info!(
+                    service_name,
+                    "Existing certificate is valid — no provisioning needed"
+                );
                 Ok(cert)
             }
             _ => {
@@ -63,7 +78,8 @@ impl CertificateProvisioner {
     pub fn issue_and_store(&self, service_name: &str) -> Result<ServiceCertificate, String> {
         let ca = self.ca.as_ref()
             .ok_or_else(|| "Intermediate CA not configured — set MTLS_INTERMEDIATE_CA_CERT_PEM and MTLS_INTERMEDIATE_CA_KEY_PEM".to_string())?;
-        let mut cert = ca.issue_leaf_cert(service_name)
+        let mut cert = ca
+            .issue_leaf_cert(service_name)
             .map_err(|e| format!("Certificate issuance failed: {}", e))?;
         cert.rotation_in_progress = true;
         self.store.upsert(cert.clone());
@@ -94,7 +110,10 @@ impl CertificateProvisioner {
         reason: &str,
     ) -> Result<ServiceCertificate, String> {
         self.revocation.revoke_certificate(service_name, reason);
-        warn!(service_name, reason, "Certificate revoked — issuing replacement");
+        warn!(
+            service_name,
+            reason, "Certificate revoked — issuing replacement"
+        );
         self.issue_and_store(service_name)
     }
 
@@ -103,7 +122,11 @@ impl CertificateProvisioner {
         for &name in service_names {
             if let Some(cert) = self.store.get(name) {
                 if cert.needs_rotation(self.config.rotation_threshold_days) {
-                    info!(name, days_left = cert.days_until_expiry(), "Auto-rotating expiring certificate");
+                    info!(
+                        name,
+                        days_left = cert.days_until_expiry(),
+                        "Auto-rotating expiring certificate"
+                    );
                     if let Err(e) = self.rotate(name) {
                         error!(name, error = %e, "Auto-rotation failed");
                     }

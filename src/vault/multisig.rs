@@ -27,8 +27,8 @@ impl MultiSigGuard {
 
     /// Create a new outbound transfer request pending approval.
     pub async fn create_request(&self, request: &OutboundTransferRequest) -> VaultResult<Uuid> {
-        let payload = serde_json::to_value(request)
-            .map_err(|e| VaultError::Serialization(e.to_string()))?;
+        let payload =
+            serde_json::to_value(request).map_err(|e| VaultError::Serialization(e.to_string()))?;
 
         let id = sqlx::query_scalar!(
             r#"
@@ -97,8 +97,8 @@ impl MultiSigGuard {
             "pending_approval"
         };
 
-        let sigs_json = serde_json::to_value(&sigs)
-            .map_err(|e| VaultError::Serialization(e.to_string()))?;
+        let sigs_json =
+            serde_json::to_value(&sigs).map_err(|e| VaultError::Serialization(e.to_string()))?;
 
         sqlx::query!(
             "UPDATE vault_transfer_requests SET signatures = $1, status = $2 WHERE id = $3",

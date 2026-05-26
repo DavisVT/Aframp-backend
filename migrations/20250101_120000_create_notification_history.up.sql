@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS notification_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    transaction_id UUID NOT NULL REFERENCES transactions(transaction_id) ON DELETE CASCADE,
+    transaction_id UUID NOT NULL,
     event_type VARCHAR(50) NOT NULL,  -- MINT_RECEIVED, FIAT_CONFIRMED, etc.
     channel VARCHAR(20) NOT NULL CHECK (channel IN ('webhook', 'email', 'internal')),  -- Delivery channel
     recipient VARCHAR(500),  -- Webhook URL or email address
@@ -32,4 +32,3 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_notification_history_updated_at
     BEFORE UPDATE ON notification_history
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-

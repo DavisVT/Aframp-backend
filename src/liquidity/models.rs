@@ -131,9 +131,21 @@ impl SegmentThresholds {
     /// Adjacent segments in fallback order (primary first)
     pub fn fallback_order(primary: &PoolType) -> Vec<PoolType> {
         match primary {
-            PoolType::Retail => vec![PoolType::Retail, PoolType::Wholesale, PoolType::Institutional],
-            PoolType::Wholesale => vec![PoolType::Wholesale, PoolType::Retail, PoolType::Institutional],
-            PoolType::Institutional => vec![PoolType::Institutional, PoolType::Wholesale, PoolType::Retail],
+            PoolType::Retail => vec![
+                PoolType::Retail,
+                PoolType::Wholesale,
+                PoolType::Institutional,
+            ],
+            PoolType::Wholesale => vec![
+                PoolType::Wholesale,
+                PoolType::Retail,
+                PoolType::Institutional,
+            ],
+            PoolType::Institutional => vec![
+                PoolType::Institutional,
+                PoolType::Wholesale,
+                PoolType::Retail,
+            ],
         }
     }
 }

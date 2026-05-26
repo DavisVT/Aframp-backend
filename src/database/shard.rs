@@ -87,7 +87,10 @@ pub struct ShardRouter {
 
 impl ShardRouter {
     /// Build a router by reading `shard_registry` from the coordinator pool.
-    pub async fn new(coordinator: PgPool, max_connections_per_shard: u32) -> Result<Arc<Self>, DatabaseError> {
+    pub async fn new(
+        coordinator: PgPool,
+        max_connections_per_shard: u32,
+    ) -> Result<Arc<Self>, DatabaseError> {
         let shards = Self::fetch_shards(&coordinator).await?;
         let mut pools = HashMap::new();
 
@@ -120,7 +123,9 @@ impl ShardRouter {
                         state.pools.insert(shard.shard_id, pool);
                         info!(shard_id = shard.shard_id, "New shard pool opened");
                     }
-                    Err(e) => warn!(shard_id = shard.shard_id, error=%e, "Failed to open shard pool"),
+                    Err(e) => {
+                        warn!(shard_id = shard.shard_id, error=%e, "Failed to open shard pool")
+                    }
                 }
             }
         }
@@ -158,7 +163,8 @@ impl ShardRouter {
         if let Some(s) = shard {
             if !s.status.accepts_writes() {
                 return Err(DatabaseError::from_message(&format!(
-                    "Shard {} is draining — writes rejected", shard_id
+                    "Shard {} is draining — writes rejected",
+                    shard_id
                 )));
             }
         }
@@ -181,7 +187,12 @@ impl ShardRouter {
         state
             .active_shards()
             .iter()
-            .filter_map(|s| state.pools.get(&s.shard_id).map(|p| (s.shard_id, p.clone())))
+            .filter_map(|s| {
+                state
+                    .pools
+                    .get(&s.shard_id)
+                    .map(|p| (s.shard_id, p.clone()))
+            })
             .collect()
     }
 
@@ -257,7 +268,9 @@ impl DatabaseError {
     pub fn from_message(msg: &str) -> Self {
         use crate::database::error::DatabaseErrorKind;
         Self {
-            kind: DatabaseErrorKind::Unknown { message: msg.to_string() },
+            kind: DatabaseErrorKind::Unknown {
+                message: msg.to_string(),
+            },
             context: None,
             is_retryable: false,
         }
@@ -286,9 +299,24 @@ mod tests {
     fn test_routing_determinism() {
         // Same key always maps to the same shard index.
         let shards = vec![
-            ShardConfig { shard_id: 0, dsn: "".into(), status: ShardStatus::Active, weight: 1 },
-            ShardConfig { shard_id: 1, dsn: "".into(), status: ShardStatus::Active, weight: 1 },
-            ShardConfig { shard_id: 2, dsn: "".into(), status: ShardStatus::Active, weight: 1 },
+            ShardConfig {
+                shard_id: 0,
+                dsn: "".into(),
+                status: ShardStatus::Active,
+                weight: 1,
+            },
+            ShardConfig {
+                shard_id: 1,
+                dsn: "".into(),
+                status: ShardStatus::Active,
+                weight: 1,
+            },
+            ShardConfig {
+                shard_id: 2,
+                dsn: "".into(),
+                status: ShardStatus::Active,
+                weight: 1,
+            },
         ];
         let n = shards.len() as u64;
         let route = |key: &str| -> i16 {
@@ -317,7 +345,8 @@ mod tests {
             assert!(
                 c < 400,
                 "Shard {} received {} / 1000 keys — distribution too skewed",
-                i, c
+                i,
+                c
             );
         }
     }
@@ -325,17 +354,35 @@ mod tests {
     #[test]
     fn test_draining_shard_excluded_from_active() {
         let shards = vec![
-            ShardConfig { shard_id: 0, dsn: "".into(), status: ShardStatus::Active, weight: 1 },
-            ShardConfig { shard_id: 1, dsn: "".into(), status: ShardStatus::Draining, weight: 1 },
+            ShardConfig {
+                shard_id: 0,
+                dsn: "".into(),
+                status: ShardStatus::Active,
+                weight: 1,
+            },
+            ShardConfig {
+                shard_id: 1,
+                dsn: "".into(),
+                status: ShardStatus::Draining,
+                weight: 1,
+            },
         ];
-        let active: Vec<_> = shards.iter().filter(|s| s.status.accepts_writes()).collect();
+        let active: Vec<_> = shards
+            .iter()
+            .filter(|s| s.status.accepts_writes())
+            .collect();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].shard_id, 0);
     }
 
     #[test]
     fn test_offline_shard_excluded() {
-        let s = ShardConfig { shard_id: 2, dsn: "".into(), status: ShardStatus::Offline, weight: 1 };
+        let s = ShardConfig {
+            shard_id: 2,
+            dsn: "".into(),
+            status: ShardStatus::Offline,
+            weight: 1,
+        };
         assert!(!s.status.accepts_writes());
     }
 

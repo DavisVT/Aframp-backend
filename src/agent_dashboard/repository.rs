@@ -175,10 +175,7 @@ impl AgentDashboardRepository {
         .map_err(|e| format!("log_intervention: {e}"))
     }
 
-    pub async fn list_interventions(
-        &self,
-        agent_id: Uuid,
-    ) -> Result<Vec<InterventionLog>, String> {
+    pub async fn list_interventions(&self, agent_id: Uuid) -> Result<Vec<InterventionLog>, String> {
         sqlx::query_as!(
             InterventionLog,
             r#"
@@ -273,10 +270,7 @@ impl AgentDashboardRepository {
 
     /// Returns all intervention logs + approval decisions for a given agent,
     /// ordered by timestamp — ready for CSV/JSON export.
-    pub async fn audit_export(
-        &self,
-        agent_id: Uuid,
-    ) -> Result<Vec<serde_json::Value>, String> {
+    pub async fn audit_export(&self, agent_id: Uuid) -> Result<Vec<serde_json::Value>, String> {
         let interventions = self.list_interventions(agent_id).await?;
         let approvals = sqlx::query_as!(
             ApprovalQueueItem,
@@ -320,12 +314,7 @@ impl AgentDashboardRepository {
             }))
             .collect();
 
-        rows.sort_by_key(|r| {
-            r["timestamp"]
-                .as_str()
-                .unwrap_or("")
-                .to_string()
-        });
+        rows.sort_by_key(|r| r["timestamp"].as_str().unwrap_or("").to_string());
         Ok(rows)
     }
 }

@@ -77,7 +77,10 @@ pub async fn mtls_enforcement_middleware(
     let identity = match ServiceIdentity::parse(&subject) {
         Some(id) => id,
         None => {
-            warn!(to_service, subject, "mTLS: invalid certificate subject format");
+            warn!(
+                to_service,
+                subject, "mTLS: invalid certificate subject format"
+            );
             metrics::record_handshake("unknown", &to_service, false);
             if state.config.enforce_mtls {
                 return Err(StatusCode::UNAUTHORIZED);
@@ -90,7 +93,10 @@ pub async fn mtls_enforcement_middleware(
 
     // Verify service is in the registered registry.
     if !identity.is_registered() {
-        warn!(from_service, to_service, "mTLS: unregistered service identity");
+        warn!(
+            from_service,
+            to_service, "mTLS: unregistered service identity"
+        );
         metrics::record_handshake(&from_service, &to_service, false);
         if state.config.enforce_mtls {
             return Err(StatusCode::FORBIDDEN);
@@ -101,7 +107,10 @@ pub async fn mtls_enforcement_middleware(
     // CRL / OCSP revocation check.
     if let Some(serial) = &serial_header {
         if state.revocation.is_revoked(serial) {
-            warn!(from_service, to_service, serial, "mTLS: certificate is revoked");
+            warn!(
+                from_service,
+                to_service, serial, "mTLS: certificate is revoked"
+            );
             metrics::record_handshake(&from_service, &to_service, false);
             if state.config.enforce_mtls {
                 return Err(StatusCode::FORBIDDEN);
@@ -115,7 +124,10 @@ pub async fn mtls_enforcement_middleware(
         caller == &from_service && (target == &to_service || target == "*")
     });
     if !allowed && !state.service_allowlist.is_empty() {
-        warn!(from_service, to_service, "mTLS: service not in call allowlist");
+        warn!(
+            from_service,
+            to_service, "mTLS: service not in call allowlist"
+        );
         metrics::record_handshake(&from_service, &to_service, false);
         if state.config.enforce_mtls {
             return Err(StatusCode::FORBIDDEN);

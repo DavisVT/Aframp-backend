@@ -10,9 +10,7 @@
 
 #[cfg(feature = "integration")]
 mod api_key_tests {
-    use Bitmesh_backend::api_keys::generator::{
-        generate_api_key, verify_api_key, KeyEnvironment,
-    };
+    use Bitmesh_backend::api_keys::generator::{generate_api_key, verify_api_key, KeyEnvironment};
 
     // ── Generation tests ──────────────────────────────────────────────────────
 

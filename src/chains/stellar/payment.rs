@@ -225,12 +225,17 @@ impl CngnPaymentBuilder {
             return Err(StellarError::config_error("No payments provided for batch"));
         }
         if payments.len() > 100 {
-            return Err(StellarError::config_error("Max 100 operations per transaction"));
+            return Err(StellarError::config_error(
+                "Max 100 operations per transaction",
+            ));
         }
 
         validate_address(source)?;
         let source_account = self.stellar_client.get_account(source).await?;
-        let issuer = self.config.issuer_for_network(self.stellar_client.network()).to_string();
+        let issuer = self
+            .config
+            .issuer_for_network(self.stellar_client.network())
+            .to_string();
         let asset_code = self.config.asset_code.clone();
         let asset = build_asset(&asset_code, &issuer)?;
 
@@ -277,10 +282,12 @@ impl CngnPaymentBuilder {
         });
 
         let network_id = network_id(self.stellar_client.network().network_passphrase());
-        let tx_hash = tx.hash(network_id)
+        let tx_hash = tx
+            .hash(network_id)
             .map_err(|e| StellarError::serialization_error(e.to_string()))?;
 
-        let unsigned_envelope_xdr = env.to_xdr_base64(Limits::none())
+        let unsigned_envelope_xdr = env
+            .to_xdr_base64(Limits::none())
             .map_err(|e| StellarError::serialization_error(e.to_string()))?;
 
         Ok(CngnPaymentDraft {

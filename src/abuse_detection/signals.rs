@@ -154,43 +154,71 @@ impl DetectionSignal {
     pub fn confidence_score(&self) -> Decimal {
         match self {
             // Authentication abuse - high confidence
-            DetectionSignal::CredentialStuffing { attempt_count, threshold, .. } => {
+            DetectionSignal::CredentialStuffing {
+                attempt_count,
+                threshold,
+                ..
+            } => {
                 let ratio = Decimal::from(*attempt_count) / Decimal::from(*threshold);
                 (ratio * Decimal::new(30, 2)).min(Decimal::new(95, 2)) // 0.30 - 0.95
             }
-            DetectionSignal::BruteForce { failure_count, threshold, .. } => {
+            DetectionSignal::BruteForce {
+                failure_count,
+                threshold,
+                ..
+            } => {
                 let ratio = Decimal::from(*failure_count) / Decimal::from(*threshold);
                 (ratio * Decimal::new(35, 2)).min(Decimal::new(90, 2)) // 0.35 - 0.90
             }
-            DetectionSignal::TokenHarvesting { ratio, threshold, .. } => {
+            DetectionSignal::TokenHarvesting {
+                ratio, threshold, ..
+            } => {
                 if *ratio > *threshold {
                     Decimal::new(75, 2) // 0.75
                 } else {
                     Decimal::new(50, 2) // 0.50
                 }
             }
-            DetectionSignal::ApiKeyEnumeration { unique_prefix_count, threshold, .. } => {
+            DetectionSignal::ApiKeyEnumeration {
+                unique_prefix_count,
+                threshold,
+                ..
+            } => {
                 let ratio = Decimal::from(*unique_prefix_count) / Decimal::from(*threshold);
                 (ratio * Decimal::new(40, 2)).min(Decimal::new(85, 2)) // 0.40 - 0.85
             }
 
             // Endpoint abuse - medium to high confidence
-            DetectionSignal::Scraping { distinct_resources, threshold, .. } => {
+            DetectionSignal::Scraping {
+                distinct_resources,
+                threshold,
+                ..
+            } => {
                 let ratio = Decimal::from(*distinct_resources) / Decimal::from(*threshold);
                 (ratio * Decimal::new(25, 2)).min(Decimal::new(80, 2)) // 0.25 - 0.80
             }
-            DetectionSignal::QuoteFarming { ratio, threshold, .. } => {
+            DetectionSignal::QuoteFarming {
+                ratio, threshold, ..
+            } => {
                 if *ratio > *threshold {
                     Decimal::new(70, 2) // 0.70
                 } else {
                     Decimal::new(45, 2) // 0.45
                 }
             }
-            DetectionSignal::StatusPollingAbuse { poll_count, threshold, .. } => {
+            DetectionSignal::StatusPollingAbuse {
+                poll_count,
+                threshold,
+                ..
+            } => {
                 let ratio = Decimal::from(*poll_count) / Decimal::from(*threshold);
                 (ratio * Decimal::new(30, 2)).min(Decimal::new(75, 2)) // 0.30 - 0.75
             }
-            DetectionSignal::ErrorFarming { error_rate, threshold, .. } => {
+            DetectionSignal::ErrorFarming {
+                error_rate,
+                threshold,
+                ..
+            } => {
                 if *error_rate > *threshold {
                     Decimal::new(65, 2) // 0.65
                 } else {
@@ -199,37 +227,61 @@ impl DetectionSignal {
             }
 
             // Transaction abuse - high confidence
-            DetectionSignal::Structuring { transaction_count, .. } => {
+            DetectionSignal::Structuring {
+                transaction_count, ..
+            } => {
                 let base = Decimal::new(60, 2); // 0.60
                 let bonus = Decimal::from(*transaction_count) * Decimal::new(5, 2); // 0.05 per tx
                 (base + bonus).min(Decimal::new(95, 2)) // 0.60 - 0.95
             }
-            DetectionSignal::VelocityAbuse { multiplier, threshold, .. } => {
+            DetectionSignal::VelocityAbuse {
+                multiplier,
+                threshold,
+                ..
+            } => {
                 if *multiplier > *threshold {
                     Decimal::new(80, 2) // 0.80
                 } else {
                     Decimal::new(55, 2) // 0.55
                 }
             }
-            DetectionSignal::RoundTrip { amount_similarity, .. } => {
+            DetectionSignal::RoundTrip {
+                amount_similarity, ..
+            } => {
                 *amount_similarity * Decimal::new(85, 2) / Decimal::new(100, 2) // 0.00 - 0.85
             }
-            DetectionSignal::NewConsumerHighValue { transaction_amount, threshold, .. } => {
+            DetectionSignal::NewConsumerHighValue {
+                transaction_amount,
+                threshold,
+                ..
+            } => {
                 let ratio = *transaction_amount / *threshold;
                 (ratio * Decimal::new(40, 2)).min(Decimal::new(75, 2)) // 0.40 - 0.75
             }
 
             // Coordinated abuse - very high confidence
-            DetectionSignal::MultiConsumerCoordination { similarity_score, consumer_ids, .. } => {
+            DetectionSignal::MultiConsumerCoordination {
+                similarity_score,
+                consumer_ids,
+                ..
+            } => {
                 let base = *similarity_score;
                 let count_bonus = Decimal::from(consumer_ids.len() as u32) * Decimal::new(5, 2); // 0.05 per consumer
                 (base + count_bonus).min(Decimal::new(98, 2)) // up to 0.98
             }
-            DetectionSignal::DistributedCredentialStuffing { total_attempts, threshold, .. } => {
+            DetectionSignal::DistributedCredentialStuffing {
+                total_attempts,
+                threshold,
+                ..
+            } => {
                 let ratio = Decimal::from(*total_attempts) / Decimal::from(*threshold);
                 (ratio * Decimal::new(50, 2)).min(Decimal::new(95, 2)) // 0.50 - 0.95
             }
-            DetectionSignal::SybilDetection { similarity_score, account_count, .. } => {
+            DetectionSignal::SybilDetection {
+                similarity_score,
+                account_count,
+                ..
+            } => {
                 let base = *similarity_score;
                 let count_bonus = Decimal::from(*account_count) * Decimal::new(3, 2); // 0.03 per account
                 (base + count_bonus).min(Decimal::new(97, 2)) // up to 0.97
@@ -315,46 +367,143 @@ impl DetectionSignal {
                 format!("Credential stuffing detected: {} authentication attempts with varying credentials", attempt_count)
             }
             DetectionSignal::BruteForce { failure_count, .. } => {
-                format!("Brute force attack detected: {} failed authentication attempts", failure_count)
+                format!(
+                    "Brute force attack detected: {} failed authentication attempts",
+                    failure_count
+                )
             }
-            DetectionSignal::TokenHarvesting { issuance_count, usage_count, ratio, .. } => {
-                format!("Token harvesting detected: {} tokens issued but only {} used (ratio: {})", issuance_count, usage_count, ratio)
+            DetectionSignal::TokenHarvesting {
+                issuance_count,
+                usage_count,
+                ratio,
+                ..
+            } => {
+                format!(
+                    "Token harvesting detected: {} tokens issued but only {} used (ratio: {})",
+                    issuance_count, usage_count, ratio
+                )
             }
-            DetectionSignal::ApiKeyEnumeration { invalid_key_count, unique_prefix_count, .. } => {
-                format!("API key enumeration detected: {} invalid keys with {} unique prefixes", invalid_key_count, unique_prefix_count)
+            DetectionSignal::ApiKeyEnumeration {
+                invalid_key_count,
+                unique_prefix_count,
+                ..
+            } => {
+                format!(
+                    "API key enumeration detected: {} invalid keys with {} unique prefixes",
+                    invalid_key_count, unique_prefix_count
+                )
             }
-            DetectionSignal::Scraping { distinct_resources, resource_type, .. } => {
-                format!("Scraping detected: {} distinct {} accessed sequentially", distinct_resources, resource_type)
+            DetectionSignal::Scraping {
+                distinct_resources,
+                resource_type,
+                ..
+            } => {
+                format!(
+                    "Scraping detected: {} distinct {} accessed sequentially",
+                    distinct_resources, resource_type
+                )
             }
-            DetectionSignal::QuoteFarming { quote_count, initiation_count, .. } => {
+            DetectionSignal::QuoteFarming {
+                quote_count,
+                initiation_count,
+                ..
+            } => {
                 format!("Quote farming detected: {} quotes generated but only {} transactions initiated", quote_count, initiation_count)
             }
-            DetectionSignal::StatusPollingAbuse { poll_count, frequency, .. } => {
-                format!("Status polling abuse detected: {} polls at {} req/sec", poll_count, frequency)
+            DetectionSignal::StatusPollingAbuse {
+                poll_count,
+                frequency,
+                ..
+            } => {
+                format!(
+                    "Status polling abuse detected: {} polls at {} req/sec",
+                    poll_count, frequency
+                )
             }
-            DetectionSignal::ErrorFarming { error_count, error_rate, .. } => {
-                format!("Error farming detected: {} errors ({}% error rate)", error_count, error_rate * Decimal::new(100, 0))
+            DetectionSignal::ErrorFarming {
+                error_count,
+                error_rate,
+                ..
+            } => {
+                format!(
+                    "Error farming detected: {} errors ({}% error rate)",
+                    error_count,
+                    error_rate * Decimal::new(100, 0)
+                )
             }
-            DetectionSignal::Structuring { transaction_count, amounts, .. } => {
+            DetectionSignal::Structuring {
+                transaction_count,
+                amounts,
+                ..
+            } => {
                 format!("Transaction structuring detected: {} transactions just below reporting threshold", transaction_count)
             }
-            DetectionSignal::VelocityAbuse { current_velocity, historical_average, multiplier, .. } => {
-                format!("Velocity abuse detected: current rate {} is {}x historical average {}", current_velocity, multiplier, historical_average)
+            DetectionSignal::VelocityAbuse {
+                current_velocity,
+                historical_average,
+                multiplier,
+                ..
+            } => {
+                format!(
+                    "Velocity abuse detected: current rate {} is {}x historical average {}",
+                    current_velocity, multiplier, historical_average
+                )
             }
-            DetectionSignal::RoundTrip { amount_similarity, time_diff_secs, .. } => {
-                format!("Round-trip transaction detected: {}% amount similarity within {} seconds", amount_similarity * Decimal::new(100, 0), time_diff_secs)
+            DetectionSignal::RoundTrip {
+                amount_similarity,
+                time_diff_secs,
+                ..
+            } => {
+                format!(
+                    "Round-trip transaction detected: {}% amount similarity within {} seconds",
+                    amount_similarity * Decimal::new(100, 0),
+                    time_diff_secs
+                )
             }
-            DetectionSignal::NewConsumerHighValue { transaction_amount, account_age_hours, .. } => {
-                format!("New consumer high-value transaction: {} amount from {}-hour-old account", transaction_amount, account_age_hours)
+            DetectionSignal::NewConsumerHighValue {
+                transaction_amount,
+                account_age_hours,
+                ..
+            } => {
+                format!(
+                    "New consumer high-value transaction: {} amount from {}-hour-old account",
+                    transaction_amount, account_age_hours
+                )
             }
-            DetectionSignal::MultiConsumerCoordination { consumer_ids, correlation_type, similarity_score, .. } => {
-                format!("Coordinated abuse detected: {} consumers with {} correlation ({}% similarity)", consumer_ids.len(), correlation_type, similarity_score * Decimal::new(100, 0))
+            DetectionSignal::MultiConsumerCoordination {
+                consumer_ids,
+                correlation_type,
+                similarity_score,
+                ..
+            } => {
+                format!(
+                    "Coordinated abuse detected: {} consumers with {} correlation ({}% similarity)",
+                    consumer_ids.len(),
+                    correlation_type,
+                    similarity_score * Decimal::new(100, 0)
+                )
             }
-            DetectionSignal::DistributedCredentialStuffing { consumer_ids, total_attempts, .. } => {
-                format!("Distributed credential stuffing detected: {} attempts across {} consumers", total_attempts, consumer_ids.len())
+            DetectionSignal::DistributedCredentialStuffing {
+                consumer_ids,
+                total_attempts,
+                ..
+            } => {
+                format!(
+                    "Distributed credential stuffing detected: {} attempts across {} consumers",
+                    total_attempts,
+                    consumer_ids.len()
+                )
             }
-            DetectionSignal::SybilDetection { account_count, similarity_score, .. } => {
-                format!("Sybil attack detected: {} similar accounts ({}% similarity)", account_count, similarity_score * Decimal::new(100, 0))
+            DetectionSignal::SybilDetection {
+                account_count,
+                similarity_score,
+                ..
+            } => {
+                format!(
+                    "Sybil attack detected: {} similar accounts ({}% similarity)",
+                    account_count,
+                    similarity_score * Decimal::new(100, 0)
+                )
             }
         }
     }

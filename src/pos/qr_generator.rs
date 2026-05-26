@@ -33,7 +33,8 @@ impl Sep7PaymentUri {
 
     /// Parse from SEP-7 URI string
     pub fn from_uri(uri: &str) -> Result<Self, AppError> {
-        let uri = uri.strip_prefix("web+stellar:pay?")
+        let uri = uri
+            .strip_prefix("web+stellar:pay?")
             .ok_or_else(|| AppError::BadRequest("Invalid SEP-7 URI format".to_string()))?;
 
         let params: std::collections::HashMap<String, String> = uri
@@ -48,22 +49,28 @@ impl Sep7PaymentUri {
             .collect();
 
         Ok(Self {
-            destination: params.get("destination")
+            destination: params
+                .get("destination")
                 .ok_or_else(|| AppError::BadRequest("Missing destination".to_string()))?
                 .clone(),
-            amount: params.get("amount")
+            amount: params
+                .get("amount")
                 .ok_or_else(|| AppError::BadRequest("Missing amount".to_string()))?
                 .clone(),
-            asset_code: params.get("asset_code")
+            asset_code: params
+                .get("asset_code")
                 .ok_or_else(|| AppError::BadRequest("Missing asset_code".to_string()))?
                 .clone(),
-            asset_issuer: params.get("asset_issuer")
+            asset_issuer: params
+                .get("asset_issuer")
                 .ok_or_else(|| AppError::BadRequest("Missing asset_issuer".to_string()))?
                 .clone(),
-            memo: params.get("memo")
+            memo: params
+                .get("memo")
                 .ok_or_else(|| AppError::BadRequest("Missing memo".to_string()))?
                 .clone(),
-            memo_type: params.get("memo_type")
+            memo_type: params
+                .get("memo_type")
                 .ok_or_else(|| AppError::BadRequest("Missing memo_type".to_string()))?
                 .clone(),
         })
@@ -99,7 +106,7 @@ impl QrGenerator {
         };
 
         let uri_string = sep7_uri.to_uri();
-        
+
         // Generate QR code as SVG (lightweight, scalable)
         let qr_code = qrcode::QrCode::new(uri_string.as_bytes())
             .map_err(|e| AppError::InternalError(format!("QR generation failed: {}", e)))?;
@@ -175,17 +182,22 @@ impl QrGenerator {
         };
 
         let uri_string = sep7_uri.to_uri();
-        
+
         let qr_code = qrcode::QrCode::new(uri_string.as_bytes())
             .map_err(|e| AppError::InternalError(format!("QR generation failed: {}", e)))?;
 
-        let image = qr_code.render::<image::Luma<u8>>()
+        let image = qr_code
+            .render::<image::Luma<u8>>()
             .min_dimensions(200, 200)
             .max_dimensions(400, 400)
             .build();
 
         let mut png_data = Vec::new();
-        image.write_to(&mut std::io::Cursor::new(&mut png_data), image::ImageFormat::Png)
+        image
+            .write_to(
+                &mut std::io::Cursor::new(&mut png_data),
+                image::ImageFormat::Png,
+            )
             .map_err(|e| AppError::InternalError(format!("PNG encoding failed: {}", e)))?;
 
         let base64_data = BASE64.encode(&png_data);
@@ -207,7 +219,8 @@ mod tests {
             merchant_id: Uuid::new_v4(),
             order_id: "ORDER-12345".to_string(),
             amount_cngn: Decimal::from_str("1000.00").unwrap(),
-            destination_address: "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".to_string(),
+            destination_address: "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                .to_string(),
             memo: "ORDER-12345".to_string(),
             qr_code_data: String::new(),
             status: crate::pos::models::PosPaymentStatus::Pending,
@@ -243,7 +256,7 @@ mod tests {
     fn test_sep7_uri_decoding() {
         let uri_str = "web+stellar:pay?destination=GTEST&amount=100&asset_code=cNGN&asset_issuer=GISSUER&memo=ORDER123&memo_type=text";
         let parsed = Sep7PaymentUri::from_uri(uri_str).unwrap();
-        
+
         assert_eq!(parsed.destination, "GTEST");
         assert_eq!(parsed.amount, "100");
         assert_eq!(parsed.asset_code, "cNGN");
@@ -260,16 +273,18 @@ mod tests {
         let elapsed = start.elapsed();
 
         assert!(result.is_ok());
-        assert!(elapsed.as_millis() < 300, "QR generation took {}ms, expected <300ms", elapsed.as_millis());
+        assert!(
+            elapsed.as_millis() < 300,
+            "QR generation took {}ms, expected <300ms",
+            elapsed.as_millis()
+        );
     }
 
     #[test]
     fn test_static_qr_generation() {
         let generator = QrGenerator::new("GISSUER".to_string());
-        let result = generator.generate_static_qr(
-            "GMERCHANT",
-            "https://pay.aframp.com/pos/merchant-123"
-        );
+        let result =
+            generator.generate_static_qr("GMERCHANT", "https://pay.aframp.com/pos/merchant-123");
 
         assert!(result.is_ok());
         let svg = result.unwrap();

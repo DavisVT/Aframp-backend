@@ -4,9 +4,7 @@
 //! the configured threshold.
 
 use crate::chains::stellar::{
-    client::StellarClient,
-    errors::StellarResult,
-    issuer::types::FeeAccount,
+    client::StellarClient, errors::StellarResult, issuer::types::FeeAccount,
 };
 use crate::metrics::issuer as m;
 use tracing::{error, info, warn};

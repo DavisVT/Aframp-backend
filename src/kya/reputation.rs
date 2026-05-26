@@ -72,7 +72,10 @@ impl ReputationManager {
     }
 
     /// Get all reputation scores for an agent
-    pub async fn get_all_scores(&self, agent_did: &DID) -> Result<Vec<DomainReputationScore>, KYAError> {
+    pub async fn get_all_scores(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<DomainReputationScore>, KYAError> {
         let rows = sqlx::query!(
             r#"
             SELECT domain, score, total_interactions, successful_interactions,

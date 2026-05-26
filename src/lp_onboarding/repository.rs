@@ -1,7 +1,7 @@
 use crate::lp_onboarding::models::*;
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
 
 pub struct LpOnboardingRepository {
     pool: PgPool,
@@ -256,7 +256,11 @@ impl LpOnboardingRepository {
         .await
     }
 
-    pub async fn mark_agreement_sent(&self, agreement_id: Uuid, envelope_id: &str) -> sqlx::Result<()> {
+    pub async fn mark_agreement_sent(
+        &self,
+        agreement_id: Uuid,
+        envelope_id: &str,
+    ) -> sqlx::Result<()> {
         sqlx::query!(
             "UPDATE lp_agreements
              SET agreement_status='sent_for_signature', docusign_envelope_id=$1, updated_at=NOW()

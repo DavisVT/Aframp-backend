@@ -98,7 +98,9 @@ impl IntermediateCa {
         params.alg = &PKCS_ECDSA_P256_SHA256;
 
         let leaf = Certificate::from_params(params).map_err(CaError::Rcgen)?;
-        let cert_pem = leaf.serialize_pem_with_signer(&self.ca_cert).map_err(CaError::Rcgen)?;
+        let cert_pem = leaf
+            .serialize_pem_with_signer(&self.ca_cert)
+            .map_err(CaError::Rcgen)?;
         let key_pem = leaf.serialize_private_key_pem();
         let serial = format!("{:x}", Utc::now().timestamp_nanos_opt().unwrap_or(0));
 
@@ -132,15 +134,15 @@ impl CertificateAuthority {
     pub fn generate_root_ca(environment: &str) -> Result<(String, String), CaError> {
         let mut params = CertificateParams::new(vec![]);
         let mut dn = DistinguishedName::new();
-        dn.push(DnType::CommonName, format!("Aframp Root CA ({})", environment));
+        dn.push(
+            DnType::CommonName,
+            format!("Aframp Root CA ({})", environment),
+        );
         dn.push(DnType::OrganizationName, "Aframp");
         dn.push(DnType::OrganizationalUnitName, "aframp-internal");
         params.distinguished_name = dn;
         params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        params.key_usages = vec![
-            KeyUsagePurpose::KeyCertSign,
-            KeyUsagePurpose::CrlSign,
-        ];
+        params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
         params.alg = &PKCS_ECDSA_P256_SHA256;
         // Root CA valid for 10 years
         params.not_after = rcgen::date_time_ymd(
@@ -164,24 +166,24 @@ impl CertificateAuthority {
         environment: &str,
         validity_days: u64,
     ) -> Result<(String, String), CaError> {
-        let root_key = rcgen::KeyPair::from_pem(root_key_pem)
-            .map_err(|e| CaError::PemParse(e.to_string()))?;
-        let root_params = CertificateParams::from_ca_cert_pem(root_cert_pem, root_key)
-            .map_err(CaError::Rcgen)?;
+        let root_key =
+            rcgen::KeyPair::from_pem(root_key_pem).map_err(|e| CaError::PemParse(e.to_string()))?;
+        let root_params =
+            CertificateParams::from_ca_cert_pem(root_cert_pem, root_key).map_err(CaError::Rcgen)?;
         let root_ca = Certificate::from_params(root_params).map_err(CaError::Rcgen)?;
 
         let not_after = Utc::now() + Duration::days(validity_days as i64);
         let mut params = CertificateParams::new(vec![]);
         let mut dn = DistinguishedName::new();
-        dn.push(DnType::CommonName, format!("Aframp Intermediate CA ({})", environment));
+        dn.push(
+            DnType::CommonName,
+            format!("Aframp Intermediate CA ({})", environment),
+        );
         dn.push(DnType::OrganizationName, environment);
         dn.push(DnType::OrganizationalUnitName, "aframp-internal");
         params.distinguished_name = dn;
         params.is_ca = IsCa::Ca(BasicConstraints::Constrained(0));
-        params.key_usages = vec![
-            KeyUsagePurpose::KeyCertSign,
-            KeyUsagePurpose::CrlSign,
-        ];
+        params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
         params.alg = &PKCS_ECDSA_P256_SHA256;
         params.not_after = rcgen::date_time_ymd(
             not_after.format("%Y").to_string().parse().unwrap(),
@@ -190,7 +192,9 @@ impl CertificateAuthority {
         );
 
         let intermediate = Certificate::from_params(params).map_err(CaError::Rcgen)?;
-        let cert_pem = intermediate.serialize_pem_with_signer(&root_ca).map_err(CaError::Rcgen)?;
+        let cert_pem = intermediate
+            .serialize_pem_with_signer(&root_ca)
+            .map_err(CaError::Rcgen)?;
         let key_pem = intermediate.serialize_private_key_pem();
         info!(environment, "Intermediate CA generated");
         Ok((cert_pem, key_pem))

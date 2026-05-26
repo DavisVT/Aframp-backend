@@ -120,8 +120,7 @@ impl TelemetryConfig {
             service_name: env::var("OTEL_SERVICE_NAME")
                 .unwrap_or_else(|_| "aframp-backend".to_string()),
 
-            environment: env::var("APP_ENV")
-                .unwrap_or_else(|_| "development".to_string()),
+            environment: env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()),
 
             sampling_rate: env::var("OTEL_SAMPLING_RATE")
                 .unwrap_or_else(|_| "1.0".to_string())
@@ -149,8 +148,7 @@ impl TelemetryConfig {
         }
 
         // OTLP endpoint must look like an HTTP/HTTPS URL.
-        if !self.otlp_endpoint.starts_with("http://")
-            && !self.otlp_endpoint.starts_with("https://")
+        if !self.otlp_endpoint.starts_with("http://") && !self.otlp_endpoint.starts_with("https://")
         {
             return Err(ConfigError::InvalidValue(
                 "OTEL_EXPORTER_OTLP_ENDPOINT must start with http:// or https://".to_string(),
@@ -471,7 +469,7 @@ pub struct KycComplianceConfig {
 /// KYC transaction limits configuration
 #[derive(Debug, Clone)]
 pub struct KycLimitsConfig {
-    pub daily_reset_hour: u8, // 0-23
+    pub daily_reset_hour: u8,  // 0-23
     pub monthly_reset_day: u8, // 1-28
     pub volume_check_enabled: bool,
     pub violation_alert_threshold: f64, // 0.0-1.0
@@ -480,8 +478,8 @@ pub struct KycLimitsConfig {
 impl KycConfig {
     /// Load KYC configuration from environment variables
     pub fn from_env() -> Result<Self, ConfigError> {
-        let default_provider = env::var("KYC_DEFAULT_PROVIDER")
-            .unwrap_or_else(|_| "smile_identity".to_string());
+        let default_provider =
+            env::var("KYC_DEFAULT_PROVIDER").unwrap_or_else(|_| "smile_identity".to_string());
 
         let session_timeout_hours = env::var("KYC_SESSION_TIMEOUT_HOURS")
             .unwrap_or_else(|_| "24".to_string())
@@ -505,11 +503,15 @@ impl KycConfig {
             manual_review_queue_threshold: env::var("KYC_MANUAL_REVIEW_QUEUE_THRESHOLD")
                 .unwrap_or_else(|_| "50".to_string())
                 .parse()
-                .map_err(|_| ConfigError::InvalidValue("KYC_MANUAL_REVIEW_QUEUE_THRESHOLD".to_string()))?,
+                .map_err(|_| {
+                    ConfigError::InvalidValue("KYC_MANUAL_REVIEW_QUEUE_THRESHOLD".to_string())
+                })?,
             webhook_failure_rate_threshold: env::var("KYC_WEBHOOK_FAILURE_RATE_THRESHOLD")
                 .unwrap_or_else(|_| "0.1".to_string())
                 .parse()
-                .map_err(|_| ConfigError::InvalidValue("KYC_WEBHOOK_FAILURE_RATE_THRESHOLD".to_string()))?,
+                .map_err(|_| {
+                    ConfigError::InvalidValue("KYC_WEBHOOK_FAILURE_RATE_THRESHOLD".to_string())
+                })?,
             auto_approve_enabled: env::var("KYC_AUTO_APPROVE_ENABLED")
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()
@@ -525,7 +527,9 @@ impl KycConfig {
             compliance_report_schedule_hours: env::var("KYC_COMPLIANCE_REPORT_SCHEDULE_HOURS")
                 .unwrap_or_else(|_| "24".to_string())
                 .parse()
-                .map_err(|_| ConfigError::InvalidValue("KYC_COMPLIANCE_REPORT_SCHEDULE_HOURS".to_string()))?,
+                .map_err(|_| {
+                    ConfigError::InvalidValue("KYC_COMPLIANCE_REPORT_SCHEDULE_HOURS".to_string())
+                })?,
         };
 
         let limits = KycLimitsConfig {
@@ -544,7 +548,9 @@ impl KycConfig {
             violation_alert_threshold: env::var("KYC_VIOLATION_ALERT_THRESHOLD")
                 .unwrap_or_else(|_| "0.8".to_string())
                 .parse()
-                .map_err(|_| ConfigError::InvalidValue("KYC_VIOLATION_ALERT_THRESHOLD".to_string()))?,
+                .map_err(|_| {
+                    ConfigError::InvalidValue("KYC_VIOLATION_ALERT_THRESHOLD".to_string())
+                })?,
         };
 
         Ok(KycConfig {
@@ -576,11 +582,15 @@ impl KycConfig {
                 timeout_seconds: env::var("SMILE_IDENTITY_TIMEOUT_SECONDS")
                     .unwrap_or_else(|_| "30".to_string())
                     .parse()
-                    .map_err(|_| ConfigError::InvalidValue("SMILE_IDENTITY_TIMEOUT_SECONDS".to_string()))?,
+                    .map_err(|_| {
+                        ConfigError::InvalidValue("SMILE_IDENTITY_TIMEOUT_SECONDS".to_string())
+                    })?,
                 retry_attempts: env::var("SMILE_IDENTITY_RETRY_ATTEMPTS")
                     .unwrap_or_else(|_| "3".to_string())
                     .parse()
-                    .map_err(|_| ConfigError::InvalidValue("SMILE_IDENTITY_RETRY_ATTEMPTS".to_string()))?,
+                    .map_err(|_| {
+                        ConfigError::InvalidValue("SMILE_IDENTITY_RETRY_ATTEMPTS".to_string())
+                    })?,
                 enabled: env::var("SMILE_IDENTITY_ENABLED")
                     .unwrap_or_else(|_| "true".to_string())
                     .parse()
@@ -594,11 +604,17 @@ impl KycConfig {
     /// Validate KYC configuration
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.providers.is_empty() {
-            return Err(ConfigError::Validation("No KYC providers configured".to_string()));
+            return Err(ConfigError::Validation(
+                "No KYC providers configured".to_string(),
+            ));
         }
 
         // Check if default provider exists and is enabled
-        if !self.providers.iter().any(|p| p.name == self.default_provider && p.enabled) {
+        if !self
+            .providers
+            .iter()
+            .any(|p| p.name == self.default_provider && p.enabled)
+        {
             return Err(ConfigError::Validation(format!(
                 "Default provider '{}' not found or not enabled",
                 self.default_provider
@@ -606,19 +622,27 @@ impl KycConfig {
         }
 
         if self.session_timeout_hours == 0 {
-            return Err(ConfigError::Validation("Session timeout must be greater than 0".to_string()));
+            return Err(ConfigError::Validation(
+                "Session timeout must be greater than 0".to_string(),
+            ));
         }
 
         if self.max_document_size_mb == 0 {
-            return Err(ConfigError::Validation("Max document size must be greater than 0".to_string()));
+            return Err(ConfigError::Validation(
+                "Max document size must be greater than 0".to_string(),
+            ));
         }
 
         if self.limits.daily_reset_hour > 23 {
-            return Err(ConfigError::Validation("Daily reset hour must be 0-23".to_string()));
+            return Err(ConfigError::Validation(
+                "Daily reset hour must be 0-23".to_string(),
+            ));
         }
 
         if self.limits.monthly_reset_day == 0 || self.limits.monthly_reset_day > 28 {
-            return Err(ConfigError::Validation("Monthly reset day must be 1-28".to_string()));
+            return Err(ConfigError::Validation(
+                "Monthly reset day must be 1-28".to_string(),
+            ));
         }
 
         Ok(())
@@ -687,26 +711,41 @@ mod tests {
     #[test]
     fn test_telemetry_sampling_rate_boundaries() {
         // 0.0 (sample nothing) is valid.
-        let cfg = TelemetryConfig { sampling_rate: 0.0, ..valid_telemetry_config() };
+        let cfg = TelemetryConfig {
+            sampling_rate: 0.0,
+            ..valid_telemetry_config()
+        };
         assert!(cfg.validate().is_ok());
 
         // 1.0 (sample everything) is valid.
-        let cfg = TelemetryConfig { sampling_rate: 1.0, ..valid_telemetry_config() };
+        let cfg = TelemetryConfig {
+            sampling_rate: 1.0,
+            ..valid_telemetry_config()
+        };
         assert!(cfg.validate().is_ok());
 
         // 0.25 (25 %) is valid.
-        let cfg = TelemetryConfig { sampling_rate: 0.25, ..valid_telemetry_config() };
+        let cfg = TelemetryConfig {
+            sampling_rate: 0.25,
+            ..valid_telemetry_config()
+        };
         assert!(cfg.validate().is_ok());
     }
 
     #[test]
     fn test_telemetry_sampling_rate_out_of_range() {
         // Above 1.0 must fail.
-        let cfg = TelemetryConfig { sampling_rate: 1.1, ..valid_telemetry_config() };
+        let cfg = TelemetryConfig {
+            sampling_rate: 1.1,
+            ..valid_telemetry_config()
+        };
         assert!(cfg.validate().is_err());
 
         // Negative must fail.
-        let cfg = TelemetryConfig { sampling_rate: -0.1, ..valid_telemetry_config() };
+        let cfg = TelemetryConfig {
+            sampling_rate: -0.1,
+            ..valid_telemetry_config()
+        };
         assert!(cfg.validate().is_err());
     }
 

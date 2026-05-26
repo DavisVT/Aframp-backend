@@ -206,13 +206,9 @@ mod tests {
 
     #[test]
     fn invalid_transition_from_signed() {
-        let mut session = NegotiationEngine::initiate(
-            "a".into(),
-            "b".into(),
-            proposal(50),
-            "tx-003".into(),
-        )
-        .unwrap();
+        let mut session =
+            NegotiationEngine::initiate("a".into(), "b".into(), proposal(50), "tx-003".into())
+                .unwrap();
         NegotiationEngine::accept(&mut session).unwrap();
         NegotiationEngine::sign_contract(&mut session, "C1".into()).unwrap();
 

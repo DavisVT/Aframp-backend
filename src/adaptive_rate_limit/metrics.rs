@@ -11,7 +11,9 @@ use std::sync::OnceLock;
 static CURRENT_MODE: OnceLock<Gauge> = OnceLock::new();
 
 pub fn current_mode() -> &'static Gauge {
-    CURRENT_MODE.get().expect("adaptive rl metrics not initialised")
+    CURRENT_MODE
+        .get()
+        .expect("adaptive rl metrics not initialised")
 }
 
 // ── Signal gauges ─────────────────────────────────────────────────────────────
@@ -24,10 +26,14 @@ static SIGNAL_ERROR_RATE: OnceLock<Gauge> = OnceLock::new();
 static SIGNAL_P99_MS: OnceLock<Gauge> = OnceLock::new();
 
 pub fn signal_cpu() -> &'static Gauge {
-    SIGNAL_CPU.get().expect("adaptive rl metrics not initialised")
+    SIGNAL_CPU
+        .get()
+        .expect("adaptive rl metrics not initialised")
 }
 pub fn signal_db_pool() -> &'static Gauge {
-    SIGNAL_DB_POOL.get().expect("adaptive rl metrics not initialised")
+    SIGNAL_DB_POOL
+        .get()
+        .expect("adaptive rl metrics not initialised")
 }
 pub fn signal_redis_memory() -> &'static Gauge {
     SIGNAL_REDIS_MEMORY
@@ -45,7 +51,9 @@ pub fn signal_error_rate() -> &'static Gauge {
         .expect("adaptive rl metrics not initialised")
 }
 pub fn signal_p99_ms() -> &'static Gauge {
-    SIGNAL_P99_MS.get().expect("adaptive rl metrics not initialised")
+    SIGNAL_P99_MS
+        .get()
+        .expect("adaptive rl metrics not initialised")
 }
 
 // ── Rolling average gauges ────────────────────────────────────────────────────

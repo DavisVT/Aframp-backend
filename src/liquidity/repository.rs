@@ -69,10 +69,7 @@ impl LiquidityRepository {
         .await
     }
 
-    pub async fn create_pool(
-        &self,
-        req: &CreatePoolRequest,
-    ) -> Result<LiquidityPool, sqlx::Error> {
+    pub async fn create_pool(&self, req: &CreatePoolRequest) -> Result<LiquidityPool, sqlx::Error> {
         sqlx::query_as!(
             LiquidityPool,
             r#"INSERT INTO liquidity_pools

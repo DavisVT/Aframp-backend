@@ -123,7 +123,10 @@ impl AgentCfoEngine {
         let ratio = if daily_limit.is_zero() {
             0.0
         } else {
-            (spent / daily_limit).to_string().parse::<f64>().unwrap_or(0.0)
+            (spent / daily_limit)
+                .to_string()
+                .parse::<f64>()
+                .unwrap_or(0.0)
         };
 
         // Graceful degradation at 80 %
@@ -155,7 +158,14 @@ impl AgentCfoEngine {
             let refill_amount = policy.refill_amount_cngn.clone();
             let funding_account = policy.funding_account.clone();
             tokio::spawn(async move {
-                let _ = maybe_refill(&db, agent_id, &safety_buffer, &refill_amount, &funding_account).await;
+                let _ = maybe_refill(
+                    &db,
+                    agent_id,
+                    &safety_buffer,
+                    &refill_amount,
+                    &funding_account,
+                )
+                .await;
             });
         }
 
@@ -210,7 +220,11 @@ impl AgentCfoEngine {
         if let Ok(url) = std::env::var("AGENT_CFO_REPORT_WEBHOOK_URL") {
             let payload = serde_json::to_value(&report).unwrap_or_default();
             tokio::spawn(async move {
-                let _ = reqwest::Client::new().post(&url).json(&payload).send().await;
+                let _ = reqwest::Client::new()
+                    .post(&url)
+                    .json(&payload)
+                    .send()
+                    .await;
             });
         }
     }

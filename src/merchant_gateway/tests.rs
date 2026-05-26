@@ -10,7 +10,7 @@ mod tests {
     #[test]
     fn test_payment_intent_status_display() {
         use crate::merchant_gateway::models::PaymentIntentStatus;
-        
+
         assert_eq!(PaymentIntentStatus::Pending.to_string(), "pending");
         assert_eq!(PaymentIntentStatus::Paid.to_string(), "paid");
         assert_eq!(PaymentIntentStatus::Expired.to_string(), "expired");
@@ -21,7 +21,7 @@ mod tests {
     #[test]
     fn test_merchant_api_key_scope_permissions() {
         use crate::merchant_gateway::models::MerchantApiKeyScope;
-        
+
         let full = MerchantApiKeyScope::Full;
         assert!(full.can_create_payment());
         assert!(full.can_read_payment());
@@ -53,18 +53,16 @@ mod tests {
         });
 
         // Generate signature
-        let signature = WebhookEngine::verify_signature(secret, &payload, "dummy")
-            .is_ok();
+        let signature = WebhookEngine::verify_signature(secret, &payload, "dummy").is_ok();
         assert!(signature);
 
         // Verify with correct secret
-        let valid = WebhookEngine::verify_signature(secret, &payload, "dummy")
-            .unwrap_or(false);
+        let valid = WebhookEngine::verify_signature(secret, &payload, "dummy").unwrap_or(false);
         assert!(valid);
 
         // Verify with wrong secret should fail
-        let invalid = WebhookEngine::verify_signature("wrong_secret", &payload, "dummy")
-            .unwrap_or(false);
+        let invalid =
+            WebhookEngine::verify_signature("wrong_secret", &payload, "dummy").unwrap_or(false);
         assert!(invalid); // Will be false because signature won't match
     }
 

@@ -1,9 +1,9 @@
+pub mod analytics;
 pub mod circuit_breaker;
 pub mod dashboard;
 pub mod ip_reputation;
 pub mod keys;
-pub mod reconciliation;
-pub mod scopes;
-pub mod analytics;
 pub mod partner;
+pub mod reconciliation;
 pub mod revocation;
+pub mod scopes;

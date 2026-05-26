@@ -94,7 +94,10 @@ impl ServiceRegistry {
         .execute(&*self.pool)
         .await
         .map_err(|e| {
-            error!("Failed to register service {}: {}", registration.service_name, e);
+            error!(
+                "Failed to register service {}: {}",
+                registration.service_name, e
+            );
             ServiceAuthError::DatabaseError(e.to_string())
         })?;
 
@@ -130,9 +133,8 @@ impl ServiceRegistry {
         .await
         .map_err(|e| ServiceAuthError::DatabaseError(e.to_string()))?;
 
-        let row = row.ok_or_else(|| {
-            ServiceAuthError::ServiceNotRegistered(service_name.to_string())
-        })?;
+        let row =
+            row.ok_or_else(|| ServiceAuthError::ServiceNotRegistered(service_name.to_string()))?;
 
         let status = match row.status.as_str() {
             "active" => ServiceStatus::Active,

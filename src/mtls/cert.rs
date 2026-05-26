@@ -33,10 +33,7 @@ impl ServiceIdentity {
     /// Build a subject string from service name and environment.
     /// Format: `CN=<service_name>,O=<environment>,OU=aframp-internal`
     pub fn subject_for(service_name: &str, environment: &str) -> String {
-        format!(
-            "CN={},O={},OU=aframp-internal",
-            service_name, environment
-        )
+        format!("CN={},O={},OU=aframp-internal", service_name, environment)
     }
 
     /// Parse a subject string into a ServiceIdentity.
@@ -119,21 +116,30 @@ impl CertificateStore {
     /// Store a new certificate, moving the current one to `previous`.
     pub fn upsert(&self, cert: ServiceCertificate) {
         let mut map = self.inner.write().unwrap();
-        let entry = map.entry(cert.service_name.clone()).or_insert_with(|| CertEntry {
-            current: cert.clone(),
-            previous: None,
-        });
+        let entry = map
+            .entry(cert.service_name.clone())
+            .or_insert_with(|| CertEntry {
+                current: cert.clone(),
+                previous: None,
+            });
         let old = std::mem::replace(&mut entry.current, cert);
         entry.previous = Some(old);
     }
 
     /// Get the current certificate for a service.
     pub fn get(&self, service_name: &str) -> Option<ServiceCertificate> {
-        self.inner.read().unwrap().get(service_name).map(|e| e.current.clone())
+        self.inner
+            .read()
+            .unwrap()
+            .get(service_name)
+            .map(|e| e.current.clone())
     }
 
     /// Get both current and previous certificates (for zero-downtime rotation).
-    pub fn get_both(&self, service_name: &str) -> (Option<ServiceCertificate>, Option<ServiceCertificate>) {
+    pub fn get_both(
+        &self,
+        service_name: &str,
+    ) -> (Option<ServiceCertificate>, Option<ServiceCertificate>) {
         let map = self.inner.read().unwrap();
         match map.get(service_name) {
             Some(e) => (Some(e.current.clone()), e.previous.clone()),
@@ -143,7 +149,12 @@ impl CertificateStore {
 
     /// List all current certificates.
     pub fn list_all(&self) -> Vec<ServiceCertificate> {
-        self.inner.read().unwrap().values().map(|e| e.current.clone()).collect()
+        self.inner
+            .read()
+            .unwrap()
+            .values()
+            .map(|e| e.current.clone())
+            .collect()
     }
 
     /// Mark a certificate as revoked.

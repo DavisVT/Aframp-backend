@@ -18,7 +18,10 @@ pub struct LiquidityHealthWorker {
 
 impl LiquidityHealthWorker {
     pub fn new(repo: Arc<LiquidityRepository>, check_interval_secs: u64) -> Self {
-        Self { repo, check_interval_secs }
+        Self {
+            repo,
+            check_interval_secs,
+        }
     }
 
     pub async fn run(&self, mut shutdown: watch::Receiver<bool>) {
@@ -65,7 +68,11 @@ impl LiquidityHealthWorker {
         let reserved = pool.reserved_liquidity.to_f64().unwrap_or(0.0);
         let available = pool.available_liquidity.to_f64().unwrap_or(0.0);
 
-        let utilisation = if total > 0.0 { reserved / total * 100.0 } else { 0.0 };
+        let utilisation = if total > 0.0 {
+            reserved / total * 100.0
+        } else {
+            0.0
+        };
 
         let distance_from_min = &pool.available_liquidity - &pool.min_liquidity_threshold;
         let distance_from_target = &pool.available_liquidity - &pool.target_liquidity_level;
@@ -89,10 +96,18 @@ impl LiquidityHealthWorker {
         let pair = &pool.currency_pair;
         let pt = format!("{:?}", pool.pool_type).to_lowercase();
 
-        metrics::available_liquidity().with_label_values(&[&pid, pair, &pt]).set(available);
-        metrics::reserved_liquidity().with_label_values(&[&pid, pair, &pt]).set(reserved);
-        metrics::utilisation_pct().with_label_values(&[&pid, pair, &pt]).set(utilisation);
-        metrics::effective_depth().with_label_values(&[pair]).set(effective_depth.to_f64().unwrap_or(0.0));
+        metrics::available_liquidity()
+            .with_label_values(&[&pid, pair, &pt])
+            .set(available);
+        metrics::reserved_liquidity()
+            .with_label_values(&[&pid, pair, &pt])
+            .set(reserved);
+        metrics::utilisation_pct()
+            .with_label_values(&[&pid, pair, &pt])
+            .set(utilisation);
+        metrics::effective_depth()
+            .with_label_values(&[pair])
+            .set(effective_depth.to_f64().unwrap_or(0.0));
 
         // Alerts
         if pool.available_liquidity < pool.min_liquidity_threshold {

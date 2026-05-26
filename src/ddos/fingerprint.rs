@@ -8,9 +8,20 @@ use sha2::{Digest, Sha256};
 
 /// Known attack tool user-agent substrings.
 const ATTACK_TOOL_AGENTS: &[&str] = &[
-    "sqlmap", "nikto", "nmap", "masscan", "zgrab", "gobuster",
-    "dirbuster", "hydra", "medusa", "burpsuite", "python-requests/2",
-    "go-http-client/1.1", "curl/7.68", "libwww-perl",
+    "sqlmap",
+    "nikto",
+    "nmap",
+    "masscan",
+    "zgrab",
+    "gobuster",
+    "dirbuster",
+    "hydra",
+    "medusa",
+    "burpsuite",
+    "python-requests/2",
+    "go-http-client/1.1",
+    "curl/7.68",
+    "libwww-perl",
 ];
 
 #[derive(Debug, Clone)]
@@ -50,9 +61,15 @@ impl RequestFingerprint {
     /// Returns a suspicion score 0.0–1.0 based on fingerprint signals.
     pub fn suspicion_score(&self) -> f64 {
         let mut score = 0.0f64;
-        if self.is_attack_tool_agent { score += 0.6; }
-        if self.is_missing_agent { score += 0.3; }
-        if self.is_malformed { score += 0.4; }
+        if self.is_attack_tool_agent {
+            score += 0.6;
+        }
+        if self.is_missing_agent {
+            score += 0.3;
+        }
+        if self.is_malformed {
+            score += 0.4;
+        }
         score.min(1.0)
     }
 }

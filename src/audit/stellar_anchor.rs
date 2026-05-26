@@ -6,9 +6,9 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::sync::Arc;
 use stellar_sdk::types::{Asset, Memo, PublicKey};
 use stellar_sdk::{KeyPair, Network, Server, TransactionBuilder};
-use std::sync::Arc;
 use tokio::time::{interval, Duration as TokioDuration};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -20,19 +20,19 @@ use super::ledger::{AnchorPoint, AuditLedger};
 pub struct StellarAnchorConfig {
     /// Stellar Horizon server URL
     pub horizon_url: String,
-    
+
     /// Network passphrase (public or testnet)
     pub network_passphrase: String,
-    
+
     /// Source account secret key for submitting transactions
     pub source_secret: String,
-    
+
     /// Interval between anchor submissions (in seconds)
     pub anchor_interval_seconds: u64,
-    
+
     /// Destination account for anchor transactions (optional)
     pub destination_account: Option<String>,
-    
+
     /// Base fee for transactions (in stroops)
     pub base_fee: u32,
 }
@@ -59,38 +59,34 @@ pub struct StellarAnchorService {
 
 impl StellarAnchorService {
     /// Create a new Stellar anchoring service
-    pub fn new(
-        config: StellarAnchorConfig,
-        audit_ledger: Arc<AuditLedger>,
-        pool: PgPool,
-    ) -> Self {
+    pub fn new(config: StellarAnchorConfig, audit_ledger: Arc<AuditLedger>, pool: PgPool) -> Self {
         Self {
             config,
             audit_ledger,
             pool,
         }
     }
-    
+
     /// Start the anchoring service (runs in background)
     pub async fn start(self: Arc<Self>) {
         info!(
             "Starting Stellar anchor service with interval: {}s",
             self.config.anchor_interval_seconds
         );
-        
+
         let mut ticker = interval(TokioDuration::from_secs(
             self.config.anchor_interval_seconds,
         ));
-        
+
         loop {
             ticker.tick().await;
-            
+
             if let Err(e) = self.create_and_submit_anchor().await {
                 error!("Failed to create and submit anchor: {}", e);
             }
         }
     }
-    
+
     /// Create an anchor point and submit it to Stellar
     async fn create_and_submit_anchor(&self) -> Result<(), StellarAnchorError> {
         // Check if we need to create a new anchor
@@ -98,17 +94,19 @@ impl StellarAnchorService {
             info!("Skipping anchor creation - recent anchor exists");
             return Ok(());
         }
-        
+
         // Create anchor point in the database
-        let anchor = self.audit_ledger.create_anchor().await.map_err(|e| {
-            StellarAnchorError::AuditLedgerError(e.to_string())
-        })?;
-        
+        let anchor = self
+            .audit_ledger
+            .create_anchor()
+            .await
+            .map_err(|e| StellarAnchorError::AuditLedgerError(e.to_string()))?;
+
         info!(
             "Created anchor point: id={}, sequence={}, hash={}",
             anchor.id, anchor.sequence, anchor.entry_hash
         );
-        
+
         // Submit to Stellar blockchain
         match self.submit_to_stellar(&anchor).await {
             Ok((tx_id, ledger)) => {
@@ -116,7 +114,7 @@ impl StellarAnchorService {
                     "Successfully anchored to Stellar: tx={}, ledger={}",
                     tx_id, ledger
                 );
-                
+
                 // Update anchor with Stellar information
                 self.update_anchor_stellar_info(anchor.id, tx_id, ledger)
                     .await?;
@@ -126,10 +124,10 @@ impl StellarAnchorService {
                 return Err(e);
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Check if we should create a new anchor
     async fn should_create_anchor(&self) -> Result<bool, StellarAnchorError> {
         let last_anchor = sqlx::query!(
@@ -143,7 +141,7 @@ impl StellarAnchorService {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| StellarAnchorError::Database(e.to_string()))?;
-        
+
         match last_anchor {
             Some(anchor) => {
                 let elapsed = Utc::now() - anchor.anchor_timestamp;
@@ -153,7 +151,7 @@ impl StellarAnchorService {
             None => Ok(true), // No anchors exist, create first one
         }
     }
-    
+
     /// Submit anchor hash to Stellar blockchain
     async fn submit_to_stellar(
         &self,
@@ -162,17 +160,17 @@ impl StellarAnchorService {
         // Parse the source keypair
         let source_keypair = KeyPair::from_secret_seed(&self.config.source_secret)
             .map_err(|e| StellarAnchorError::StellarError(format!("Invalid secret key: {}", e)))?;
-        
+
         // Create Stellar server connection
         let server = Server::new(&self.config.horizon_url)
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         // Get source account
         let source_account = server
             .load_account(&source_keypair.public_key())
             .await
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         // Determine destination (self if not specified)
         let destination = if let Some(ref dest) = self.config.destination_account {
             PublicKey::from_account_id(dest)
@@ -180,13 +178,13 @@ impl StellarAnchorService {
         } else {
             source_keypair.public_key()
         };
-        
+
         // Create memo with anchor hash (truncated to 28 bytes for MEMO_HASH)
         let memo = Memo::hash(
             &hex::decode(&anchor.entry_hash[..56])
                 .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?,
         );
-        
+
         // Build transaction
         let mut tx_builder = TransactionBuilder::new(
             source_account,
@@ -194,7 +192,7 @@ impl StellarAnchorService {
         )
         .base_fee(self.config.base_fee)
         .memo(memo);
-        
+
         // Add payment operation (minimal amount to self or destination)
         tx_builder = tx_builder.add_operation(
             stellar_sdk::operations::Payment::new(
@@ -204,25 +202,25 @@ impl StellarAnchorService {
             )
             .build(),
         );
-        
+
         // Build and sign transaction
         let transaction = tx_builder
             .build()
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         let signed_tx = transaction
             .sign(&source_keypair)
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         // Submit to network
         let response = server
             .submit_transaction(&signed_tx)
             .await
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         Ok((response.hash, response.ledger as i64))
     }
-    
+
     /// Update anchor with Stellar transaction information
     async fn update_anchor_stellar_info(
         &self,
@@ -246,10 +244,10 @@ impl StellarAnchorService {
         .execute(&self.pool)
         .await
         .map_err(|e| StellarAnchorError::Database(e.to_string()))?;
-        
+
         Ok(())
     }
-    
+
     /// Verify an anchor against Stellar blockchain
     pub async fn verify_anchor(
         &self,
@@ -267,29 +265,29 @@ impl StellarAnchorService {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| StellarAnchorError::Database(e.to_string()))?;
-        
+
         let tx_id = anchor
             .stellar_transaction_id
             .ok_or_else(|| StellarAnchorError::AnchorNotSubmitted)?;
-        
+
         // Query Stellar for the transaction
         let server = Server::new(&self.config.horizon_url)
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         let tx = server
             .load_transaction(&tx_id)
             .await
             .map_err(|e| StellarAnchorError::StellarError(e.to_string()))?;
-        
+
         // Extract memo and verify hash
         let memo_hash = match tx.memo {
             Memo::Hash(hash) => hex::encode(hash),
             _ => return Err(StellarAnchorError::InvalidMemo),
         };
-        
+
         let expected_hash = &anchor.entry_hash[..56]; // First 28 bytes (56 hex chars)
         let verified = memo_hash == expected_hash;
-        
+
         Ok(AnchorVerificationResult {
             anchor_id: anchor.id,
             sequence: anchor.sequence,
@@ -319,16 +317,16 @@ pub struct AnchorVerificationResult {
 pub enum StellarAnchorError {
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Stellar error: {0}")]
     StellarError(String),
-    
+
     #[error("Audit ledger error: {0}")]
     AuditLedgerError(String),
-    
+
     #[error("Anchor not submitted to Stellar")]
     AnchorNotSubmitted,
-    
+
     #[error("Invalid memo in Stellar transaction")]
     InvalidMemo,
 }
@@ -336,7 +334,7 @@ pub enum StellarAnchorError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default_config() {
         let config = StellarAnchorConfig::default();

@@ -2,9 +2,9 @@
 
 use crate::dispute::models::*;
 use crate::error::Error;
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
 
 pub struct DisputeRepository {
     pool: PgPool,
@@ -315,10 +315,7 @@ impl DisputeRepository {
         Ok(())
     }
 
-    pub async fn get_audit_log(
-        &self,
-        dispute_id: Uuid,
-    ) -> Result<Vec<DisputeAuditLog>, Error> {
+    pub async fn get_audit_log(&self, dispute_id: Uuid) -> Result<Vec<DisputeAuditLog>, Error> {
         sqlx::query_as::<_, DisputeAuditLog>(
             "SELECT * FROM dispute_audit_log WHERE dispute_id = $1 ORDER BY created_at ASC",
         )

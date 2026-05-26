@@ -204,50 +204,116 @@ impl AdaptiveRateLimitConfig {
             };
         }
 
-        env_secs!("ARL_SIGNAL_SAMPLING_INTERVAL_SECS", cfg.signal_sampling_interval);
+        env_secs!(
+            "ARL_SIGNAL_SAMPLING_INTERVAL_SECS",
+            cfg.signal_sampling_interval
+        );
         env_usize!("ARL_ROLLING_WINDOW_SIZE", cfg.rolling_window_size);
-        env_secs!("ARL_SIGNAL_PERSIST_INTERVAL_SECS", cfg.signal_persist_interval);
+        env_secs!(
+            "ARL_SIGNAL_PERSIST_INTERVAL_SECS",
+            cfg.signal_persist_interval
+        );
 
         env_f64!("ARL_ELEVATED_CPU_THRESHOLD", cfg.elevated_cpu_threshold);
-        env_f64!("ARL_ELEVATED_DB_POOL_THRESHOLD", cfg.elevated_db_pool_threshold);
+        env_f64!(
+            "ARL_ELEVATED_DB_POOL_THRESHOLD",
+            cfg.elevated_db_pool_threshold
+        );
         env_f64!("ARL_ELEVATED_REDIS_THRESHOLD", cfg.elevated_redis_threshold);
-        env_u64!("ARL_ELEVATED_QUEUE_DEPTH_THRESHOLD", cfg.elevated_queue_depth_threshold);
-        env_f64!("ARL_ELEVATED_ERROR_RATE_THRESHOLD", cfg.elevated_error_rate_threshold);
-        env_f64!("ARL_ELEVATED_P99_MS_THRESHOLD", cfg.elevated_p99_ms_threshold);
-        env_secs!("ARL_ELEVATED_SUSTAINED_DURATION_SECS", cfg.elevated_sustained_duration);
+        env_u64!(
+            "ARL_ELEVATED_QUEUE_DEPTH_THRESHOLD",
+            cfg.elevated_queue_depth_threshold
+        );
+        env_f64!(
+            "ARL_ELEVATED_ERROR_RATE_THRESHOLD",
+            cfg.elevated_error_rate_threshold
+        );
+        env_f64!(
+            "ARL_ELEVATED_P99_MS_THRESHOLD",
+            cfg.elevated_p99_ms_threshold
+        );
+        env_secs!(
+            "ARL_ELEVATED_SUSTAINED_DURATION_SECS",
+            cfg.elevated_sustained_duration
+        );
 
         env_f64!("ARL_CRITICAL_CPU_THRESHOLD", cfg.critical_cpu_threshold);
-        env_f64!("ARL_CRITICAL_DB_POOL_THRESHOLD", cfg.critical_db_pool_threshold);
+        env_f64!(
+            "ARL_CRITICAL_DB_POOL_THRESHOLD",
+            cfg.critical_db_pool_threshold
+        );
         env_f64!("ARL_CRITICAL_REDIS_THRESHOLD", cfg.critical_redis_threshold);
-        env_u64!("ARL_CRITICAL_QUEUE_DEPTH_THRESHOLD", cfg.critical_queue_depth_threshold);
-        env_f64!("ARL_CRITICAL_ERROR_RATE_THRESHOLD", cfg.critical_error_rate_threshold);
-        env_f64!("ARL_CRITICAL_P99_MS_THRESHOLD", cfg.critical_p99_ms_threshold);
+        env_u64!(
+            "ARL_CRITICAL_QUEUE_DEPTH_THRESHOLD",
+            cfg.critical_queue_depth_threshold
+        );
+        env_f64!(
+            "ARL_CRITICAL_ERROR_RATE_THRESHOLD",
+            cfg.critical_error_rate_threshold
+        );
+        env_f64!(
+            "ARL_CRITICAL_P99_MS_THRESHOLD",
+            cfg.critical_p99_ms_threshold
+        );
         env_usize!("ARL_CRITICAL_SIGNAL_COUNT", cfg.critical_signal_count);
 
         env_f64!("ARL_EMERGENCY_CPU_THRESHOLD", cfg.emergency_cpu_threshold);
-        env_f64!("ARL_EMERGENCY_DB_POOL_THRESHOLD", cfg.emergency_db_pool_threshold);
-        env_f64!("ARL_EMERGENCY_ERROR_RATE_THRESHOLD", cfg.emergency_error_rate_threshold);
+        env_f64!(
+            "ARL_EMERGENCY_DB_POOL_THRESHOLD",
+            cfg.emergency_db_pool_threshold
+        );
+        env_f64!(
+            "ARL_EMERGENCY_ERROR_RATE_THRESHOLD",
+            cfg.emergency_error_rate_threshold
+        );
 
         env_f64!("ARL_RELAX_CPU_THRESHOLD", cfg.relax_cpu_threshold);
         env_f64!("ARL_RELAX_DB_POOL_THRESHOLD", cfg.relax_db_pool_threshold);
         env_f64!("ARL_RELAX_REDIS_THRESHOLD", cfg.relax_redis_threshold);
-        env_u64!("ARL_RELAX_QUEUE_DEPTH_THRESHOLD", cfg.relax_queue_depth_threshold);
-        env_f64!("ARL_RELAX_ERROR_RATE_THRESHOLD", cfg.relax_error_rate_threshold);
+        env_u64!(
+            "ARL_RELAX_QUEUE_DEPTH_THRESHOLD",
+            cfg.relax_queue_depth_threshold
+        );
+        env_f64!(
+            "ARL_RELAX_ERROR_RATE_THRESHOLD",
+            cfg.relax_error_rate_threshold
+        );
         env_f64!("ARL_RELAX_P99_MS_THRESHOLD", cfg.relax_p99_ms_threshold);
         env_secs!("ARL_HYSTERESIS_DURATION_SECS", cfg.hysteresis_duration);
 
-        env_f64!("ARL_ELEVATED_STANDARD_MULTIPLIER", cfg.elevated_standard_multiplier);
-        env_f64!("ARL_CRITICAL_STANDARD_MULTIPLIER", cfg.critical_standard_multiplier);
+        env_f64!(
+            "ARL_ELEVATED_STANDARD_MULTIPLIER",
+            cfg.elevated_standard_multiplier
+        );
+        env_f64!(
+            "ARL_CRITICAL_STANDARD_MULTIPLIER",
+            cfg.critical_standard_multiplier
+        );
         env_f64!("ARL_ELEVATED_LOW_MULTIPLIER", cfg.elevated_low_multiplier);
         env_f64!("ARL_CRITICAL_LOW_MULTIPLIER", cfg.critical_low_multiplier);
-        env_f64!("ARL_EMERGENCY_HIGH_MULTIPLIER", cfg.emergency_high_multiplier);
+        env_f64!(
+            "ARL_EMERGENCY_HIGH_MULTIPLIER",
+            cfg.emergency_high_multiplier
+        );
         env_i64!("ARL_EMERGENCY_MINIMAL_LIMIT", cfg.emergency_minimal_limit);
 
-        env_usize!("ARL_CONSUMER_TREND_BUCKET_COUNT", cfg.consumer_trend_bucket_count);
-        env_f64!("ARL_ACCELERATING_CONSUMER_MULTIPLIER", cfg.accelerating_consumer_multiplier);
+        env_usize!(
+            "ARL_CONSUMER_TREND_BUCKET_COUNT",
+            cfg.consumer_trend_bucket_count
+        );
+        env_f64!(
+            "ARL_ACCELERATING_CONSUMER_MULTIPLIER",
+            cfg.accelerating_consumer_multiplier
+        );
 
-        env_usize!("ARL_EMERGENCY_QUEUE_MAX_DEPTH", cfg.emergency_queue_max_depth);
-        env_secs!("ARL_ELEVATED_MODE_ALERT_DURATION_SECS", cfg.elevated_mode_alert_duration);
+        env_usize!(
+            "ARL_EMERGENCY_QUEUE_MAX_DEPTH",
+            cfg.emergency_queue_max_depth
+        );
+        env_secs!(
+            "ARL_ELEVATED_MODE_ALERT_DURATION_SECS",
+            cfg.elevated_mode_alert_duration
+        );
 
         cfg
     }

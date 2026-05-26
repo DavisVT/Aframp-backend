@@ -88,7 +88,9 @@ impl VaultService {
         signer_id: &str,
         role: &str,
     ) -> VaultResult<bool> {
-        self.multisig.add_signature(request_id, signer_id, role).await
+        self.multisig
+            .add_signature(request_id, signer_id, role)
+            .await
     }
 
     /// Execute an approved transfer (called by a privileged admin endpoint only).

@@ -34,7 +34,10 @@ pub fn validate_tier(
     }
 
     // Out of range — require escalation justification
-    if escalation_justification.map(|s| !s.trim().is_empty()).unwrap_or(false) {
+    if escalation_justification
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+    {
         return Ok(());
     }
 
@@ -184,7 +187,10 @@ mod tests {
             &cfg,
             Some("Exceptional impact on financial transaction integrity"),
         );
-        assert!(result.is_ok(), "expected Ok when escalation justification is provided");
+        assert!(
+            result.is_ok(),
+            "expected Ok when escalation justification is provided"
+        );
     }
 
     #[test]

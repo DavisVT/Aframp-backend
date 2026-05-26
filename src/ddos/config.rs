@@ -12,14 +12,14 @@ pub struct DdosConfig {
 
     // Volumetric detection
     pub baseline_rps: f64,
-    pub spike_multiplier: f64, // e.g. 5.0 = 5x baseline triggers alert
+    pub spike_multiplier: f64,     // e.g. 5.0 = 5x baseline triggers alert
     pub endpoint_flood_share: f64, // fraction of total traffic to one endpoint = flood
 
     // Traffic shaping
     pub high_priority_min_slots: u32,
     pub standard_priority_slots: u32,
     pub total_processing_slots: u32,
-    pub wred_low_threshold: f64,  // queue fill fraction to start dropping low-priority
+    pub wred_low_threshold: f64, // queue fill fraction to start dropping low-priority
     pub wred_high_threshold: f64, // queue fill fraction for max drop probability
 
     // Challenge-response

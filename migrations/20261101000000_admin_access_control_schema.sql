@@ -77,7 +77,7 @@ CREATE TABLE admin_role_permissions (
     role admin_role NOT NULL REFERENCES admin_roles(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES admin_permissions(id) ON DELETE CASCADE,
     granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    granted_by UUID REFERENCES admin_accounts(id),
+    granted_by UUID,
     PRIMARY KEY (role, permission_id)
 );
 

@@ -90,12 +90,12 @@ pub struct RawXdrDiscriminant {
 #[derive(FromBytes, FromZeroes, KnownLayout)]
 #[repr(C)]
 pub struct RawTxV1Header {
-    pub envelope_type:    BE::U32,   //  4 bytes — must be 0x00000002
-    pub source_acct_type: BE::U32,   //  4 bytes — key type discriminant
-    pub source_key:       [u8; 32],  // 32 bytes — Ed25519 public key
-    pub fee:              BE::U32,   //  4 bytes — base fee in stroops
-    pub seq_num:          BE::I64,   //  8 bytes — sequence number
-    pub precond_type:     BE::U32,   //  4 bytes — preconditions discriminant
+    pub envelope_type: BE::U32,    //  4 bytes — must be 0x00000002
+    pub source_acct_type: BE::U32, //  4 bytes — key type discriminant
+    pub source_key: [u8; 32],      // 32 bytes — Ed25519 public key
+    pub fee: BE::U32,              //  4 bytes — base fee in stroops
+    pub seq_num: BE::I64,          //  8 bytes — sequence number
+    pub precond_type: BE::U32,     //  4 bytes — preconditions discriminant
 }
 
 // XDR envelope type discriminants (stellar-xdr "next" spec).
@@ -159,8 +159,8 @@ pub fn parse_envelope(buf: &[u8]) -> Result<ParsedEnvelope<'_>, XdrParseError> {
     }
 
     // Zero-copy cast — no allocation, no copy.
-    let (header, remainder) =
-        zerocopy::Ref::<_, RawTxV1Header>::from_prefix(buf).map_err(|_| XdrParseError::Misaligned)?;
+    let (header, remainder) = zerocopy::Ref::<_, RawTxV1Header>::from_prefix(buf)
+        .map_err(|_| XdrParseError::Misaligned)?;
 
     let discriminant = header.envelope_type.get();
     let envelope_type = match discriminant {
@@ -224,10 +224,7 @@ pub mod pool {
         /// Return a buffer to the pool after clearing it.
         pub fn release(&self, mut buf: BytesMut) {
             buf.clear();
-            self.inner
-                .lock()
-                .expect("pool lock poisoned")
-                .push(buf);
+            self.inner.lock().expect("pool lock poisoned").push(buf);
         }
 
         /// Number of buffers currently available in the pool.
@@ -249,17 +246,17 @@ mod tests {
     /// Build a minimal valid `TransactionV1Envelope` byte slice for testing.
     fn minimal_tx_v1() -> Vec<u8> {
         let mut buf = Vec::with_capacity(MIN_TX_V1_LEN + 16);
-        buf.put_u32(ENVELOPE_TYPE_TX);          // envelope discriminant
-        buf.put_u32(0);                          // source account type: ED25519
-        buf.put_bytes(0xAB, 32);                 // source key (dummy)
-        buf.put_u32(100);                        // fee: 100 stroops
-        buf.put_i64(12345678);                   // sequence number
-        buf.put_u32(0);                          // preconditions: NONE
-        // remainder: empty memo + 0 operations + ext
-        buf.put_u32(0);                          // memo type: MEMO_NONE
-        buf.put_u32(0);                          // operations count: 0
-        buf.put_u32(0);                          // ext: 0
-        buf.put_u32(0);                          // signatures count: 0
+        buf.put_u32(ENVELOPE_TYPE_TX); // envelope discriminant
+        buf.put_u32(0); // source account type: ED25519
+        buf.put_bytes(0xAB, 32); // source key (dummy)
+        buf.put_u32(100); // fee: 100 stroops
+        buf.put_i64(12345678); // sequence number
+        buf.put_u32(0); // preconditions: NONE
+                        // remainder: empty memo + 0 operations + ext
+        buf.put_u32(0); // memo type: MEMO_NONE
+        buf.put_u32(0); // operations count: 0
+        buf.put_u32(0); // ext: 0
+        buf.put_u32(0); // signatures count: 0
         buf
     }
 

@@ -8,7 +8,9 @@ use sqlx::PgPool;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use super::catalogue::{CatalogueError, KeyCatalogueRepository, KeyStatus, NewPlatformKey, KeyType};
+use super::catalogue::{
+    CatalogueError, KeyCatalogueRepository, KeyStatus, KeyType, NewPlatformKey,
+};
 use super::metrics;
 
 // ---------------------------------------------------------------------------
@@ -248,16 +250,16 @@ pub struct KeyRotationWorker {
 
 impl KeyRotationWorker {
     pub fn new(pool: PgPool) -> Self {
-        Self { scheduler: KeyRotationScheduler::new(pool) }
+        Self {
+            scheduler: KeyRotationScheduler::new(pool),
+        }
     }
 
     pub async fn run(self, mut shutdown: tokio::sync::watch::Receiver<bool>) {
         // Daily sweep at startup then every 24h
-        let mut sweep_ticker =
-            tokio::time::interval(std::time::Duration::from_secs(86_400));
+        let mut sweep_ticker = tokio::time::interval(std::time::Duration::from_secs(86_400));
         // Grace period expiry check every hour
-        let mut grace_ticker =
-            tokio::time::interval(std::time::Duration::from_secs(3_600));
+        let mut grace_ticker = tokio::time::interval(std::time::Duration::from_secs(3_600));
 
         info!("Platform key rotation worker started");
 
@@ -299,10 +301,6 @@ pub fn days_until_rotation(next_rotation_at: Option<chrono::DateTime<Utc>>) -> O
 }
 
 /// Returns true if the key is within its grace period (both old and new valid).
-pub fn is_in_grace_period(
-    status: &str,
-    grace_period_end: Option<chrono::DateTime<Utc>>,
-) -> bool {
-    status == "transitional"
-        && grace_period_end.map(|t| t > Utc::now()).unwrap_or(false)
+pub fn is_in_grace_period(status: &str, grace_period_end: Option<chrono::DateTime<Utc>>) -> bool {
+    status == "transitional" && grace_period_end.map(|t| t > Utc::now()).unwrap_or(false)
 }

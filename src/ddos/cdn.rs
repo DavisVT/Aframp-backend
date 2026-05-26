@@ -134,7 +134,14 @@ impl CdnClient {
                 "configuration": { "target": "ip", "value": ip },
                 "notes": "aframp-ddos-auto-block"
             });
-            match self.http.post(&url).bearer_auth(token).json(&body).send().await {
+            match self
+                .http
+                .post(&url)
+                .bearer_auth(token)
+                .json(&body)
+                .send()
+                .await
+            {
                 Ok(r) if r.status().is_success() => {}
                 Ok(r) => warn!(ip = ip, status = %r.status(), "Cloudflare IP block failed"),
                 Err(e) => error!(ip = ip, error = %e, "Cloudflare IP block request failed"),

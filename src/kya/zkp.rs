@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 /// Zero-knowledge proof of competence
-/// 
+///
 /// This is a simplified ZK proof implementation. In production, you would use
 /// libraries like arkworks, bellman, or circom for proper ZK-SNARK/STARK proofs.
 pub struct CompetenceProof {
@@ -18,7 +18,7 @@ impl CompetenceProof {
     }
 
     /// Generate a proof that an agent performed a task correctly
-    /// 
+    ///
     /// In a real implementation, this would use ZK-SNARKs to prove:
     /// - The agent executed computation C on dataset D
     /// - The result R is correct
@@ -39,7 +39,7 @@ impl CompetenceProof {
         hasher.update(claim.as_bytes());
         hasher.update(private_data);
         hasher.update(public_inputs);
-        
+
         let proof = hasher.finalize().to_vec();
         Ok(proof)
     }
@@ -86,7 +86,10 @@ impl CompetenceProof {
     }
 
     /// Get all proofs for an agent
-    pub async fn get_by_agent(&self, agent_did: &DID) -> Result<Vec<CompetenceProofRecord>, KYAError> {
+    pub async fn get_by_agent(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<CompetenceProofRecord>, KYAError> {
         let rows = sqlx::query!(
             r#"
             SELECT id, agent_did, domain, claim, proof, public_inputs, verified, created_at
@@ -138,7 +141,7 @@ impl ZKProofVerifier {
     }
 
     /// Verify a competence proof
-    /// 
+    ///
     /// In production, this would verify ZK-SNARK/STARK proofs using
     /// verification keys and public parameters
     pub fn verify_proof(
@@ -177,7 +180,10 @@ impl ZKProofVerifier {
     }
 
     /// Batch verify all proofs for an agent
-    pub async fn verify_all(&self, agent_did: &DID) -> Result<Vec<(CompetenceProofRecord, bool)>, KYAError> {
+    pub async fn verify_all(
+        &self,
+        agent_did: &DID,
+    ) -> Result<Vec<(CompetenceProofRecord, bool)>, KYAError> {
         let proof_manager = CompetenceProof::new(self.pool.clone());
         let proofs = proof_manager.get_by_agent(agent_did).await?;
 
@@ -204,10 +210,10 @@ pub mod proof_utils {
     ) -> Result<(Vec<u8>, Vec<u8>), KYAError> {
         let domain = ReputationDomain::CodeAudit;
         let claim = format!("Code audit completed: {}", audit_result);
-        
+
         // Private data: full audit report
         let private_data = audit_result.as_bytes();
-        
+
         // Public inputs: code hash only
         let public_inputs = code_hash.to_vec();
 
@@ -230,10 +236,10 @@ pub mod proof_utils {
     ) -> Result<(Vec<u8>, Vec<u8>), KYAError> {
         let domain = ReputationDomain::FinancialAnalysis;
         let claim = format!("Financial calculation: {}", calculation_type);
-        
+
         // Private data: calculation details
         let private_data = calculation_type.as_bytes();
-        
+
         // Public inputs: result hash
         let public_inputs = result_hash.to_vec();
 

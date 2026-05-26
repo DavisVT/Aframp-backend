@@ -35,12 +35,7 @@ impl SorobanEscrow {
         amount_stroops: i64,
     ) -> Result<String, EscrowError> {
         // TODO: build + submit Soroban InvokeHostFunction XDR
-        let contract_id = format!(
-            "C{}-{}-{}",
-            &session_id[..8],
-            buyer_id,
-            amount_stroops
-        );
+        let contract_id = format!("C{}-{}-{}", &session_id[..8], buyer_id, amount_stroops);
         Ok(contract_id)
     }
 }

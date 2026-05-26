@@ -40,7 +40,7 @@ pub async fn audit_logging_middleware(
             actor_type: ActorType::External,
             correlation_id: Uuid::new_v4().to_string(),
         });
-    
+
     // Extract request information
     let method = req.method().to_string();
     let uri = req.uri().to_string();
@@ -49,13 +49,13 @@ pub async fn audit_logging_middleware(
         .get("user-agent")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
-    
+
     // Get audit ledger from extensions
     let audit_ledger = req.extensions().get::<Arc<AuditLedger>>().cloned();
-    
+
     // Process request
     let response = next.run(req).await;
-    
+
     // Log to audit ledger (async, don't block response)
     if let Some(ledger) = audit_ledger {
         let status = response.status();
@@ -68,19 +68,19 @@ pub async fn audit_logging_middleware(
         } else {
             "unknown"
         };
-        
+
         let metadata = serde_json::json!({
             "method": method,
             "uri": uri,
             "status_code": status.as_u16(),
         });
-        
+
         // Spawn async task to log (don't await to avoid blocking)
         let ledger_clone = ledger.clone();
         let audit_ctx_clone = audit_ctx.clone();
         let ip_address = addr.ip().to_string();
         let result_str = result.to_string();
-        
+
         tokio::spawn(async move {
             if let Err(e) = ledger_clone
                 .append(
@@ -104,7 +104,7 @@ pub async fn audit_logging_middleware(
     } else {
         warn!("Audit ledger not available in request extensions");
     }
-    
+
     response
 }
 
@@ -117,7 +117,7 @@ impl AuditLogger {
     pub fn new(ledger: Arc<AuditLedger>) -> Self {
         Self { ledger }
     }
-    
+
     /// Log a transaction operation
     pub async fn log_transaction(
         &self,
@@ -134,7 +134,7 @@ impl AuditLogger {
             "currency": currency,
             "transaction_type": "payment",
         });
-        
+
         self.ledger
             .append(
                 actor_id,
@@ -150,10 +150,10 @@ impl AuditLogger {
                 None,
             )
             .await?;
-        
+
         Ok(())
     }
-    
+
     /// Log a governance action
     pub async fn log_governance(
         &self,
@@ -166,7 +166,7 @@ impl AuditLogger {
         let metadata = serde_json::json!({
             "proposal_type": proposal_type,
         });
-        
+
         self.ledger
             .append(
                 actor_id,
@@ -182,10 +182,10 @@ impl AuditLogger {
                 None,
             )
             .await?;
-        
+
         Ok(())
     }
-    
+
     /// Log an authentication event
     pub async fn log_authentication(
         &self,
@@ -200,14 +200,14 @@ impl AuditLogger {
             "auth_method": "password",
             "success": success,
         });
-        
+
         let result = if success { "success" } else { "failure" };
         let error_message = if !success {
             Some("Authentication failed".to_string())
         } else {
             None
         };
-        
+
         self.ledger
             .append(
                 actor_id,
@@ -223,10 +223,10 @@ impl AuditLogger {
                 error_message,
             )
             .await?;
-        
+
         Ok(())
     }
-    
+
     /// Log a mint/burn operation
     pub async fn log_mint_burn(
         &self,
@@ -242,7 +242,7 @@ impl AuditLogger {
             "asset_code": asset_code,
             "operation": if matches!(action_type, ActionType::Mint) { "mint" } else { "burn" },
         });
-        
+
         self.ledger
             .append(
                 actor_id,
@@ -258,10 +258,10 @@ impl AuditLogger {
                 None,
             )
             .await?;
-        
+
         Ok(())
     }
-    
+
     /// Log a configuration change
     pub async fn log_config_change(
         &self,
@@ -276,7 +276,7 @@ impl AuditLogger {
             "old_value": old_value,
             "new_value": new_value,
         });
-        
+
         self.ledger
             .append(
                 actor_id,
@@ -292,7 +292,7 @@ impl AuditLogger {
                 None,
             )
             .await?;
-        
+
         Ok(())
     }
 }
@@ -300,7 +300,7 @@ impl AuditLogger {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_audit_context_creation() {
         let ctx = AuditContext {
@@ -308,7 +308,7 @@ mod tests {
             actor_type: ActorType::User,
             correlation_id: Uuid::new_v4().to_string(),
         };
-        
+
         assert_eq!(ctx.actor_id, "user123");
         assert!(matches!(ctx.actor_type, ActorType::User));
     }

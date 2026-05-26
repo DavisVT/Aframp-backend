@@ -14,21 +14,24 @@
 ///   - Pool resume restores routing
 #[cfg(all(test, feature = "integration"))]
 mod tests {
-    use Bitmesh_backend::liquidity::{
-        models::*,
-        repository::LiquidityRepository,
-        service::LiquidityService,
-        RESERVATION_TIMEOUT_SECS,
-    };
     use sqlx::postgres::PgPoolOptions;
     use sqlx::types::BigDecimal;
     use std::str::FromStr;
     use std::sync::Arc;
     use uuid::Uuid;
+    use Bitmesh_backend::liquidity::{
+        models::*, repository::LiquidityRepository, service::LiquidityService,
+        RESERVATION_TIMEOUT_SECS,
+    };
 
     async fn setup() -> (Arc<LiquidityRepository>, sqlx::PgPool) {
-        let url = std::env::var("DATABASE_URL").expect("DATABASE_URL required for integration tests");
-        let pg = PgPoolOptions::new().max_connections(5).connect(&url).await.unwrap();
+        let url =
+            std::env::var("DATABASE_URL").expect("DATABASE_URL required for integration tests");
+        let pg = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&url)
+            .await
+            .unwrap();
         let repo = Arc::new(LiquidityRepository::new(pg.clone()));
         (repo, pg)
     }
@@ -38,7 +41,12 @@ mod tests {
     }
 
     /// Seed a fresh pool for a test and return its pool_id.
-    async fn seed_pool(repo: &LiquidityRepository, pair: &str, pt: PoolType, available: &str) -> Uuid {
+    async fn seed_pool(
+        repo: &LiquidityRepository,
+        pair: &str,
+        pt: PoolType,
+        available: &str,
+    ) -> Uuid {
         // Insert directly so we can control available_liquidity
         let pool_id: Uuid = sqlx::query_scalar!(
             r#"INSERT INTO liquidity_pools
@@ -49,9 +57,9 @@ mod tests {
             pair,
             pt as PoolType,
             bd(available),
-            bd("100"),       // min threshold
-            bd("500"),       // target
-            bd("99999999"),  // cap
+            bd("100"),      // min threshold
+            bd("500"),      // target
+            bd("99999999"), // cap
         )
         .fetch_one(&repo.pool)
         .await
@@ -131,7 +139,8 @@ mod tests {
             .map(|_| {
                 let r = Arc::clone(&repo);
                 tokio::spawn(async move {
-                    r.reserve_liquidity(pool_id, Uuid::new_v4(), &bd("200"), 300).await
+                    r.reserve_liquidity(pool_id, Uuid::new_v4(), &bd("200"), 300)
+                        .await
                 })
             })
             .collect();
@@ -143,7 +152,10 @@ mod tests {
             }
         }
 
-        assert_eq!(successes, 5, "exactly 5 of 10 concurrent reservations should succeed");
+        assert_eq!(
+            successes, 5,
+            "exactly 5 of 10 concurrent reservations should succeed"
+        );
 
         let pool = repo.get_pool(pool_id).await.unwrap().unwrap();
         assert_eq!(pool.available_liquidity, bd("0"));
@@ -170,7 +182,11 @@ mod tests {
         assert!(expired.contains(&reservation.reservation_id));
 
         let pool = repo.get_pool(pool_id).await.unwrap().unwrap();
-        assert_eq!(pool.available_liquidity, bd("5000"), "liquidity should be restored after timeout");
+        assert_eq!(
+            pool.available_liquidity,
+            bd("5000"),
+            "liquidity should be restored after timeout"
+        );
     }
 
     // ── Minimum threshold enforcement ─────────────────────────────────────────
@@ -207,7 +223,9 @@ mod tests {
             .unwrap();
         // available=50 >= amount=10 so DB would allow it, but service layer blocks it.
         // Here we verify the service-level guard works:
-        let models::PoolStatus::Active = pool.pool_status else { panic!("pool should be active") };
+        let models::PoolStatus::Active = pool.pool_status else {
+            panic!("pool should be active")
+        };
         assert!(
             pool.available_liquidity < pool.min_liquidity_threshold,
             "service must reject when available < min_threshold"
@@ -223,7 +241,9 @@ mod tests {
         let pool_id = seed_pool(&repo, &pair, PoolType::Retail, "10000").await;
 
         // Pause the pool
-        repo.set_pool_status(pool_id, PoolStatus::Paused).await.unwrap();
+        repo.set_pool_status(pool_id, PoolStatus::Paused)
+            .await
+            .unwrap();
 
         // Attempt reservation — should return None because pool_status != 'active'
         let result = repo
@@ -241,13 +261,20 @@ mod tests {
         let pair = format!("TEST/{}", Uuid::new_v4().to_string()[..8].to_uppercase());
         let pool_id = seed_pool(&repo, &pair, PoolType::Retail, "10000").await;
 
-        repo.set_pool_status(pool_id, PoolStatus::Paused).await.unwrap();
-        repo.set_pool_status(pool_id, PoolStatus::Active).await.unwrap();
+        repo.set_pool_status(pool_id, PoolStatus::Paused)
+            .await
+            .unwrap();
+        repo.set_pool_status(pool_id, PoolStatus::Active)
+            .await
+            .unwrap();
 
         let result = repo
             .reserve_liquidity(pool_id, Uuid::new_v4(), &bd("100"), 300)
             .await
             .unwrap();
-        assert!(result.is_some(), "resumed pool must accept new reservations");
+        assert!(
+            result.is_some(),
+            "resumed pool must accept new reservations"
+        );
     }
 }
