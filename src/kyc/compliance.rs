@@ -377,11 +377,10 @@ impl ComplianceService {
         // TODO: Implement notification system
 
         // Retrieve and return the created case
-        let edd_case = sqlx::query_as!(
-            EnhancedDueDiligenceCase,
-            "SELECT * FROM enhanced_due_diligence_cases WHERE id = $1",
-            edd_case_id
+        let edd_case = sqlx::query_as::<_, EnhancedDueDiligenceCase>(
+            "SELECT * FROM enhanced_due_diligence_cases WHERE id = $1"
         )
+        .bind(edd_case_id)
         .fetch_one(&self.repository.pool)
         .await
         .map_err(|e| ComplianceError::DatabaseError(e.to_string()))?;
@@ -420,23 +419,27 @@ impl ComplianceService {
         .map_err(|e| ComplianceError::DatabaseError(e.to_string()))?
         .unwrap_or(0);
 
-        let verifications_by_tier = sqlx::query!(
+        let verifications_by_tier = sqlx::query(
             r#"
             SELECT tier, COUNT(*) as count
             FROM kyc_records 
             WHERE created_at BETWEEN $1 AND $2
             GROUP BY tier
-            "#,
-            period_start,
-            period_end
+            "#
         )
+        .bind(period_start)
+        .bind(period_end)
         .fetch_all(&self.repository.pool)
         .await
         .map_err(|e| ComplianceError::DatabaseError(e.to_string()))?;
 
         let mut tier_counts = HashMap::new();
         for record in verifications_by_tier {
-            tier_counts.insert(record.tier, record.count.unwrap_or(0));
+            let tier: KycTier = record.try_get("tier")
+                .map_err(|e| ComplianceError::DatabaseError(e.to_string()))?;
+            let count: i64 = record.try_get::<i64, _>("count")
+                .map_err(|e| ComplianceError::DatabaseError(e.to_string()))?;
+            tier_counts.insert(tier, count);
         }
 
         // Calculate approval/rejection rates
@@ -537,11 +540,10 @@ impl ComplianceService {
         );
 
         // Get complete KYC history
-        let kyc_records = sqlx::query_as!(
-            KycRecord,
-            "SELECT * FROM kyc_records WHERE consumer_id = $1 ORDER BY created_at DESC",
-            consumer_id
+        let kyc_records = sqlx::query_as::<_, KycRecord>(
+            "SELECT * FROM kyc_records WHERE consumer_id = $1 ORDER BY created_at DESC"
         )
+        .bind(consumer_id)
         .fetch_all(&self.repository.pool)
         .await
         .map_err(|e| ComplianceError::DatabaseError(e.to_string()))?;
