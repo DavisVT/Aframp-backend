@@ -458,20 +458,49 @@ async fn main() -> anyhow::Result<()> {
         }),
     );
 
+    // ── Multi-level cache — built ONCE, shared by warming, admin, CDN, pipelines ──
+    let shared_ml_cache: Option<std::sync::Arc<cache::MultiLevelCache>> =
+        if let Some(ref redis) = redis_cache {
+            let registry = prometheus::default_registry();
+            Some(std::sync::Arc::new(cache::build_multi_level_cache(
+                redis.clone(),
+                registry,
+            )))
+        } else {
+            None
+        };
+
+    // ── InvalidationPipeline — centralises write-through deletes ─────────────
+    let shared_invalidation_pipeline: Option<std::sync::Arc<cache::InvalidationPipeline>> =
+        if let (Some(ref redis), Some(ref pool)) = (&redis_cache, &db_pool) {
+            Some(cache::InvalidationPipeline::new(
+                std::sync::Arc::new(redis.clone()),
+                Some(std::sync::Arc::new(pool.clone())),
+            ))
+        } else {
+            None
+        };
+
     // --- Cache warming (must complete before traffic is accepted) ---
-    if let (Some(ref pool), Some(ref redis)) = (&db_pool, &redis_cache) {
-        let registry = prometheus::default_registry();
-        let ml_cache = cache::build_multi_level_cache(redis.clone(), registry);
-        let rate_repo = database::exchange_rate_repository::ExchangeRateRepository::new(pool.clone());
-        let fee_repo = database::fee_structure_repository::FeeStructureRepository::new(pool.clone());
+    if let (Some(ref pool), Some(ref redis), Some(ref ml)) =
+        (&db_pool, &redis_cache, &shared_ml_cache)
+    {
+        let rate_repo =
+            database::exchange_rate_repository::ExchangeRateRepository::new(pool.clone());
+        let fee_repo =
+            database::fee_structure_repository::FeeStructureRepository::new(pool.clone());
         let ws = warming_state.clone();
-        let l1 = ml_cache.l1.clone();
+        let l1 = ml.l1.clone();
         let redis_clone = redis.clone();
+        let ml_clone = ml.clone();
         tokio::spawn(async move {
             warm_caches(&l1, &redis_clone, &rate_repo, &fee_repo, &ws).await;
         });
+
+        // Cache stats worker — polls Redis memory + L1 sizes every 60 s
+        cache::CacheStatsWorker::new(ml_clone, std::sync::Arc::new(redis.clone())).start();
+        info!("✅ Cache stats worker started");
     } else {
-        // No DB or Redis — mark ready immediately so health check passes.
         warming_state.mark_ready();
     }
 
@@ -1067,8 +1096,14 @@ async fn main() -> anyhow::Result<()> {
             .or_else(|_| std::env::var("CNGN_ISSUER_MAINNET"))
             .unwrap_or_else(|_| "GXXXXDEFAULTISSUERXXXX".to_string());
 
-        let rate_repo =
-            database::exchange_rate_repository::ExchangeRateRepository::new(pool.clone());
+        let rate_repo = {
+            let mut r = database::exchange_rate_repository::ExchangeRateRepository::new(pool.clone());
+            #[cfg(feature = "cache")]
+            if let Some(ref pipeline) = shared_invalidation_pipeline {
+                r = r.with_pipeline(pipeline.clone());
+            }
+            r
+        };
         let fee_repo =
             database::fee_structure_repository::FeeStructureRepository::new(pool.clone());
         let fee_service =
@@ -1306,6 +1341,8 @@ async fn main() -> anyhow::Result<()> {
         
         Router::new()
             .route("/api/rates", get(api::rates::get_rates).options(api::rates::options_rates))
+            // Apply CDN middleware: body-hash ETag + 304 + Cache-Control: public, max-age=90
+            .layer(axum::middleware::from_fn(cache::cdn_cache_middleware))
             .with_state(rates_state)
     } else {
         info!("⏭️  Skipping rates routes (no database)");
@@ -1389,6 +1426,7 @@ async fn main() -> anyhow::Result<()> {
         
         Router::new()
             .route("/api/fees", get(api::fees::get_fees))
+            .layer(axum::middleware::from_fn(cache::cdn_cache_middleware))
             .with_state(fees_state)
     } else {
         info!("⏭️  Skipping fees routes (no database)");
@@ -1905,6 +1943,26 @@ async fn main() -> anyhow::Result<()> {
         Router::new()
     };
 
+    // ── Cache Admin Routes (Issue #459) ──────────────────────────────────────
+    let cache_admin_routes = if let (Some(ref pool), Some(ref redis), Some(ref ml)) =
+        (&db_pool, &redis_cache, &shared_ml_cache)
+    {
+        let l2_metrics = ml.l2_metrics.clone();
+        let size_metrics = ml.size_metrics.clone();
+        let state = std::sync::Arc::new(cache::CacheAdminState {
+            multi_cache: ml.clone(),
+            redis: std::sync::Arc::new(redis.clone()),
+            pool: std::sync::Arc::new(pool.clone()),
+            l2_metrics,
+            size_metrics,
+        });
+        info!("✅ Cache admin routes enabled");
+        cache::cache_admin_router(state)
+    } else {
+        info!("⏭️  Skipping cache admin routes (no database or Redis)");
+        Router::new()
+    };
+
     // ── Compliance Effectiveness Reporting (AML/KYC KPI Reports) ─────────────
     let compliance_effectiveness_routes = if let Some(ref pool) = db_pool {
         let ce_repo = std::sync::Arc::new(
@@ -2177,7 +2235,9 @@ async fn main() -> anyhow::Result<()> {
         tokio::spawn(liq_worker.run(worker_shutdown_rx.clone()));
         info!("✅ Liquidity health worker started (interval={}s)", health_interval);
 
+        // CDN middleware: public liquidity depth queries are cacheable
         liquidity::routes::public_routes(liq_state.clone())
+            .layer(axum::middleware::from_fn(cache::cdn_cache_middleware))
             .merge(liquidity::routes::admin_routes(liq_state))
     } else {
         info!("⏭️  Skipping liquidity routes (missing database or cache)");
@@ -2628,6 +2688,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(banking_webhook_routes)
         .merge(sla_routes)
         .merge(pep_routes)
+        .merge(cache_admin_routes)
         .with_state(AppState {
             db_pool,
             redis_cache,

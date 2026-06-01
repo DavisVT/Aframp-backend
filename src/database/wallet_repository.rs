@@ -5,7 +5,9 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 #[cfg(feature = "cache")]
-use crate::cache::{keys::wallet::BalanceKey, Cache, RedisCache};
+use crate::cache::{keys::wallet::BalanceKey, invalidation::{InvalidationEvent, InvalidationPipeline}, Cache, RedisCache};
+#[cfg(feature = "cache")]
+use std::sync::Arc;
 #[cfg(feature = "cache")]
 use tracing::debug;
 
@@ -25,6 +27,8 @@ pub struct WalletRepository {
     pool: PgPool,
     #[cfg(feature = "cache")]
     cache: Option<RedisCache>,
+    #[cfg(feature = "cache")]
+    pipeline: Option<Arc<InvalidationPipeline>>,
 }
 
 impl WalletRepository {
@@ -34,6 +38,8 @@ impl WalletRepository {
             pool,
             #[cfg(feature = "cache")]
             cache: None,
+            #[cfg(feature = "cache")]
+            pipeline: None,
         }
     }
 
@@ -43,6 +49,7 @@ impl WalletRepository {
         Self {
             pool,
             cache: Some(cache),
+            pipeline: None,
         }
     }
 
@@ -50,6 +57,13 @@ impl WalletRepository {
     #[cfg(feature = "cache")]
     pub fn enable_cache(&mut self, cache: RedisCache) {
         self.cache = Some(cache);
+    }
+
+    /// Attach a centralized invalidation pipeline (replaces inline deletes).
+    #[cfg(feature = "cache")]
+    pub fn with_pipeline(mut self, pipeline: Arc<InvalidationPipeline>) -> Self {
+        self.pipeline = Some(pipeline);
+        self
     }
 
     /// Find wallet by user ID
@@ -142,19 +156,21 @@ impl WalletRepository {
             }
         })?;
 
-        // Invalidate balance cache
+        // Invalidate balance cache via pipeline (preferred) or inline fallback
         #[cfg(feature = "cache")]
-        if let Some(ref cache) = self.cache {
-            let balance_key = BalanceKey::new(&wallet.account_address);
-            if let Err(e) =
-                <RedisCache as Cache<String>>::delete(cache, &balance_key.to_string()).await
-            {
-                debug!("Failed to invalidate wallet balance cache: {}", e);
-            } else {
-                debug!(
-                    "Invalidated wallet balance cache: {}",
-                    wallet.account_address
-                );
+        {
+            let addr = wallet.account_address.clone();
+            if let Some(ref pipeline) = self.pipeline {
+                pipeline.process(InvalidationEvent::WalletBalanceChanged { address: addr }).await;
+            } else if let Some(ref cache) = self.cache {
+                let balance_key = BalanceKey::new(&wallet.account_address);
+                if let Err(e) =
+                    <RedisCache as Cache<String>>::delete(cache, &balance_key.to_string()).await
+                {
+                    debug!("Failed to invalidate wallet balance cache: {}", e);
+                } else {
+                    debug!("Invalidated wallet balance cache: {}", wallet.account_address);
+                }
             }
         }
 
@@ -278,17 +294,19 @@ impl WalletRepository {
         // Invalidate balance cache if wallet was deleted
         #[cfg(feature = "cache")]
         if deleted {
-            if let (Some(ref cache), Some(wallet_data)) = (&self.cache, wallet) {
-                let balance_key = BalanceKey::new(&wallet_data.account_address);
-                if let Err(e) =
-                    <RedisCache as Cache<String>>::delete(cache, &balance_key.to_string()).await
-                {
-                    debug!("Failed to invalidate wallet balance cache on delete: {}", e);
-                } else {
-                    debug!(
-                        "Invalidated wallet balance cache on delete: {}",
-                        wallet_data.account_address
-                    );
+            if let Some(wallet_data) = wallet {
+                let addr = wallet_data.account_address.clone();
+                if let Some(ref pipeline) = self.pipeline {
+                    pipeline.process(InvalidationEvent::WalletBalanceChanged { address: addr }).await;
+                } else if let Some(ref cache) = self.cache {
+                    let balance_key = BalanceKey::new(&wallet_data.account_address);
+                    if let Err(e) =
+                        <RedisCache as Cache<String>>::delete(cache, &balance_key.to_string()).await
+                    {
+                        debug!("Failed to invalidate wallet balance cache on delete: {}", e);
+                    } else {
+                        debug!("Invalidated wallet balance cache on delete: {}", wallet_data.account_address);
+                    }
                 }
             }
         }
