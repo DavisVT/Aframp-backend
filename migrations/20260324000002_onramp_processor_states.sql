@@ -1,4 +1,3 @@
--- migrate:up
 -- Add onramp processor state machine statuses and refund tracking columns.
 -- These statuses drive the full onramp lifecycle:
 --   pending → payment_received → processing → completed

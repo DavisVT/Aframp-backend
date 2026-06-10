@@ -1,4 +1,3 @@
--- migrate:up
 -- Cryptographic Signatory Vault (Issue #499)
 -- Tracks multi-sig approval states required for sovereign-tier token exchanges
 -- with strict data residency and partitioning rules.
@@ -47,7 +46,3 @@ COMMENT ON COLUMN cryptographic_signatory_vault.data_residency_region IS 'Region
 CREATE TRIGGER update_signatory_vault_updated_at
     BEFORE UPDATE ON cryptographic_signatory_vault
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- migrate:down
-DROP TRIGGER IF EXISTS update_signatory_vault_updated_at ON cryptographic_signatory_vault;
-DROP TABLE IF EXISTS cryptographic_signatory_vault;

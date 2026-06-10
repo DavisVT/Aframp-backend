@@ -1,4 +1,3 @@
--- migrate:up
 -- Database sharding infrastructure (Issue #423).
 -- The shard_registry lives on the PRIMARY (coordinator) database.
 -- Each shard is a separate PostgreSQL instance; this table tells the
@@ -58,7 +57,3 @@ CREATE TRIGGER set_updated_at_shard_registry
 CREATE TRIGGER set_updated_at_shard_migration_jobs
     BEFORE UPDATE ON shard_migration_jobs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- migrate:down
-DROP TABLE IF EXISTS shard_migration_jobs;
-DROP TABLE IF EXISTS shard_registry;

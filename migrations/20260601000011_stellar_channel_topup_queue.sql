@@ -21,6 +21,3 @@ CREATE INDEX IF NOT EXISTS idx_channel_topup_channel
 
 COMMENT ON TABLE stellar_channel_topup_queue IS
     'Queue of top-up operations for channel accounts to prevent balance depletion.';
-
--- migrate:down
-DROP TABLE IF EXISTS stellar_channel_topup_queue CASCADE;

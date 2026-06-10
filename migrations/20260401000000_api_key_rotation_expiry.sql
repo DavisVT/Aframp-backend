@@ -1,4 +1,3 @@
--- migrate:up
 -- API Key Rotation & Expiry Management (Issue #137)
 --
 -- Adds:

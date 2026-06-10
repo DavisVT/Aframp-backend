@@ -1,4 +1,3 @@
--- migrate:up
 -- Database maintenance worker support tables
 
 -- Archive table for old transactions

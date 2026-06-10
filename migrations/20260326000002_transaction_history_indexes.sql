@@ -1,4 +1,3 @@
--- migrate:up
 -- Transaction history: indexes for cursor-based pagination and filtering
 
 -- Primary history query: wallet + created_at DESC (cursor pagination)

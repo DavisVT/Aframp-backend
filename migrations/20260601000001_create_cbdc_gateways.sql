@@ -1,4 +1,3 @@
--- migrate:up
 -- CBDC Network Gateway Registry (Issue #499)
 -- Tracks permissioned central bank DLT node endpoints, connection profiles,
 -- mTLS certificate footprints, and operational status.
@@ -42,7 +41,3 @@ COMMENT ON COLUMN cbdc_gateways.metadata IS 'Flexible JSONB metadata for network
 CREATE TRIGGER update_cbdc_gateways_updated_at
     BEFORE UPDATE ON cbdc_gateways
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- migrate:down
-DROP TRIGGER IF EXISTS update_cbdc_gateways_updated_at ON cbdc_gateways;
-DROP TABLE IF EXISTS cbdc_gateways;

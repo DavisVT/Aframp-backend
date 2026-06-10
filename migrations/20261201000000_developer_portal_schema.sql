@@ -1,9 +1,8 @@
--- migrate:up
 -- Developer Portal Schema
 -- Creates tables for developer accounts, applications, credentials, and access management
 
 -- Developer account status lookup table
-CREATE TABLE developer_account_statuses (
+CREATE TABLE IF NOT EXISTS developer_account_statuses (
     code TEXT PRIMARY KEY,
     description TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -21,10 +20,11 @@ INSERT INTO developer_account_statuses (code, description) VALUES
     ('identity_verified', 'Identity verification completed'),
     ('identity_rejected', 'Identity verification rejected'),
     ('suspended', 'Account suspended by admin'),
-    ('active', 'Account fully active with production access');
+    ('active', 'Account fully active with production access')
+ON CONFLICT (code) DO NOTHING;
 
 -- Access tier lookup table
-CREATE TABLE access_tiers (
+CREATE TABLE IF NOT EXISTS access_tiers (
     code TEXT PRIMARY KEY,
     description TEXT NOT NULL,
     max_applications INTEGER NOT NULL DEFAULT 5,
@@ -46,10 +46,11 @@ COMMENT ON COLUMN access_tiers.requires_business_agreement IS 'Whether business 
 INSERT INTO access_tiers (code, description, max_applications, rate_limit_per_minute, requires_identity_verification, requires_business_agreement) VALUES
     ('sandbox', 'Sandbox tier - testnet access only', 3, 50, FALSE, FALSE),
     ('standard', 'Standard tier - mainnet access with standard limits', 10, 1000, TRUE, FALSE),
-    ('partner', 'Partner tier - mainnet access with elevated limits', 50, 10000, TRUE, TRUE);
+    ('partner', 'Partner tier - mainnet access with elevated limits', 50, 10000, TRUE, TRUE)
+ON CONFLICT (code) DO NOTHING;
 
 -- Developer accounts table
-CREATE TABLE developer_accounts (
+CREATE TABLE IF NOT EXISTS developer_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL,
@@ -88,7 +89,7 @@ COMMENT ON COLUMN developer_accounts.suspended_at IS 'Timestamp when account was
 COMMENT ON COLUMN developer_accounts.suspension_reason IS 'Reason for suspension';
 
 -- Developer applications table
-CREATE TABLE developer_applications (
+CREATE TABLE IF NOT EXISTS developer_applications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -111,7 +112,7 @@ COMMENT ON COLUMN developer_applications.sandbox_wallet_address IS 'Testnet wall
 COMMENT ON COLUMN developer_applications.sandbox_wallet_secret IS 'Testnet wallet secret for sandbox';
 
 -- API keys table
-CREATE TABLE api_keys (
+CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL REFERENCES developer_applications(id) ON DELETE CASCADE,
     key_prefix TEXT NOT NULL,
@@ -128,6 +129,15 @@ CREATE TABLE api_keys (
     UNIQUE (key_prefix, key_hash)
 );
 
+
+-- Add developer portal columns to api_keys if they don't exist yet
+ALTER TABLE api_keys
+    ADD COLUMN IF NOT EXISTS application_id UUID REFERENCES developer_applications(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS key_name TEXT,
+    ADD COLUMN IF NOT EXISTS environment TEXT NOT NULL DEFAULT 'sandbox',
+    ADD COLUMN IF NOT EXISTS usage_count INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS rate_limit_per_minute INTEGER NOT NULL DEFAULT 100;
+
 COMMENT ON TABLE api_keys IS 'API keys for developer applications';
 COMMENT ON COLUMN api_keys.application_id IS 'Reference to application';
 COMMENT ON COLUMN api_keys.key_prefix IS 'Public prefix of the API key';
@@ -141,7 +151,7 @@ COMMENT ON COLUMN api_keys.usage_count IS 'Total usage count';
 COMMENT ON COLUMN api_keys.rate_limit_per_minute IS 'Rate limit per minute for this key';
 
 -- OAuth clients table
-CREATE TABLE oauth_clients (
+CREATE TABLE IF NOT EXISTS oauth_clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL REFERENCES developer_applications(id) ON DELETE CASCADE,
     client_id TEXT NOT NULL UNIQUE,
@@ -166,7 +176,7 @@ COMMENT ON COLUMN oauth_clients.scopes IS 'Granted scopes';
 COMMENT ON COLUMN oauth_clients.status IS 'Client status';
 
 -- Webhook configurations table
-CREATE TABLE webhook_configurations (
+CREATE TABLE IF NOT EXISTS webhook_configurations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL REFERENCES developer_applications(id) ON DELETE CASCADE,
     webhook_url TEXT NOT NULL,
@@ -191,7 +201,7 @@ COMMENT ON COLUMN webhook_configurations.average_delivery_latency IS 'Average de
 COMMENT ON COLUMN webhook_configurations.failed_delivery_count IS 'Count of failed deliveries';
 
 -- Production access requests table
-CREATE TABLE production_access_requests (
+CREATE TABLE IF NOT EXISTS production_access_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL REFERENCES developer_applications(id) ON DELETE CASCADE,
     developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
@@ -220,7 +230,7 @@ COMMENT ON COLUMN production_access_requests.review_notes IS 'Admin review notes
 COMMENT ON COLUMN production_access_requests.reviewed_at IS 'Timestamp of review';
 
 -- Usage statistics table
-CREATE TABLE usage_statistics (
+CREATE TABLE IF NOT EXISTS usage_statistics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL REFERENCES developer_applications(id) ON DELETE CASCADE,
     api_key_id UUID REFERENCES api_keys(id) ON DELETE SET NULL,
@@ -247,7 +257,7 @@ COMMENT ON COLUMN usage_statistics.timestamp IS 'Timestamp of the request';
 COMMENT ON COLUMN usage_statistics.environment IS 'Environment (sandbox or production)';
 
 -- Webhook delivery logs table
-CREATE TABLE webhook_delivery_logs (
+CREATE TABLE IF NOT EXISTS webhook_delivery_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     webhook_configuration_id UUID NOT NULL REFERENCES webhook_configurations(id) ON DELETE CASCADE,
     event_type TEXT NOT NULL,
@@ -278,72 +288,68 @@ COMMENT ON COLUMN webhook_delivery_logs.delivered_at IS 'Timestamp when webhook 
 COMMENT ON COLUMN webhook_delivery_logs.error_message IS 'Error message if delivery failed';
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS set_updated_at_developer_account_statuses ON developer_account_statuses;
 CREATE TRIGGER set_updated_at_developer_account_statuses
     BEFORE UPDATE ON developer_account_statuses
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_access_tiers ON access_tiers;
 CREATE TRIGGER set_updated_at_access_tiers
     BEFORE UPDATE ON access_tiers
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_developer_accounts ON developer_accounts;
 CREATE TRIGGER set_updated_at_developer_accounts
     BEFORE UPDATE ON developer_accounts
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_developer_applications ON developer_applications;
 CREATE TRIGGER set_updated_at_developer_applications
     BEFORE UPDATE ON developer_applications
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_api_keys ON api_keys;
 CREATE TRIGGER set_updated_at_api_keys
     BEFORE UPDATE ON api_keys
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_oauth_clients ON oauth_clients;
 CREATE TRIGGER set_updated_at_oauth_clients
     BEFORE UPDATE ON oauth_clients
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_webhook_configurations ON webhook_configurations;
 CREATE TRIGGER set_updated_at_webhook_configurations
     BEFORE UPDATE ON webhook_configurations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_production_access_requests ON production_access_requests;
 CREATE TRIGGER set_updated_at_production_access_requests
     BEFORE UPDATE ON production_access_requests
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_updated_at_webhook_delivery_logs ON webhook_delivery_logs;
 CREATE TRIGGER set_updated_at_webhook_delivery_logs
     BEFORE UPDATE ON webhook_delivery_logs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Indexes for performance
-CREATE INDEX idx_developer_accounts_email ON developer_accounts(email);
-CREATE INDEX idx_developer_accounts_status ON developer_accounts(status_code);
-CREATE INDEX idx_developer_accounts_tier ON developer_accounts(access_tier_code);
-CREATE INDEX idx_developer_applications_developer_id ON developer_applications(developer_account_id);
-CREATE INDEX idx_developer_applications_status ON developer_applications(status);
-CREATE INDEX idx_api_keys_application_id ON api_keys(application_id);
-CREATE INDEX idx_api_keys_environment ON api_keys(environment);
-CREATE INDEX idx_api_keys_status ON api_keys(status);
-CREATE INDEX idx_oauth_clients_application_id ON oauth_clients(application_id);
-CREATE INDEX idx_oauth_clients_environment ON oauth_clients(environment);
-CREATE INDEX idx_webhook_configurations_application_id ON webhook_configurations(application_id);
-CREATE INDEX idx_production_access_requests_application_id ON production_access_requests(application_id);
-CREATE INDEX idx_production_access_requests_status ON production_access_requests(status);
-CREATE INDEX idx_usage_statistics_application_id ON usage_statistics(application_id);
-CREATE INDEX idx_usage_statistics_timestamp ON usage_statistics(timestamp);
-CREATE INDEX idx_usage_statistics_environment ON usage_statistics(environment);
-CREATE INDEX idx_webhook_delivery_logs_webhook_id ON webhook_delivery_logs(webhook_configuration_id);
-CREATE INDEX idx_webhook_delivery_logs_status ON webhook_delivery_logs(status);
-CREATE INDEX idx_webhook_delivery_logs_next_retry ON webhook_delivery_logs(next_retry_at) WHERE status = 'retrying';
-
--- migrate:down
--- Drop all developer portal tables and indexes
-DROP TABLE IF EXISTS webhook_delivery_logs;
-DROP TABLE IF EXISTS usage_statistics;
-DROP TABLE IF EXISTS production_access_requests;
-DROP TABLE IF EXISTS webhook_configurations;
-DROP TABLE IF EXISTS oauth_clients;
-DROP TABLE IF EXISTS api_keys;
-DROP TABLE IF EXISTS developer_applications;
-DROP TABLE IF EXISTS developer_accounts;
-DROP TABLE IF EXISTS access_tiers;
-DROP TABLE IF EXISTS developer_account_statuses;
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_email ON developer_accounts(email);
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_status ON developer_accounts(status_code);
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_tier ON developer_accounts(access_tier_code);
+CREATE INDEX IF NOT EXISTS idx_developer_applications_developer_id ON developer_applications(developer_account_id);
+CREATE INDEX IF NOT EXISTS idx_developer_applications_status ON developer_applications(status);
+CREATE INDEX IF NOT EXISTS idx_api_keys_application_id ON api_keys(application_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_environment ON api_keys(environment);
+CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status);
+CREATE INDEX IF NOT EXISTS idx_oauth_clients_application_id ON oauth_clients(application_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_clients_environment ON oauth_clients(environment);
+CREATE INDEX IF NOT EXISTS idx_webhook_configurations_application_id ON webhook_configurations(application_id);
+CREATE INDEX IF NOT EXISTS idx_production_access_requests_application_id ON production_access_requests(application_id);
+CREATE INDEX IF NOT EXISTS idx_production_access_requests_status ON production_access_requests(status);
+CREATE INDEX IF NOT EXISTS idx_usage_statistics_application_id ON usage_statistics(application_id);
+CREATE INDEX IF NOT EXISTS idx_usage_statistics_timestamp ON usage_statistics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_usage_statistics_environment ON usage_statistics(environment);
+CREATE INDEX IF NOT EXISTS idx_webhook_delivery_logs_webhook_id ON webhook_delivery_logs(webhook_configuration_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_delivery_logs_status ON webhook_delivery_logs(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_delivery_logs_next_retry ON webhook_delivery_logs(next_retry_at) WHERE status = 'retrying';

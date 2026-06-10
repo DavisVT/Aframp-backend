@@ -1,4 +1,3 @@
--- migrate:up
 -- Cluster node heartbeat coordination table (Issue #456).
 -- Tracks active, dynamically scaling stateless application node instances,
 -- their assigned internal IP addresses, and operational health metrics.
@@ -41,7 +40,3 @@ $$;
 COMMENT ON FUNCTION prune_stale_cluster_nodes() IS
     'Removes heartbeat rows not updated within the last 60 s. '
     'Call periodically from the maintenance worker.';
-
--- migrate:down
-DROP FUNCTION IF EXISTS prune_stale_cluster_nodes();
-DROP TABLE IF EXISTS cluster_node_heartbeats;

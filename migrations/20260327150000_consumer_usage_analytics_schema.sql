@@ -1,4 +1,3 @@
--- migrate:up
 -- Superseded by 20260405000000_consumer_usage_analytics.sql.
 -- This earlier file was truncated and did not match the table names used by
 -- the application code. It is intentionally a no-op so fresh database

@@ -1,4 +1,3 @@
--- migrate:up
 -- Replication lag audit log (Issue #348).
 -- Stores a time-series of measured replication lag per replica so operators
 -- can query historical lag trends and set up alerting rules.
@@ -18,6 +17,3 @@ CREATE INDEX IF NOT EXISTS idx_replication_lag_log_replica_time
 -- Retention: rows older than 7 days are pruned by the maintenance worker.
 COMMENT ON TABLE replication_lag_log IS
     'Time-series of replication lag measurements. Pruned after 7 days.';
-
--- migrate:down
-DROP TABLE IF EXISTS replication_lag_log;

@@ -1,4 +1,3 @@
--- migrate:up
 -- =============================================================================
 -- Database Query Optimisation v2 (comprehensive)
 --
@@ -297,28 +296,3 @@ ORDER BY pg_relation_size(indexrelid) DESC;
 COMMENT ON VIEW v_unused_indexes IS
     'Lists indexes with zero scans since last pg_stat_reset. '
     'Review before dropping — reset stats first with SELECT pg_stat_reset();';
-
--- migrate:down
-DROP VIEW  IF EXISTS v_unused_indexes;
-DROP FUNCTION  IF EXISTS refresh_analytics_views();
-DROP MATERIALIZED VIEW IF EXISTS mv_provider_performance;
-DROP MATERIALIZED VIEW IF EXISTS mv_daily_transaction_volume;
-DROP INDEX IF EXISTS idx_onramp_quotes_expires_status;
-DROP INDEX IF EXISTS idx_recurring_schedules_due_covering;
-DROP INDEX IF EXISTS idx_batch_items_batch_status;
-DROP INDEX IF EXISTS idx_fee_structures_active_type_time;
-DROP INDEX IF EXISTS idx_exchange_rates_pair_created;
-DROP INDEX IF EXISTS idx_conversion_audits_transaction_id_fk;
-DROP INDEX IF EXISTS idx_webhook_events_transaction_id_fk;
-DROP INDEX IF EXISTS idx_transactions_provider_status_created;
-DROP INDEX IF EXISTS idx_transactions_type_status_date;
-DROP INDEX IF EXISTS idx_transactions_wallet_currency_cursor;
-DROP INDEX IF EXISTS idx_transactions_wallet_status_cursor;
-DROP INDEX IF EXISTS idx_transactions_wallet_type_cursor;
-DROP INDEX IF EXISTS idx_transactions_payment_ref_covering;
-DROP INDEX IF EXISTS idx_transactions_blockchain_hash;
-DROP INDEX IF EXISTS idx_transactions_stellar_polling;
-DROP INDEX IF EXISTS idx_transactions_status_created_general;
-DROP INDEX IF EXISTS idx_transactions_offramp_status_created;
-DROP INDEX IF EXISTS idx_transactions_status_created_asc;
-DROP INDEX IF EXISTS idx_wallets_address_balance;

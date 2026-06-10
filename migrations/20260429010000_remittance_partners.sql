@@ -1,4 +1,3 @@
--- migrate:up
 -- Remittance Partner Integration & White-label Support (Issue #408)
 
 CREATE TABLE remittance_partners (
@@ -106,12 +105,3 @@ CREATE TRIGGER set_updated_at_partner_transfers
     BEFORE UPDATE ON partner_transfers FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER set_updated_at_partner_settlements
     BEFORE UPDATE ON partner_settlements FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- migrate:down
-DROP TABLE IF EXISTS partner_settlements;
-DROP TABLE IF EXISTS partner_transfers;
-DROP TABLE IF EXISTS partner_liquidity_accounts;
-DROP TABLE IF EXISTS partner_limits;
-DROP TABLE IF EXISTS partner_fee_structures;
-DROP TABLE IF EXISTS partner_branding;
-DROP TABLE IF EXISTS remittance_partners;

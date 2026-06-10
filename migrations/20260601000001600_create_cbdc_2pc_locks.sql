@@ -1,4 +1,3 @@
--- migrate:up
 -- 2PC Lock Manager Persistence (Issue #499)
 -- Database-backed Two-Phase Commit lock records for crash recovery.
 -- The primary lock state is held in Redis for fast atomic operations;
@@ -35,7 +34,3 @@ COMMENT ON COLUMN cbdc_2pc_locks.lock_state IS 'Current 2PC protocol phase — u
 CREATE TRIGGER update_cbdc_2pc_locks_updated_at
     BEFORE UPDATE ON cbdc_2pc_locks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- migrate:down
-DROP TRIGGER IF EXISTS update_cbdc_2pc_locks_updated_at ON cbdc_2pc_locks;
-DROP TABLE IF EXISTS cbdc_2pc_locks;

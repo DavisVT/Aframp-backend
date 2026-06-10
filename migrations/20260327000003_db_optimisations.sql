@@ -1,4 +1,3 @@
--- migrate:up
 -- =============================================================================
 -- Database Query Optimisations (Issue #125)
 --
@@ -224,18 +223,3 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     NULL; -- Non-superuser environments: skip gracefully
 END $$;
-
--- migrate:down
-DROP FUNCTION  IF EXISTS refresh_analytics_views();
-DROP MATERIALIZED VIEW IF EXISTS mv_provider_performance;
-DROP MATERIALIZED VIEW IF EXISTS mv_daily_transaction_volume;
-DROP INDEX IF EXISTS idx_recurring_schedules_due_covering;
-DROP INDEX IF EXISTS idx_batch_items_batch_status;
-DROP INDEX IF EXISTS idx_transactions_type_status_date;
-DROP INDEX IF EXISTS idx_conversion_audits_transaction_id_fk;
-DROP INDEX IF EXISTS idx_webhook_events_transaction_id_fk;
-DROP INDEX IF EXISTS idx_transactions_blockchain_hash;
-DROP INDEX IF EXISTS idx_transactions_payment_ref_covering;
-DROP INDEX IF EXISTS idx_transactions_status_created_general;
-DROP INDEX IF EXISTS idx_transactions_offramp_status_created;
-DROP INDEX IF EXISTS idx_transactions_status_created_asc;

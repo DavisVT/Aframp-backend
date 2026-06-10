@@ -1,4 +1,3 @@
--- migrate:up
 -- Proof of Reserves: stores periodic snapshots of cNGN supply and reserve backing.
 
 CREATE TABLE IF NOT EXISTS proof_of_reserves (

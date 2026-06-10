@@ -1,4 +1,3 @@
--- migrate:up
 -- Reconciliation Worker: discrepancy_log table and supporting indexes.
 -- Tracks three-way mismatches between bank deposits, mint_requests, and on-chain events.
 
@@ -78,13 +77,3 @@ CREATE INDEX IF NOT EXISTS idx_discrepancy_log_status ON discrepancy_log (status
 CREATE INDEX IF NOT EXISTS idx_discrepancy_log_type   ON discrepancy_log (discrepancy_type);
 CREATE INDEX IF NOT EXISTS idx_discrepancy_log_tx     ON discrepancy_log (transaction_id);
 CREATE INDEX IF NOT EXISTS idx_discrepancy_log_detected ON discrepancy_log (detected_at);
-
--- migrate:down
-DROP INDEX IF EXISTS idx_discrepancy_log_detected;
-DROP INDEX IF EXISTS idx_discrepancy_log_tx;
-DROP INDEX IF EXISTS idx_discrepancy_log_type;
-DROP INDEX IF EXISTS idx_discrepancy_log_status;
-DROP TABLE IF EXISTS reconciliation_reports;
-DROP TABLE IF EXISTS discrepancy_log;
-DROP TYPE IF EXISTS discrepancy_status;
-DROP TYPE IF EXISTS discrepancy_type;

@@ -1,4 +1,3 @@
--- migrate:up
 -- Bootstrap consumer tables needed by early KYC and rate-limit migrations.
 -- The fuller API-key scoping migration later in the timeline also creates
 -- these tables with IF NOT EXISTS, so this file only establishes the minimum

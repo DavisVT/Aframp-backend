@@ -1,4 +1,3 @@
--- migrate:up
 -- Redemption Flow Schema for cNGN Token Burn and Fiat Settlement
 -- Issues #230, #231, #232, #233
 -- Purpose: Create comprehensive schema for the complete redemption lifecycle
@@ -390,13 +389,3 @@ CREATE POLICY fiat_disbursements_user_policy ON fiat_disbursements
             WHERE user_id = current_setting('app.current_user_id', true)::UUID
         )
     );
-
--- migrate:down
--- Drop tables in reverse order of creation
-DROP TABLE IF EXISTS redemption_audit_log;
-DROP TABLE IF EXISTS settlement_accounts;
-DROP TABLE IF EXISTS fiat_disbursements;
-DROP TABLE IF EXISTS burn_transactions;
-DROP TABLE IF EXISTS redemption_batches;
-DROP TABLE IF EXISTS redemption_requests;
-DROP TABLE IF EXISTS redemption_statuses;

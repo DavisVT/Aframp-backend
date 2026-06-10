@@ -1,4 +1,3 @@
--- migrate:up
 -- Wallet analytics & usage pattern tracking (Issue #369)
 
 -- Wallet usage snapshots (daily / weekly / monthly)
@@ -157,13 +156,3 @@ CREATE TRIGGER set_updated_at_profiles
 CREATE TRIGGER set_updated_at_anomaly
     BEFORE UPDATE ON wallet_anomaly_flags
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- migrate:down
-DROP TABLE IF EXISTS wallet_anomaly_flags;
-DROP TABLE IF EXISTS admin_daily_aggregates;
-DROP TABLE IF EXISTS wallet_insight_preferences;
-DROP TABLE IF EXISTS wallet_insights;
-DROP TABLE IF EXISTS wallet_behaviour_profiles;
-DROP TABLE IF EXISTS wallet_counterparty_frequency;
-DROP TABLE IF EXISTS wallet_spending_categories;
-DROP TABLE IF EXISTS wallet_usage_snapshots;

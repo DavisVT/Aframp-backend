@@ -1,4 +1,3 @@
--- migrate:up
 -- CBDC Cross-Rail Swap Records (Issue #499)
 -- Immutable audit trail mapping on-chain Stellar transaction hashes to
 -- corresponding central bank ledger block IDs for atomic cross-rail swaps.
@@ -84,7 +83,3 @@ COMMENT ON COLUMN cbdc_swap_records.idempotency_key IS 'Unique idempotency key t
 CREATE TRIGGER update_cbdc_swap_records_updated_at
     BEFORE UPDATE ON cbdc_swap_records
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- migrate:down
-DROP TRIGGER IF EXISTS update_cbdc_swap_records_updated_at ON cbdc_swap_records;
-DROP TABLE IF EXISTS cbdc_swap_records;
