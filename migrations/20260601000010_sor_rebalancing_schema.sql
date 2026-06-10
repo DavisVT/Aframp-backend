@@ -6,7 +6,7 @@
 CREATE TYPE venue_type AS ENUM ('regional_bank', 'stellar_amm', 'mto', 'cex', 'dex');
 CREATE TYPE venue_status AS ENUM ('active', 'degraded', 'offline', 'suspended');
 
-CREATE TABLE liquidity_venues (
+CREATE TABLE IF NOT EXISTS liquidity_venues (
     venue_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name                VARCHAR(120)   NOT NULL,
     venue_type          venue_type     NOT NULL,
@@ -24,8 +24,8 @@ CREATE TABLE liquidity_venues (
     updated_at          TIMESTAMPTZ    NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_venues_status ON liquidity_venues(status);
-CREATE INDEX idx_venues_type   ON liquidity_venues(venue_type);
+CREATE INDEX IF NOT EXISTS idx_venues_status ON liquidity_venues(status);
+CREATE INDEX IF NOT EXISTS idx_venues_type   ON liquidity_venues(venue_type);
 
 -- ── Smart order executions ────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ CREATE TYPE sor_status AS ENUM (
     'pending', 'routing', 'partial', 'completed', 'failed', 'rolled_back'
 );
 
-CREATE TABLE smart_order_executions (
+CREATE TABLE IF NOT EXISTS smart_order_executions (
     execution_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     -- Correlation tag linking all child orders to the originating remittance
     parent_transaction_id UUID NOT NULL,
@@ -52,16 +52,16 @@ CREATE TABLE smart_order_executions (
     completed_at        TIMESTAMPTZ
 );
 
-CREATE INDEX idx_sor_parent_tx  ON smart_order_executions(parent_transaction_id);
-CREATE INDEX idx_sor_correlation ON smart_order_executions(correlation_tag);
-CREATE INDEX idx_sor_status      ON smart_order_executions(status);
+CREATE INDEX IF NOT EXISTS idx_sor_parent_tx  ON smart_order_executions(parent_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_sor_correlation ON smart_order_executions(correlation_tag);
+CREATE INDEX IF NOT EXISTS idx_sor_status      ON smart_order_executions(status);
 
 -- Child order rows (one per venue slice)
 CREATE TYPE child_order_status AS ENUM (
     'pending', 'submitted', 'filled', 'partial_fill', 'failed', 'timed_out'
 );
 
-CREATE TABLE sor_child_orders (
+CREATE TABLE IF NOT EXISTS sor_child_orders (
     child_order_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     execution_id        UUID           NOT NULL REFERENCES smart_order_executions(execution_id),
     venue_id            UUID           NOT NULL REFERENCES liquidity_venues(venue_id),
@@ -76,14 +76,14 @@ CREATE TABLE sor_child_orders (
     failed_reason       TEXT
 );
 
-CREATE INDEX idx_child_execution ON sor_child_orders(execution_id);
-CREATE INDEX idx_child_venue      ON sor_child_orders(venue_id);
+CREATE INDEX IF NOT EXISTS idx_child_execution ON sor_child_orders(execution_id);
+CREATE INDEX IF NOT EXISTS idx_child_venue      ON sor_child_orders(venue_id);
 
 -- ── Treasury rebalancing rules ────────────────────────────────────────────────
 
 CREATE TYPE rebalancing_trigger AS ENUM ('threshold_breach', 'scheduled', 'manual');
 
-CREATE TABLE treasury_rebalancing_rules (
+CREATE TABLE IF NOT EXISTS treasury_rebalancing_rules (
     rule_id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     currency_code       VARCHAR(10)    NOT NULL UNIQUE,
     -- Minimum inventory fraction (e.g. 0.20 = 20 %)
@@ -107,7 +107,7 @@ CREATE TABLE treasury_rebalancing_rules (
 -- Rebalancing execution log
 CREATE TYPE rebalance_status AS ENUM ('initiated', 'in_progress', 'completed', 'failed');
 
-CREATE TABLE treasury_rebalancing_log (
+CREATE TABLE IF NOT EXISTS treasury_rebalancing_log (
     log_id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     rule_id             UUID           NOT NULL REFERENCES treasury_rebalancing_rules(rule_id),
     currency_code       VARCHAR(10)    NOT NULL,
@@ -121,9 +121,9 @@ CREATE TABLE treasury_rebalancing_log (
     completed_at        TIMESTAMPTZ
 );
 
-CREATE INDEX idx_rebalance_log_rule     ON treasury_rebalancing_log(rule_id);
-CREATE INDEX idx_rebalance_log_currency ON treasury_rebalancing_log(currency_code);
-CREATE INDEX idx_rebalance_log_status   ON treasury_rebalancing_log(status);
+CREATE INDEX IF NOT EXISTS idx_rebalance_log_rule     ON treasury_rebalancing_log(rule_id);
+CREATE INDEX IF NOT EXISTS idx_rebalance_log_currency ON treasury_rebalancing_log(currency_code);
+CREATE INDEX IF NOT EXISTS idx_rebalance_log_status   ON treasury_rebalancing_log(status);
 
 -- Seed default rebalancing rules for major corridors
 INSERT INTO treasury_rebalancing_rules
