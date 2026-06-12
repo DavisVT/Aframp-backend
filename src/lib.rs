@@ -35,7 +35,7 @@ pub mod middleware;
 #[cfg(feature = "database")]
 pub mod logging;
 
-#[cfg(feature = "database")]
+#[cfg(feature = "telemetry")]
 pub mod telemetry;
 
 // Cache layer
