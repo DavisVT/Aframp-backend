@@ -207,7 +207,7 @@ impl KeyRotationScheduler {
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn parse_key_type(s: &str) -> KeyType {
+pub fn parse_key_type(s: &str) -> KeyType {
     match s {
         "jwt_signing" => KeyType::JwtSigning,
         "payload_encryption" => KeyType::PayloadEncryption,
@@ -218,7 +218,7 @@ fn parse_key_type(s: &str) -> KeyType {
     }
 }
 
-fn default_algorithm(key_type: &KeyType) -> String {
+pub fn default_algorithm(key_type: &KeyType) -> String {
     match key_type {
         KeyType::JwtSigning => "RS256".to_string(),
         KeyType::PayloadEncryption => "ECDH-ES+A256KW".to_string(),
@@ -229,7 +229,7 @@ fn default_algorithm(key_type: &KeyType) -> String {
     }
 }
 
-fn default_key_length(key_type: &KeyType) -> Option<i32> {
+pub fn default_key_length(key_type: &KeyType) -> Option<i32> {
     match key_type {
         KeyType::JwtSigning => Some(4096),
         KeyType::PayloadEncryption => Some(384), // P-384

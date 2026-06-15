@@ -1,5 +1,0 @@
-invokeContract(
-  contractHash,
-  method,
-  args,
-)

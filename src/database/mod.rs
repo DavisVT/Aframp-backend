@@ -8,6 +8,7 @@ pub mod error;
 pub mod exchange_rate_repository;
 pub mod fee_structure_repository;
 pub mod geo_restriction_repository;
+pub mod notification_repository;
 pub mod ha_pool;
 pub mod ip_reputation_repository;
 pub mod kyc_repository;
@@ -44,6 +45,12 @@ use sqlx::PgPool;
 use std::sync::OnceLock;
 use std::time::Duration;
 use tracing::{error as log_error, info, warn};
+
+/// Type alias for the Postgres connection pool — used throughout the codebase.
+pub type DbPool = PgPool;
+
+/// Re-export for modules that import `crate::database::Repository`
+pub use self::repository::Repository;
 
 use self::error::DatabaseError;
 use crate::config::DatabaseConfig;
